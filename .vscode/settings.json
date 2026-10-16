@@ -1,0 +1,19 @@
+{
+  "java.import.gradle.enabled": false,
+  "java.import.gradle.wrapper.enabled": false,
+  "java.gradle.buildServer.enabled": "off",
+  "gradle.autoDetect": "off",
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.autobuild.enabled": false,
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.metadata/**",
+    "**/archetype/**",
+    "**/META-INF/maven/**",
+    "**/android/**",
+    "**/.dart_tool/**",
+    "**/build/**",
+    "**/AppData/Local/Pub/**",
+    "**/packages/flutter_tools/**"
+  ]
+}
