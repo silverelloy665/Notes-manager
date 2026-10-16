@@ -1,10 +1,12 @@
 # Academic Project Report: StudyMate Classroom
-**Notes Organiser, Practice Questions and Classroom Grade Manager**
+**Cloud-Synchronized Notes Organiser, Subject Material ZIP Importer, Practice Engine & Classroom Grade Manager**
 
 ---
 
 ## Executive Summary
-StudyMate Classroom is an offline-first mobile application developed on the Android platform utilizing Google's Flutter framework and Dart programming language. The platform bridges individual study organization and classroom academic administration by providing a dual-role architecture tailored for **Students** and **Teachers**. The application incorporates local embedded SQLite storage (`sqflite`), cryptographic SHA-256 salted password hashing, an interactive question bank with tap-to-reveal pedagogical answers, a 6-character code-based classroom enrollment mechanism, and an evaluation grading engine that calculates cumulative percentage metrics.
+StudyMate Classroom is an academic productivity and classroom management mobile application built for Android utilizing Google's Flutter framework and Dart. The platform provides a dual-role architecture tailored for **Students** and **Teachers**. Data persistence and user authentication are powered by **Google Firebase** (**Firebase Authentication** and **Cloud Firestore**), featuring real-time synchronization streams, offline cache persistence, secure role-based Firestore security rules, transactional classroom code generation, and idempotent seed generation. 
+
+Additionally, the system features a robust **Subject Material ZIP Importer** that parses multi-tier archives (Subject > Unit > Notes / Practicals / Questions) in a background isolate with zip-slip prevention and executable filtering. The user interface strictly implements Material 3 Light Theme specifications with an Indigo primary palette, consistent 16px padding, 12px corner radiuses, and zero analyzer issues.
 
 ---
 
@@ -13,20 +15,21 @@ StudyMate Classroom is an offline-first mobile application developed on the Andr
 ### 1.1 Introduction to the Project
 In contemporary collegiate and secondary educational settings, students frequently manage lecture notes across disparate, unorganized mediums while struggling to test their conceptual understanding before examinations. Concurrently, educators require straightforward, lightweight methods to distribute class identifiers, track roster cohorts, record assessment evaluations, and provide targeted review questions without relying on complex, heavy enterprise learning management systems (LMS) that demand persistent server infrastructure and high-speed internet connectivity.
 
-StudyMate Classroom is engineered as an offline-first solution that encapsulates note management, topic-based practice questions, and classroom grade administration within a unified, responsive Android application.
+StudyMate Classroom bridges individual study organization and classroom academic administration by providing a dual-role architecture tailored for **Students** and **Teachers**.
 
 ### 1.2 Problem Statement
 Traditional mobile academic workflows suffer from several distinct bottlenecks:
 1. **Disjointed Note Organization**: Students frequently store lecture notes in generic note applications lacking categorization by academic subjects (e.g., Operating Systems, Database Management, Computer Networks).
 2. **Passive Study Habits**: Ordinary notes encourage passive reading rather than active recall through practice questions with immediate feedback.
-3. **Heavyweight LMS Dependencies**: Standard classroom management software requires centralized web servers, persistent cloud connectivity, and recurring subscription costs, creating friction for localized coaching institutes, labs, and off-grid academic environments.
+3. **Complex Enterprise LMS Dependencies**: Standard classroom management software requires centralized web servers, persistent cloud connectivity, and recurring subscription costs, creating friction for localized coaching institutes, labs, and off-grid academic environments.
 4. **Data Security Risks**: Many client-side educational projects store user credentials in plain text or rely on unvalidated input forms, leading to data corruption and security vulnerabilities.
 
 ### 1.3 Objectives
 The primary technical and operational objectives of this project include:
-- Implementing a dual-role authentication system (**Student** and **Teacher**) with salted SHA-256 cryptographic hashing and email deduplication.
+- Implementing a dual-role authentication system (**Student** and **Teacher**) with Firebase Authentication (Email/Password) and Firestore profile synchronization.
 - Developing an organized, searchable study notes manager allowing students to create, edit, delete, and pin critical notes to the top of the interface.
 - Building an interactive self-assessment practice engine pre-seeded with 20 foundational computer science, mathematics, and physics questions featuring tap-to-reveal answer cards.
+- Providing an academic Curriculum & Practicals ZIP Importer enabling students to import unit-wise lecture notes and practical code experiments (e.g. DBMS, OS, DAA, OOPJ, WP, COA, MPMC) directly into their notes dashboard and question bank.
 - Providing teachers with classroom creation capabilities that generate unique 6-character uppercase alphanumeric join codes.
 - Delivering a classroom grading engine allowing teachers to record marks and compute overall percentage metrics for enrolled students.
 - Enforcing strict Material 3 light-themed user interface guidelines with consistent 16px padding, 12px border radius, and defensive input validation.
@@ -34,11 +37,11 @@ The primary technical and operational objectives of this project include:
 ### 1.4 Scope
 - **Target Platform**: Android mobile devices (compatible with Android API level 21 and above, Android 5.0 Lollipop through Android 15/16).
 - **Development Environment**: Visual Studio Code with Flutter & Dart extensions, Android SDK, and Android Command-Line Tools.
-- **Data Persistence**: Offline local relational database using SQLite via the `sqflite` plugin.
+- **Data Persistence**: Cloud Firestore with offline cache persistence and Firebase Authentication.
 - **User Roles**: Two distinct user personas: Student and Teacher.
 
 ### 1.5 Proposed Solution
-StudyMate Classroom delivers a self-contained, offline-first Flutter application. By leveraging SQLite with relational foreign keys and unique constraints, the application operates entirely on-device without external cloud server requirements. The user interface uses a single shared `ThemeData` based on Material 3 with an Indigo primary color palette. Pure static validator functions inspect all user inputs in real time, preventing malformed data entry.
+StudyMate Classroom delivers a reactive Flutter application. By leveraging Cloud Firestore with offline cache persistence, the application operates both online and offline. The user interface uses a single shared `ThemeData` based on Material 3 with an Indigo primary color palette. Pure static validator functions inspect all user inputs in real time, preventing malformed data entry. Furthermore, an integrated ZIP extraction engine allows students to import entire semester curricula (unit lecture notes and practical experiments) in a single tap.
 
 ### 1.6 Organization of the Report
 This report is organized into eight chapters:
@@ -57,472 +60,253 @@ This report is organized into eight chapters:
 
 ### 2.1 Existing System
 Most existing academic utilities fall into one of two extremes:
-1. **Generic Note Applications**: Applications such as Google Keep or Apple Notes provide general-purpose text editing but lack academic subject categorization, classroom enrollments, teacher assessment grading, or curated practice question banks.
-2. **Enterprise Cloud LMS Platforms**: Systems such as Canvas, Google Classroom, and Blackboard provide classroom features but require complex administrative setups, school-wide email domains, reliable broadband connectivity, and continuous background sync services.
+1. **Generic Notes Apps**: Google Keep, Apple Notes, and Notion offer note taking but lack structured academic subject modeling, practical code viewing, unit progress tracking, or teacher grading capabilities.
+2. **Heavy LMS Platforms**: Canvas, Blackboard, and Google Classroom require institutional IT deployments, high data bandwidth, and recurring subscriptions. They lack personal study tools like student-led ZIP curriculum parsing or tap-to-reveal question revision.
 
-### 2.2 Limitations of the Existing System
-- **Mandatory Internet Connectivity**: Existing LMS software cannot function in offline classrooms or network-constrained environments.
-- **Separation of Notes and Practice**: Students must maintain notes in one application and search for practice questions in another web portal.
-- **Complexity Overhead**: Simple quiz scoring or laboratory assessment requires navigating deep menus in cloud LMS software.
-- **Resource Consumption**: Heavy enterprise frameworks consume high RAM and battery resources on entry-level Android devices.
+### 2.2 Proposed System Capabilities
+StudyMate Classroom bridges these extremes by combining personal study tools with classroom management:
+- **Zero-Cloud-Dependency Fallback**: Works offline with Firestore local cache, notifying the user with an "Offline, will sync" status.
+- **Isolate-Powered ZIP Curriculum Parser**: Students can import a subject ZIP archive containing units, notes, practicals, and practice questions.
+- **Built-In Code Viewer**: Monospace text viewer with copy-to-clipboard for quick code inspection on mobile.
+- **Secure Dual-Role Authentication**: Clear separation between student workflows (notes, practice, library, enrollments) and teacher workflows (classroom roster, grading, question authoring).
 
-### 2.3 Proposed System
-The proposed StudyMate Classroom application solves these shortcomings by offering:
-- **Complete Offline Independence**: Zero cloud reliance; all user accounts, notes, classrooms, grades, and questions reside in a local SQLite file.
-- **Curated Practice Integration**: Notes directly link to sample questions under the same academic topic.
-- **Code-Based Classroom Enrollment**: Fast 6-character class codes enable swift enrollment without email invites.
-- **Integrated Academic Grading**: Teachers track student performance and calculate overall percentages with transparent marks breakdown.
-
-### 2.4 Feasibility Study
-- **Technical Feasibility**: Built with Flutter 3.47 and Dart 3.13. SQLite is supported natively on Android via Android NDK and `sqflite`, making it technically feasible.
-- **Operational Feasibility**: Minimal cognitive overhead. The intuitive Material 3 UI with clear hints, readable labels, and bottom navigation requires no prior training.
-- **Economic Feasibility**: Developed entirely with open-source tools (Flutter, Dart, VS Code, Android SDK), incurring zero licensing or server infrastructure expenses.
-
-### 2.5 Functional Requirements
-1. **FR-1: Authentication & Role Management**: Users can register with name, email, 10-digit phone, role (Student/Teacher), and password. Passwords must be hashed using salted SHA-256. Duplicate emails must be rejected.
-2. **FR-2: Student Notes Management**: Students can create, edit, delete, pin/unpin, and search notes. Pinned notes must sort to the top of the list.
-3. **FR-3: Curated Practice Questions**: Pre-seeded questions for Operating Systems, DBMS, Computer Networks, Mathematics, and Physics must be available with tap-to-reveal answers.
-4. **FR-4: Classroom Creation & Join Codes**: Teachers can create classrooms with an auto-generated unique 6-character code with one-tap clipboard copying.
-5. **FR-5: Student Enrollment**: Students can join a classroom using the 6-character code. Duplicate enrollment in the same class must be blocked.
-6. **FR-6: Assessment Grading**: Teachers can award grades (title, max marks, marks obtained, remarks) to enrolled students.
-7. **FR-7: Performance Calculation**: Both teachers and students can view assessment marks and the student's cumulative overall percentage.
-8. **FR-8: Question Bank Authoring**: Teachers can author new practice questions under any topic.
-
-### 2.6 Non-Functional Requirements
-- **Performance**: Instantaneous local database query responses (< 50ms) without network latency.
-- **Reliability & Data Integrity**: SQLite foreign key constraints enabled with cascading deletes (`PRAGMA foreign_keys = ON;`).
-- **Security**: Cryptographically secure random salts and SHA-256 hashing for user credentials.
-- **Usability**: Material 3 compliance, 12px border radius, 16px standard spacing, and readable font sizing.
-- **Robustness**: Screen layouts wrapped in `SafeArea` and `SingleChildScrollView` to prevent layout overflows during keyboard interaction.
+### 2.3 Feasibility Study
+1. **Technical Feasibility**: Built with Flutter 3.47 and Dart 3.13. Cross-platform codebase compiles directly to ARM/x86 native machine code.
+2. **Operational Feasibility**: Intuitive Material 3 interface requiring zero onboarding. Single-click copy for classroom join codes.
+3. **Economic Feasibility**: Utilizes the Firebase Spark (free) tier, requiring no server infrastructure costs.
 
 ---
 
-# Chapter 3: System Requirements
+# Chapter 3: System Requirements & Tools
 
-### 3.1 Hardware Requirements
-- **Development Workstation**:
-  - Processor: Intel Core i5 / AMD Ryzen 5 or higher.
-  - Memory: 8 GB RAM minimum (16 GB recommended for running Android emulators concurrently).
-  - Storage: 10 GB free disk space for Android SDK, Flutter SDK, and Gradle cache.
-- **Target Android Device / Emulator**:
-  - Operating System: Android 5.0 (API level 21) or above.
-  - RAM: 1.5 GB minimum on physical hardware.
-  - Screen Resolution: 720x1280 (HD) minimum to 1440x3200 (QHD).
-
-### 3.2 Software Requirements
+### 3.1 Software Requirements
 - **Operating System**: Windows 10/11, macOS, or Linux.
-- **SDK**: Flutter SDK 3.47.7 (channel stable) and Dart SDK 3.13.5.
-- **Android Platform**: Android SDK Platform 34/35/36, Android Platform Tools (`adb`).
-- **Java Development Kit (JDK)**: OpenJDK 17 or JDK 21+.
+- **SDK**: Flutter SDK 3.47.7, Dart SDK 3.13.5.
+- **Android Target**: Android API 21 (Lollipop) through API 34 (Android 14) / API 35 (Android 15).
+- **Core Dependencies**:
+  - `firebase_core: ^4.15.0`
+  - `firebase_auth: ^6.7.0`
+  - `cloud_firestore: ^6.10.0`
+  - `archive: ^3.6.1`
+  - `file_picker: ^13.1.0`
+  - `path_provider: ^2.1.6`
+  - `open_filex: ^5.0.0`
+  - `fake_cloud_firestore: ^4.3.0` (dev dependency for unit testing)
 
-### 3.3 Development Tools and Technologies
-- **Visual Studio Code**: Primary IDE configured with the official Flutter and Dart extensions for code editing, interactive debugging, and test execution.
-- **Flutter Framework**: Cross-platform declarative UI toolkit rendering via the Impeller/Skia engine.
-- **SQLite Engine (`sqflite`)**: Embedded ACID-compliant relational SQL database engine executing directly in the Android application sandbox.
-- **Crypto Package (`crypto`)**: Pure Dart cryptographic library used for SHA-256 hashing.
-
-### 3.4 Emulator and Physical Device Requirements
-- **Android Virtual Device (AVD)**: Google Pixel emulator image running Android 14 (API 34) with Google Play Services enabled.
-- **Physical Phone**: Any Android smartphone with Developer Options and USB Debugging enabled.
+### 3.2 Hardware Requirements
+- **Development Workstation**: 8 GB RAM minimum (16 GB recommended), Intel Core i5 or AMD Ryzen 5 processor.
+- **Target Device / Emulator**: Android phone with 2 GB RAM, 100 MB free storage.
 
 ---
 
-# Chapter 4: System Design
+# Chapter 4: System Architecture & Design
 
-### 4.1 System Architecture
-The application adheres to a clean layered architecture separating the Presentation Layer (StatefulWidgets), the Domain Model Layer, and the Service/Repository Layer (`DatabaseService`).
-
-```mermaid
-flowchart TD
-    subgraph UI_Layer["Presentation Layer (Flutter UI)"]
-        A[Login / Register Screens]
-        B[Student Home Screen]
-        C[Teacher Home Screen]
-        D[Notes Tab & Editor]
-        E[Practice & Reveal Cards]
-        F[Classrooms & Grading Screens]
-    end
-
-    subgraph Service_Layer["Service & Business Logic Layer"]
-        G[DatabaseService Singleton]
-        H[Validators Suite]
-        I[AppTheme Design System]
-    end
-
-    subgraph Storage_Layer["Persistence Layer (SQLite Database)"]
-        J[(users table)]
-        K[(notes table)]
-        L[(classrooms table)]
-        M[(enrollments table)]
-        N[(grades table)]
-        O[(questions table)]
-    end
-
-    UI_Layer -->|Calls CRUD operations| G
-    UI_Layer -->|Validates user input| H
-    UI_Layer -->|Applies theme & styling| I
-    G -->|Executes SQL queries| Storage_Layer
-```
-
-### 4.2 System Flowchart
-The following flowchart illustrates the user journey from authentication to feature execution.
+### 4.1 High-Level Architecture
 
 ```mermaid
 flowchart TD
-    Start([Launch App]) --> CheckDB[Initialize SQLite DB & Seed Questions]
-    CheckDB --> AuthScreen{User Registered?}
-    AuthScreen -- No --> Register[Register Form: Name, Email, Phone, Role, Pass]
-    Register --> ValidateReg{Input Valid & Email Unique?}
-    ValidateReg -- No --> ShowRegError[Display Error Message] --> Register
-    ValidateReg -- Yes --> HashPass[Generate Salt & Hash SHA-256] --> SaveUser[Save to users Table]
-    SaveUser --> RouteRole
-    AuthScreen -- Yes --> Login[Login Form: Email & Password]
-    Login --> VerifyCreds{Salted Hash Matches?}
-    VerifyCreds -- No --> ShowLoginError[Display Auth Error] --> Login
-    VerifyCreds -- Yes --> RouteRole{Check User Role}
-
-    RouteRole -- Student --> StudentHome[Student Home: Notes, Practice, Classrooms]
-    StudentHome --> S_Notes[Create, Edit, Delete, Pin Notes]
-    StudentHome --> S_Practice[Browse Topics & Reveal Answers]
-    StudentHome --> S_Class[Join Class by 6-Char Code & View Grades]
-
-    RouteRole -- Teacher --> TeacherHome[Teacher Home: Classrooms, Question Bank]
-    TeacherHome --> T_Class[Create Class & Generate 6-Char Code]
-    TeacherHome --> T_Grade[Select Student, Award Marks & Calculate %]
-    TeacherHome --> T_Bank[Add New Questions to Practice Repository]
-```
-
-### 4.3 Use Case Diagram
-The following diagram highlights actor interactions with system features.
-
-```mermaid
-flowchart LR
-    Student((Student))
-    Teacher((Teacher))
-
-    subgraph UseCases["StudyMate Classroom System"]
-        UC1[Register & Authenticate]
-        UC2[Create & Organize Notes]
-        UC3[Pin / Unpin Notes]
-        UC4[Search Notes]
-        UC5[Practice Tap-to-Reveal Questions]
-        UC6[Join Classroom via 6-Char Code]
-        UC7[View Own Assessment Grades & Overall %]
-        UC8[Create Classroom & Copy Code]
-        UC9[Inspect Enrolled Student Rosters]
-        UC10[Award Assessment Grades]
-        UC11[Author Practice Questions]
+    subgraph UI_Layer["Presentation Layer (Flutter Material 3)"]
+        AuthScreens["Auth Screens (Login / Register / FirebaseError)"]
+        StudentUI["Student Home (Notes, Practice, Library, Classrooms)"]
+        TeacherUI["Teacher Home (Classroom Roster, Grading, Question Bank)"]
     end
 
-    Student --> UC1
-    Student --> UC2
-    Student --> UC3
-    Student --> UC4
-    Student --> UC5
-    Student --> UC6
-    Student --> UC7
+    subgraph Service_Layer["Service Layer (Singleton Data Access)"]
+        FS["FirestoreService"]
+        ZIP["ZipImportParser (Isolates)"]
+        VAL["Validators (Pure Static)"]
+    end
 
-    Teacher --> UC1
-    Teacher --> UC8
-    Teacher --> UC9
-    Teacher --> UC10
-    Teacher --> UC11
-    Teacher --> UC5
+    subgraph Cloud_Storage["Backend & Persistence Layer"]
+        FAuth["Firebase Auth (Email/Password)"]
+        Firestore["Cloud Firestore (Realtime & Cache)"]
+        LocalDisk["App Documents Storage (Extracted Subject Files)"]
+    end
+
+    AuthScreens --> FS
+    StudentUI --> FS
+    StudentUI --> ZIP
+    TeacherUI --> FS
+
+    FS --> FAuth
+    FS --> Firestore
+    ZIP --> LocalDisk
+    FS --> LocalDisk
 ```
 
-### 4.4 Entity-Relationship (ER) Diagram
-The relational schema ensures data integrity through primary keys, foreign keys, and unique constraints.
+### 4.2 Cloud Firestore Document Hierarchy
 
 ```mermaid
 erDiagram
-    USERS ||--o{ NOTES : creates
-    USERS ||--o{ CLASSROOMS : "teaches (Teacher)"
-    USERS ||--o{ ENROLLMENTS : "enrolls (Student)"
-    CLASSROOMS ||--o{ ENROLLMENTS : contains
-    ENROLLMENTS ||--o{ GRADES : receives
-    USERS ||--o{ QUESTIONS : creates
+    USERS ||--o{ NOTES : owns
+    USERS ||--o{ SUBJECTS : creates
+    SUBJECTS ||--o{ UNITS : contains
+    UNITS ||--o{ RESOURCES : holds
+    CLASSROOMS ||--o{ GRADES : contains
+    CLASSROOMS ||--|| CODES : reserves
+    QUESTIONS ||--o{ UNITS : references
 
     USERS {
-        INTEGER id PK
-        TEXT name
-        TEXT email UK
-        TEXT phone
-        TEXT role
-        TEXT password_hash
-        TEXT salt
-        TEXT created_at
+        string uid PK
+        string fullName
+        string email
+        string phone
+        string role "Student | Teacher"
+        timestamp createdAt
     }
 
     NOTES {
-        INTEGER id PK
-        INTEGER user_id FK
-        TEXT title
-        TEXT topic
-        TEXT content
-        INTEGER is_pinned
-        TEXT created_at
-        TEXT updated_at
+        string noteId PK
+        string title
+        string topic
+        string content
+        boolean pinned
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    SUBJECTS {
+        string subjectId PK
+        string name
+        timestamp createdAt
+    }
+
+    UNITS {
+        string unitId PK
+        int number
+        string title
+        boolean completed
+    }
+
+    RESOURCES {
+        string resourceId PK
+        string name
+        string type "note | practical"
+        string fileType
+        string relativePath
+        int sizeBytes
     }
 
     CLASSROOMS {
-        INTEGER id PK
-        INTEGER teacher_id FK
-        TEXT name
-        TEXT subject
-        TEXT code UK
-        TEXT created_at
-    }
-
-    ENROLLMENTS {
-        INTEGER id PK
-        INTEGER classroom_id FK
-        INTEGER student_id FK
-        TEXT enrolled_at
+        string classId PK
+        string name
+        string subject
+        string teacherId
+        string teacherName
+        string code "Unique 6 chars"
+        array studentIds
+        timestamp createdAt
     }
 
     GRADES {
-        INTEGER id PK
-        INTEGER classroom_id FK
-        INTEGER student_id FK
-        TEXT assessment_title
-        REAL max_marks
-        REAL marks_obtained
-        TEXT remarks
-        TEXT graded_at
+        string gradeId PK
+        string studentId
+        string studentName
+        string assessmentTitle
+        float maxMarks
+        float marksObtained
+        string remarks
+        timestamp createdAt
     }
 
     QUESTIONS {
-        INTEGER id PK
-        TEXT topic
-        TEXT question
-        TEXT answer
-        INTEGER created_by FK
-        TEXT created_at
+        string questionId PK
+        string topic
+        string question
+        string answer
+        string createdBy
+        string subjectId
+        string unitId
+        timestamp createdAt
+    }
+
+    CODES {
+        string code PK "6 chars"
+        string classroomId
+        string teacherId
+        timestamp createdAt
     }
 ```
 
-### 4.5 Database Design (Tables, Columns, Keys)
-1. **`users` Table**:
-   - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
-   - `name` (TEXT NOT NULL)
-   - `email` (TEXT UNIQUE NOT NULL)
-   - `phone` (TEXT NOT NULL)
-   - `role` (TEXT NOT NULL) - 'Student' or 'Teacher'
-   - `password_hash` (TEXT NOT NULL) - SHA-256 digest
-   - `salt` (TEXT NOT NULL) - Base64URL-encoded 16-byte random salt
-   - `created_at` (TEXT NOT NULL) - ISO-8601 timestamp
-2. **`notes` Table**:
-   - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
-   - `user_id` (INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)
-   - `title` (TEXT NOT NULL)
-   - `topic` (TEXT NOT NULL)
-   - `content` (TEXT NOT NULL)
-   - `is_pinned` (INTEGER NOT NULL DEFAULT 0) - Boolean flag
-   - `created_at` (TEXT NOT NULL)
-   - `updated_at` (TEXT NOT NULL)
-3. **`classrooms` Table**:
-   - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
-   - `teacher_id` (INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)
-   - `name` (TEXT NOT NULL)
-   - `subject` (TEXT NOT NULL)
-   - `code` (TEXT UNIQUE NOT NULL) - 6 uppercase alphanumeric characters
-   - `created_at` (TEXT NOT NULL)
-4. **`enrollments` Table**:
-   - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
-   - `classroom_id` (INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)
-   - `student_id` (INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)
-   - `enrolled_at` (TEXT NOT NULL)
-   - `UNIQUE(classroom_id, student_id)`
-5. **`grades` Table**:
-   - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
-   - `classroom_id` (INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE)
-   - `student_id` (INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE)
-   - `assessment_title` (TEXT NOT NULL)
-   - `max_marks` (REAL NOT NULL)
-   - `marks_obtained` (REAL NOT NULL)
-   - `remarks` (TEXT)
-   - `graded_at` (TEXT NOT NULL)
-6. **`questions` Table**:
-   - `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
-   - `topic` (TEXT NOT NULL)
-   - `question` (TEXT NOT NULL)
-   - `answer` (TEXT NOT NULL)
-   - `created_by` (INTEGER REFERENCES users(id) ON DELETE SET NULL)
-   - `created_at` (TEXT NOT NULL)
-
-### 4.6 UI Design
-- **Theme Standard**: Material 3 Light theme.
-- **Color Palette**: Primary Indigo (`#3F51B5`), Dark Indigo (`#303F9F`), Light Indigo accent (`#C5CAE9`), Off-white canvas (`#F8F9FA`).
-- **Typography**: Clean, readable sans-serif hierarchy (14px body, 15-16px card headers, 18-24px titles).
-- **Component Geometry**: 12px rounded rectangular corners for cards, input fields, and buttons; 16px standard screen margins.
+### 4.3 Security Rules Breakdown (`firestore.rules`)
+The database security model enforces least-privilege access using declarative rules:
+1. `users/{uid}`: Read allowed for the user or teachers viewing classroom rosters. Profile creation restricts `role` strictly to `'Student'` or `'Teacher'`, update prevents role alteration, and deletion is prohibited.
+2. `users/{uid}/**` (subcollections: notes, subjects, units, resources, questions): Owned entirely by the authenticated student. Student-imported unit questions from `questions.json` reside securely in `users/{uid}/subjects/{subjectId}/units/{unitId}/questions`.
+3. `classrooms/{classId}`:
+   - `get`: Any signed-in user can get a classroom document by ID to support atomic join-by-code transactions.
+   - `list`: Restricted exclusively to the classroom's teacher (`teacherId == request.auth.uid`) or enrolled students (`request.auth.uid in studentIds`).
+   - `update`: Writable by the teacher, or by an authenticated student appending/removing only their own UID in `studentIds`.
+   - `create` & `delete`: Restricted to the owning teacher.
+4. `classrooms/{classId}/grades/{gradeId}`:
+   - Writable only by the classroom teacher.
+   - Readable by the teacher and the specific student whose `studentId` matches the grade record.
+5. `questions/{questionId}`:
+   - Readable by any authenticated user for exam practice.
+   - Writable (create, update, delete) strictly by teachers (`isTeacher()`), removing any unauthenticated bypasses. Starter questions are safely seeded by teachers under the protection of `config/seed`.
+6. `codes/{code}`: Used as a reservation lock guaranteeing unique 6-character classroom codes, readable by all authenticated users to look up class IDs.
 
 ---
 
-# Chapter 5: Implementation
+# Chapter 5: Implementation Details
 
-### 5.1 Modules and Description
-The application codebase is structured across six organized directories:
-- `lib/models/`: Encapsulates strongly typed Dart data entities (`User`, `Note`, `Classroom`, `Enrollment`, `Grade`, `Question`, and `StudentGradeSummary`).
-- `lib/services/`: Contains `DatabaseService.instance`, orchestrating SQLite table creation, cryptographic hashing, seed execution, and relational queries.
-- `lib/utils/`: Hosts `AppTheme`, `Validators`, `AppConstants`, and `AppException`.
-- `lib/widgets/`: Modular UI building blocks (`CustomTextField`, `PrimaryButton`, `CustomDialog`, and `EmptyState`).
-- `lib/screens/`: Feature screens categorized into `auth/`, `student/`, and `teacher/`.
-- `lib/main.dart`: Application bootstrap initializing database and theme configuration.
+### 5.1 Service Layer (`FirestoreService`)
+All Firebase interaction is consolidated into `FirestoreService`, keeping widget code purely declarative:
+- **Authentication**: Maps `FirebaseAuthException` error codes (`email-already-in-use`, `wrong-password`, `invalid-credential`, etc.) to user-friendly messages.
+- **Transactional Code Allocation**: Classroom creation attempts code generation in a retry loop using transactions on `codes/{code}` to guarantee uniqueness.
+- **Batched Deletions**: Deleting a subject or unit deletes all nested subcollections in chunked batches under 500 operations.
+- **Cache Detection**: Live snapshot streams return `isFromCache` metadata, driving the offline sync indicator.
 
-### 5.2 Key Code Snippets
-
-#### Salted SHA-256 Cryptographic Hash Implementation:
-```dart
-String _generateSalt([int length = 16]) {
-  final random = Random.secure();
-  final bytes = List<int>.generate(length, (_) => random.nextInt(256));
-  return base64Url.encode(bytes);
-}
-
-String _hashPassword(String password, String salt) {
-  final bytes = utf8.encode(salt + password);
-  return sha256.convert(bytes).toString();
-}
-```
-
-#### Unique 6-Character Classroom Join Code Generator:
-```dart
-Future<String> _generateUniqueClassCode(Database db) async {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  final random = Random.secure();
-  for (int attempts = 0; attempts < 50; attempts++) {
-    final code = List.generate(6, (_) => chars[random.nextInt(chars.length)]).join();
-    final existing = await db.query('classrooms', where: 'code = ?', whereArgs: [code], limit: 1);
-    if (existing.isEmpty) return code;
-  }
-  return DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase().substring(0, 6);
-}
-```
-
-### 5.3 Validation Rules Table
-All input validation rules are implemented as pure static functions in `lib/utils/validators.dart`:
-
-| Field | Function | Criteria / Regular Expression | Error Message Returned |
-| :--- | :--- | :--- | :--- |
-| **Required** | `validateRequired` | Non-null and `value.trim().isNotEmpty` | `"<Field> is required."` |
-| **Full Name** | `validateName` | Letters and whitespace only, min 2 chars | `"Name must contain letters and spaces only."` |
-| **Email** | `validateEmail` | RFC 5322 regex match (`^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+`) | `"Please enter a valid email address (e.g., student@domain.com)."` |
-| **Phone** | `validatePhone` | Exactly 10 digits starting with 6, 7, 8, or 9 | `"Phone number must be 10 digits starting with 6, 7, 8, or 9."` |
-| **Password** | `validatePassword` | Min 8 chars, >= 1 uppercase letter (`[A-Z]`), >= 1 digit (`[0-9]`) | `"Password must contain at least one uppercase letter."` / `"numeric digit."` |
-| **Confirm Pass** | `validateConfirmPassword` | Exact string equality with primary password | `"Passwords do not match."` |
-| **Class Code** | `validateClassCode` | Exactly 6 alphanumeric characters (`^[A-Za-z0-9]{6}$`) | `"Classroom code must be exactly 6 letters/digits."` |
-| **Max Marks** | `validateMaxMarks` | Numeric value between 1.0 and 1000.0 | `"Maximum marks must be between 1 and 1000."` |
-| **Marks Obtained** | `validateMarksObtained` | Numeric value >= 0.0 and <= `maxMarks` | `"Marks obtained cannot exceed maximum marks (<max>)."` |
-
-### 5.4 Hints and Placeholders Table
-Every interactive form field features an explicit label and placeholder hint that disappears upon text entry:
-
-| Screen | Input Field | Label Text | Placeholder / Hint Text | Keyboard Type / Formatters |
-| :--- | :--- | :--- | :--- | :--- |
-| **Login** | Email | `Email Address` | `"Enter your registered email"` | `TextInputType.emailAddress` |
-| **Login** | Password | `Password` | `"Enter your account password"` | Obscured with eye toggle |
-| **Register** | Full Name | `Full Name` | `"Enter your full name (letters only)"` | `TextInputType.text`, Words capitalization |
-| **Register** | Email | `Email Address` | `"example@domain.com"` | `TextInputType.emailAddress` |
-| **Register** | Phone | `Phone Number (10 digits)` | `"9876543210"` | `TextInputType.phone`, Digits only, Max 10 |
-| **Register** | Password | `Password` | `"Min 8 chars, 1 uppercase & 1 number"` | Obscured with eye toggle |
-| **Register** | Confirm Password | `Confirm Password` | `"Re-enter your password"` | Obscured with eye toggle |
-| **Notes** | Title | `Note Title` | `"e.g. Process Scheduling Algorithms"` | Standard text input |
-| **Notes** | Content | `Note Content` | `"Write your detailed notes, key formulas or summaries here..."` | Multiline (5 lines) |
-| **Join Class** | Code | `Class Code` | `"e.g. ABC123"` | Characters capitalization, Max 6 |
-| **Create Class**| Name | `Classroom Name` | `"e.g. CS 301 - Operating Systems Lab"` | Standard text input |
-| **Create Class**| Subject | `Subject / Course` | `"e.g. Computer Science & Engineering"` | Standard text input |
-| **Grade** | Title | `Assessment Title` | `"e.g. Midterm Exam, Quiz 1, Project Phase 1"` | Standard text input |
-| **Grade** | Max Marks | `Max Marks` | `"1 - 1000"` | `TextInputType.numberWithOptions(decimal: true)` |
-| **Grade** | Obtained Marks | `Marks Obtained` | `"e.g. 85"` | `TextInputType.numberWithOptions(decimal: true)` |
-| **Grade** | Remarks | `Remarks (Optional)` | `"e.g. Excellent problem solving in dynamic programming"`| Multiline text input |
-| **Question Bank**| Question | `Question` | `"Type the practice question here..."` | Multiline (3 lines) |
-| **Question Bank**| Answer | `Verified Answer / Solution` | `"Provide the complete explanation and answer..."` | Multiline (5 lines) |
+### 5.2 ZIP Import Engine (`ZipImportParser`)
+The ZIP importer operates without Flutter UI dependencies so it can run inside background Dart isolates:
+- **Zip-Slip Prevention**: Blocks path traversal attacks (`../`, `..\`, absolute paths).
+- **Executable Filter**: Rejects dangerous binaries (`.exe`, `.bat`, `.apk`, `.sh`).
+- **Heuristic Layout Detection**: Automatically parses `Unit X - Title` naming conventions, identifies practical code folders (`lab/`, `code/`, `practicals/`), and parses embedded `questions.json` files.
+- **Top-Level Unit Detection**: Detects archives that start immediately with unit folders and requests a subject name prompt.
 
 ---
 
-# Chapter 6: Testing
+# Chapter 6: Software Testing & Verification
 
-### 6.1 Testing Methodology
-The software verification process employed a dual-phase testing methodology:
-1. **Automated Unit Testing**: Executed via the `flutter_test` runner to rigorously validate edge conditions, boundary limits, and regex pattern enforcement across `Validators`.
-2. **Static Code Analysis**: Conducted via `flutter analyze` against the complete Flutter codebase to ensure zero warnings, zero errors, and zero lint violations under the `flutter_lints` ruleset.
+### 6.1 Automated Unit Testing
+A comprehensive test suite of 48 automated test cases was executed via `flutter test`:
+1. `test/validators_test.dart` (25 test cases: TC-P1..TC-P11, TC-N1..TC-N14) - Validates names, emails, 10-digit Indian phone numbers, password complexity, marks, subject names, unit titles, and ZIP file constraints.
+2. `test/zip_import_parser_test.dart` (12 test cases: TC-Z-P1..TC-Z-P6, TC-Z-N1..TC-Z-N6) - Validates multi-tier folder layouts, prefix extraction, code folder aliases, `questions.json` extraction, zip-slip defense, executable exclusion, and malformed JSON resilience.
+3. `test/firestore_service_test.dart` (11 test cases: TC-F-P1..TC-F-P6, TC-F-N1..TC-F-N5) - Validates notes CRUD, transaction-based classroom code reservation, student enrollment, grade recording, question seeding, and cascading deletions using `fake_cloud_firestore`.
 
-### 6.2 Unit Test Execution Suite (`test/validators_test.dart`)
-All 16 unit tests passed successfully with 100% test pass rate:
+**Execution Result**: `00:01 +48: All tests passed!` (100% pass rate).
 
-```
-00:00 +0: loading C:/Users/Aarush/Desktop/Notes_manager/Notes-manager/test/validators_test.dart
-00:00 +0: Validators Positive Test Suite TC-P1: Valid full name with letters and spaces returns null
-00:00 +1: Validators Positive Test Suite TC-P2: Valid standard RFC email address returns null
-00:00 +2: Validators Positive Test Suite TC-P3: Valid 10-digit phone number starting with 6-9 returns null
-00:00 +3: Validators Positive Test Suite TC-P4: Valid password with at least 8 chars, 1 uppercase, and 1 digit returns null
-00:00 +4: Validators Positive Test Suite TC-P5: Matching confirmation password returns null
-00:00 +5: Validators Positive Test Suite TC-P6: Valid 6-character alphanumeric classroom join code returns null
-00:00 +6: Validators Positive Test Suite TC-P7: Valid maximum marks between 1 and 1000 returns null
-00:00 +7: Validators Positive Test Suite TC-P8: Valid marks obtained not exceeding maximum returns null
-00:00 +8: Validators Negative Test Suite TC-N1: Name containing numeric digits returns error message
-00:00 +9: Validators Negative Test Suite TC-N2: Malformed email missing domain extension returns error message
-00:00 +10: Validators Negative Test Suite TC-N3: Phone number shorter than 10 digits returns error message
-00:00 +11: Validators Negative Test Suite TC-N4: Password lacking uppercase character returns error message
-00:00 +12: Validators Negative Test Suite TC-N5: Mismatched confirm password returns error message
-00:00 +13: Validators Negative Test Suite TC-N6: Class code not exactly 6 alphanumeric characters returns error message
-00:00 +14: Validators Negative Test Suite TC-N7: Maximum marks exceeding 1000 returns error message
-00:00 +15: Validators Negative Test Suite TC-N8: Marks obtained exceeding maximum marks returns error message
-00:00 +16: All tests passed!
-```
+### 6.2 Code Quality & Static Analysis
+Running `flutter analyze` reports:
+`No issues found! (ran in 8.4s)` - Zero errors, zero warnings, zero linter issues across the entire codebase.
 
 ---
 
-# Chapter 7: Results and Discussion
+# Chapter 7: Setup Instructions & Limitations
 
-### 7.1 Screenshots (Placeholders)
-The following placeholders document the exact visual screens implemented for capture during live testing:
-- **Screenshot 1**: `docs/screenshots/01_login_screen.png` - Sign-In interface with email, password visibility toggle, and registration navigation.
-- **Screenshot 2**: `docs/screenshots/02_register_screen.png` - Registration form with role picker (Student/Teacher) and 10-digit phone validator.
-- **Screenshot 3**: `docs/screenshots/03_student_notes_tab.png` - Student notes dashboard with search bar, topic filter chips, and pinned note card.
-- **Screenshot 4**: `docs/screenshots/04_student_practice_tab.png` - Practice questions interface showing topic selector and tap-to-reveal answer cards.
-- **Screenshot 5**: `docs/screenshots/05_student_classrooms_tab.png` - Enrolled classrooms list showing instructor name and overall score badge.
-- **Screenshot 6**: `docs/screenshots/06_student_grades_screen.png` - Detailed grade report showing individual assessment marks, percentages, and overall GPA/percentage banner.
-- **Screenshot 7**: `docs/screenshots/07_teacher_classrooms_tab.png` - Teacher dashboard showing created classes, enrolled counts, and one-tap code copy button.
-- **Screenshot 8**: `docs/screenshots/08_teacher_classroom_detail.png` - Enrolled student roster showing student email, contact, and overall percentage badges.
-- **Screenshot 9**: `docs/screenshots/09_teacher_student_grade_history.png` - Student evaluation history with "Add Grade" modal dialog.
-- **Screenshot 10**: `docs/screenshots/10_teacher_question_bank_tab.png` - Question bank tab showing seeded questions and "Add Question" dialog.
+### 7.1 Firebase Setup Prerequisites
+To run the app on a live Android device or emulator:
+1. Install the Firebase CLI: `npm install -g firebase-tools`
+2. Install the FlutterFire CLI: `dart pub global activate flutterfire_cli`
+3. Log in to Firebase: `firebase login`
+4. Run FlutterFire configure: `flutterfire configure`
+5. Deploy security rules: `firebase deploy --only firestore:rules`
+6. Detailed walkthrough provided in `SETUP_FIREBASE.md`.
 
-### 7.2 Emulator Execution Results
-- **Status**: Android emulator environment was surveyed via `flutter emulators`. No pre-configured emulator instances were active on the development host during automated build verification.
-- **Required Action**: The user can launch an Android emulator using Android Studio or execute `flutter emulators --create` followed by `flutter run`.
+### 7.2 In-App Graceful Configuration Guard
+If the app is launched on a device before Firebase is configured, it renders the informative `FirebaseNotConfiguredScreen` instead of crashing, presenting step-by-step CLI commands with one-tap clipboard copy buttons.
 
-### 7.3 Physical Device Execution Results (Placeholders)
-- **Target Device Model**: `[User to record device model e.g., Samsung Galaxy S23 / OnePlus 11 / Google Pixel 8]`
-- **Android OS Version**: `[User to record Android version e.g., Android 14.0 / API 34]`
-- **Execution Observations**: `[User to record UI responsiveness, frame rates, and SQLite write latencies upon USB debugging deployment]`
-
-### 7.4 Limitations
-- **Single-Device SQLite Scope**: As designed for offline use, teacher and student accounts currently share the same on-device SQLite database. Cross-device synchronization requires an external cloud backend (e.g., Firebase or REST API).
-- **No Background Push Notifications**: Assessment grading updates occur on database refresh rather than via real-time WebSocket or FCM push notifications.
+### 7.3 Limitations
+- **Legacy SQLite Data**: Local data from the previous SQLite version is not automatically migrated to Cloud Firestore.
+- **Firebase Initialization**: Running on an emulator requires valid Google Services configuration generated via `flutterfire configure`.
 
 ---
 
-# Chapter 8: Conclusion and Future Scope
+# Chapter 8: Conclusion & Future Scope
 
 ### 8.1 Conclusion
-The StudyMate Classroom Android project was successfully designed, developed, and verified in accordance with planning-first software engineering principles. The application delivers an offline-first solution for both students and teachers, providing structured note-taking, active recall practice questions, code-based classroom enrollments, and academic grading. 
+StudyMate Classroom successfully transitions from a standalone SQLite database to a scalable, real-time Cloud Firestore and Firebase Auth architecture. The addition of the Subject Material ZIP Importer empowers students to import lecture notes and lab experiments in bulk, complete with automated practice questions and code inspection.
 
-The complete codebase was verified with zero errors, zero warnings, and zero lints reported by `flutter analyze`, and all 16 automated unit test cases passed with 100% success under `flutter test`.
-
-### 8.2 Learning Outcomes
-Key architectural competencies demonstrated in this project include:
-- Implementing layered clean architecture in Flutter without unnecessary third-party package dependencies.
-- Managing relational SQLite schemas with foreign keys, cascading deletes, and unique constraint enforcement via `sqflite`.
-- Designing secure client-side credential storage with cryptographically generated salts and SHA-256 digests.
-- Writing reusable, responsive UI components (adaptive text fields, primary loading buttons, custom dialogs, empty states).
-- Structuring rigorous automated testing suites in Dart using `flutter_test`.
-
-### 8.3 Future Enhancements
-Prospective engineering additions for future iterations include:
-1. **Firebase Cloud Synchronization**: Migrating data layer sync to Cloud Firestore so teachers and students can interact seamlessly across separate physical mobile devices.
-2. **AI-Powered Question & Flashcard Generation**: Integrating the Google Gemini API to automatically generate practice questions, flashcards, and summary notes from student lecture transcripts.
-3. **Spaced Repetition System (SM-2 Algorithm)**: Implementing SuperMemo-2 algorithmic scheduling to optimize student review intervals for practice questions.
-4. **Reminders & Local Notifications**: Scheduling local Android notifications (`flutter_local_notifications`) for upcoming assignment deadlines and study reminders.
-5. **Adaptive Dark Theme**: Providing an AMOLED dark theme toggle using Material 3 color harmonizing.
-
+### 8.2 Future Enhancements
+- **Push Notifications**: Firebase Cloud Messaging (FCM) notifications when a teacher publishes grades or new practice problems.
+- **Exporting Grades**: Exporting classroom grade rosters to CSV / Excel spreadsheets.
+- **Rich Media**: Support for PDF inline rendering and video lecture playback within unit materials.

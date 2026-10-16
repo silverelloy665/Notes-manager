@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
-import '../../services/database_service.dart';
-import '../../utils/app_exception.dart';
-import '../../utils/app_theme.dart';
-import '../../utils/validators.dart';
-import '../../widgets/custom_text_field.dart';
-import '../../widgets/primary_button.dart';
-import '../student/student_home_screen.dart';
-import '../teacher/teacher_home_screen.dart';
-import 'register_screen.dart';
+import 'package:studymate_classroom/models/user_model.dart';
+import 'package:studymate_classroom/screens/auth/register_screen.dart';
+import 'package:studymate_classroom/screens/student/student_home_screen.dart';
+import 'package:studymate_classroom/screens/teacher/teacher_home_screen.dart';
+import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/utils/app_exception.dart';
+import 'package:studymate_classroom/utils/app_theme.dart';
+import 'package:studymate_classroom/utils/validators.dart';
+import 'package:studymate_classroom/widgets/custom_text_field.dart';
+import 'package:studymate_classroom/widgets/primary_button.dart';
 
-/// Screen enabling students and teachers to authenticate via email and password.
+/// Screen enabling students and teachers to authenticate via email and password using Firebase Auth.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = await DatabaseService.instance.loginUser(
+      final user = await FirestoreService.instance.login(
         email: _emailController.text,
         password: _passwordController.text,
       );
@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Login failed: ${e.toString()}'),
+          content: Text('Login failed: $e'),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -76,148 +76,139 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _navigateUser(User user) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => user.isTeacher
-            ? TeacherHomeScreen(currentUser: user)
-            : StudentHomeScreen(currentUser: user),
-      ),
-    );
+    if (user.isTeacher) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => TeacherHomeScreen(currentUser: user)),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => StudentHomeScreen(currentUser: user)),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingLg, vertical: 24.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: AppTheme.maxFormWidth),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.spacing),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Brand Logo & Title
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.school_rounded,
-                        size: 42,
-                        color: Colors.white,
+                    // Brand Logo Icon
+                    Center(
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.school_rounded,
+                          size: 40,
+                          color: AppTheme.primaryColor,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
+                    // App Title & Tagline
                     const Text(
                       'StudyMate Classroom',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Notes, Practice Questions & Classroom Grade Manager',
+                    Text(
+                      'Cloud Notes, Practice & Classroom Grades',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w400,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 32),
-
-                    // Card wrapper
+                    // Login Card Form
                     Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                      ),
                       child: Padding(
-                        padding: const EdgeInsets.all(AppTheme.spacingLg),
+                        padding: const EdgeInsets.all(20.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             const Text(
-                              'Sign In',
+                              'Sign In to Your Account',
                               style: TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A202C),
                               ),
                             ),
-                            const SizedBox(height: 16),
-
-                            // Email Field
+                            const SizedBox(height: 20),
                             CustomTextField(
                               controller: _emailController,
                               label: 'Email Address',
-                              hint: 'Enter your registered email',
+                              hintText: 'Enter your registered email',
                               keyboardType: TextInputType.emailAddress,
-                              prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                              prefixIcon: Icons.email_outlined,
                               validator: Validators.validateEmail,
                             ),
                             const SizedBox(height: 16),
-
-                            // Password Field
                             CustomTextField(
                               controller: _passwordController,
                               label: 'Password',
-                              hint: 'Enter your account password',
+                              hintText: 'Enter your account password',
                               isPassword: true,
-                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                              prefixIcon: Icons.lock_outline,
                               validator: (val) => Validators.validateRequired(val, 'Password'),
                             ),
                             const SizedBox(height: 24),
-
-                            // Login Button
                             PrimaryButton(
-                              label: 'Sign In',
-                              icon: Icons.login,
+                              text: 'Sign In',
                               isLoading: _isLoading,
+                              icon: Icons.login_rounded,
                               onPressed: _handleLogin,
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-
+                    const SizedBox(height: 24),
                     // Registration Link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          "Don't have an account? ",
-                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                        Text(
+                          "Don't have an account?",
+                          style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
                         ),
-                        GestureDetector(
-                          onTap: () {
+                        TextButton(
+                          onPressed: () {
                             Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const RegisterScreen(),
-                              ),
+                              MaterialPageRoute(builder: (_) => const RegisterScreen()),
                             );
                           },
                           child: const Text(
                             'Register Now',
                             style: TextStyle(
+                              fontWeight: FontWeight.bold,
                               color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
                             ),
                           ),
                         ),
@@ -233,4 +224,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

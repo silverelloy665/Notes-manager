@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
-import '../../utils/app_theme.dart';
-import '../auth/login_screen.dart';
-import 'student_notes_tab.dart';
-import 'practice_tab.dart';
-import 'student_classrooms_tab.dart';
+import 'package:studymate_classroom/models/user_model.dart';
+import 'package:studymate_classroom/screens/auth/login_screen.dart';
+import 'package:studymate_classroom/screens/student/library_tab.dart';
+import 'package:studymate_classroom/screens/student/practice_tab.dart';
+import 'package:studymate_classroom/screens/student/student_classrooms_tab.dart';
+import 'package:studymate_classroom/screens/student/student_notes_tab.dart';
+import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/utils/app_theme.dart';
 
-/// Main container screen for Students, hosting Notes, Practice, and Classrooms tabs.
+/// Main container screen for Students, hosting Notes, Practice, Library, and Classrooms tabs.
 class StudentHomeScreen extends StatefulWidget {
   final User currentUser;
 
@@ -37,12 +39,15 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorColor,
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
+              await FirestoreService.instance.logout();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
             child: const Text('Sign Out'),
           ),
@@ -56,6 +61,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     final tabs = [
       StudentNotesTab(currentUser: widget.currentUser),
       const PracticeTab(),
+      LibraryTab(userId: widget.currentUser.id),
       StudentClassroomsTab(currentUser: widget.currentUser),
     ];
 
@@ -91,6 +97,9 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppTheme.primaryColor,
+        unselectedItemColor: Colors.grey.shade600,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.note_alt_outlined),
@@ -103,6 +112,11 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
             label: 'Practice',
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.library_books_outlined),
+            activeIcon: Icon(Icons.library_books),
+            label: 'Library',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.school_outlined),
             activeIcon: Icon(Icons.school),
             label: 'Classrooms',
@@ -112,4 +126,3 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     );
   }
 }
-

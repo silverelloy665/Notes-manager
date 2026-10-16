@@ -152,5 +152,50 @@ class Validators {
     }
     return null;
   }
+
+  /// Validates subject name (required, between 2 and 50 characters).
+  static String? validateSubjectName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Subject name is required.';
+    }
+    final trimmed = value.trim();
+    if (trimmed.length < 2) {
+      return 'Subject name must be at least 2 characters.';
+    }
+    if (trimmed.length > 50) {
+      return 'Subject name cannot exceed 50 characters.';
+    }
+    return null;
+  }
+
+  /// Validates unit title (required, between 1 and 100 characters).
+  static String? validateUnitTitle(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Unit title is required.';
+    }
+    final trimmed = value.trim();
+    if (trimmed.length > 100) {
+      return 'Unit title cannot exceed 100 characters.';
+    }
+    return null;
+  }
+
+  /// Pure validation for selected ZIP file path and file byte size (up to 100 MB).
+  static String? validateZipFile({required String? fileName, required int? sizeInBytes}) {
+    if (fileName == null || fileName.trim().isEmpty) {
+      return 'Please select a ZIP file to import.';
+    }
+    if (!fileName.toLowerCase().endsWith('.zip')) {
+      return 'Selected file must have a .zip extension.';
+    }
+    if (sizeInBytes == null || sizeInBytes <= 0) {
+      return 'The selected ZIP file is empty.';
+    }
+    const maxSizeBytes = 100 * 1024 * 1024; // 100 MB
+    if (sizeInBytes > maxSizeBytes) {
+      return 'ZIP file exceeds the maximum size limit of 100 MB.';
+    }
+    return null;
+  }
 }
 

@@ -1,44 +1,57 @@
-/// Represents an academic practice question with a revealable answer.
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Represents an academic practice question in Cloud Firestore: questions/{questionId}
 class Question {
-  final int? id;
+  final String id;
   final String topic;
   final String question;
   final String answer;
-  final int? createdBy; // NULL for seeded system questions, or teacher user_id
-  final String createdAt;
+  final String? createdBy; // NULL for seeded system questions, or teacher user_id
+  final String? subjectId; // Optional link to imported subject
+  final String? unitId; // Optional link to imported unit
+  final DateTime? createdAt;
 
   const Question({
-    this.id,
+    required this.id,
     required this.topic,
     required this.question,
     required this.answer,
     this.createdBy,
-    required this.createdAt,
+    this.subjectId,
+    this.unitId,
+    this.createdAt,
   });
 
   Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
+    return {
       'topic': topic,
       'question': question,
       'answer': answer,
-      'created_by': createdBy,
-      'created_at': createdAt,
+      'createdBy': createdBy,
+      'subjectId': subjectId,
+      'unitId': unitId,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
-    if (id != null) {
-      map['id'] = id;
-    }
-    return map;
   }
 
-  factory Question.fromMap(Map<String, dynamic> map) {
+  factory Question.fromMap(Map<String, dynamic> map, String docId) {
+    DateTime? parsedCreatedAt;
+    final rawDate = map['createdAt'] ?? map['created_at'];
+    if (rawDate is Timestamp) {
+      parsedCreatedAt = rawDate.toDate();
+    } else if (rawDate is String) {
+      parsedCreatedAt = DateTime.tryParse(rawDate);
+    }
+
     return Question(
-      id: map['id'] as int?,
-      topic: map['topic'] as String,
-      question: map['question'] as String,
-      answer: map['answer'] as String,
-      createdBy: map['created_by'] as int?,
-      createdAt: map['created_at'] as String,
+      id: docId,
+      topic: (map['topic'] ?? 'Other') as String,
+      question: (map['question'] ?? '') as String,
+      answer: (map['answer'] ?? '') as String,
+      createdBy: map['createdBy']?.toString() ?? map['created_by']?.toString(),
+      subjectId: map['subjectId']?.toString(),
+      unitId: map['unitId']?.toString(),
+      createdAt: parsedCreatedAt,
     );
   }
 }
-

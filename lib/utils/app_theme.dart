@@ -32,6 +32,7 @@ class AppTheme {
   static const double spacing = 16.0;
   static const double spacingLg = 24.0;
   static const double borderRadius = 12.0;
+  static const double maxFormWidth = 480.0;
 
   /// Global shared ThemeData (Light theme only, Material 3).
   static ThemeData get lightTheme {

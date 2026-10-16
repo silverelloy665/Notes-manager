@@ -9,8 +9,22 @@ class AppConstants {
     'Computer Networks',
     'Mathematics',
     'Physics',
+    'Design & Analysis of Algorithms',
+    'Object Oriented Programming',
+    'Web Programming',
+    'Computer Organization & Architecture',
+    'Microprocessors & Microcontrollers',
     'Other',
   ];
+
+  static List<String> get academicTopics => topics;
+
+  static List<({String topic, String question, String answer})> get initialQuestions =>
+      seedQuestions.map((q) => (
+        topic: q['topic'] ?? '',
+        question: q['question'] ?? '',
+        answer: q['answer'] ?? '',
+      )).toList();
 
   /// Initial seed questions populated on first database creation.
   /// Contains at least 4 questions with comprehensive answers for each of the first 5 topics.

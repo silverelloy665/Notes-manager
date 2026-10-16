@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
-import '../../utils/app_theme.dart';
-import '../auth/login_screen.dart';
-import 'teacher_classrooms_tab.dart';
-import 'teacher_question_bank_tab.dart';
+import 'package:studymate_classroom/models/user_model.dart';
+import 'package:studymate_classroom/screens/auth/login_screen.dart';
+import 'package:studymate_classroom/screens/teacher/teacher_classrooms_tab.dart';
+import 'package:studymate_classroom/screens/teacher/teacher_question_bank_tab.dart';
+import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/utils/app_theme.dart';
 
 /// Container screen for Teachers, providing Classrooms and Question Bank tabs.
 class TeacherHomeScreen extends StatefulWidget {
@@ -31,12 +32,15 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
+              await FirestoreService.instance.logout();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
             child: const Text('Sign Out'),
           ),
@@ -58,11 +62,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'StudyMate Teacher Portal',
+              'StudyMate Instructor',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             Text(
-              'Instructor: ${widget.currentUser.name}',
+              widget.currentUser.name,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.white70),
             ),
           ],
@@ -84,6 +88,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: AppTheme.primaryColor,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.class_outlined),
@@ -100,4 +105,3 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     );
   }
 }
-

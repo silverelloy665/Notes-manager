@@ -1,63 +1,76 @@
-/// Represents a study note created by a student.
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Represents a study note created by a student in Cloud Firestore: users/{uid}/notes/{noteId}.
 class Note {
-  final int? id;
-  final int userId;
+  final String id;
+  final String userId;
   final String title;
   final String topic;
   final String content;
   final bool isPinned;
-  final String createdAt;
-  final String updatedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   const Note({
-    this.id,
+    required this.id,
     required this.userId,
     required this.title,
     required this.topic,
     required this.content,
     this.isPinned = false,
-    required this.createdAt,
-    required this.updatedAt,
+    this.createdAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
-      'user_id': userId,
+    return {
       'title': title,
       'topic': topic,
       'content': content,
-      'is_pinned': isPinned ? 1 : 0,
-      'created_at': createdAt,
-      'updated_at': updatedAt,
+      'pinned': isPinned,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
     };
-    if (id != null) {
-      map['id'] = id;
-    }
-    return map;
   }
 
-  factory Note.fromMap(Map<String, dynamic> map) {
+  factory Note.fromMap(Map<String, dynamic> map, String docId, {String userId = ''}) {
+    DateTime? parsedCreatedAt;
+    final rawCreated = map['createdAt'] ?? map['created_at'];
+    if (rawCreated is Timestamp) {
+      parsedCreatedAt = rawCreated.toDate();
+    } else if (rawCreated is String) {
+      parsedCreatedAt = DateTime.tryParse(rawCreated);
+    }
+
+    DateTime? parsedUpdatedAt;
+    final rawUpdated = map['updatedAt'] ?? map['updated_at'];
+    if (rawUpdated is Timestamp) {
+      parsedUpdatedAt = rawUpdated.toDate();
+    } else if (rawUpdated is String) {
+      parsedUpdatedAt = DateTime.tryParse(rawUpdated);
+    }
+
     return Note(
-      id: map['id'] as int?,
-      userId: map['user_id'] as int,
-      title: map['title'] as String,
-      topic: map['topic'] as String,
-      content: map['content'] as String,
-      isPinned: (map['is_pinned'] as int? ?? 0) == 1,
-      createdAt: map['created_at'] as String,
-      updatedAt: map['updated_at'] as String,
+      id: docId,
+      userId: userId.isNotEmpty ? userId : (map['userId'] ?? map['user_id'] ?? '').toString(),
+      title: (map['title'] ?? '') as String,
+      topic: (map['topic'] ?? 'Other') as String,
+      content: (map['content'] ?? '') as String,
+      isPinned: map['pinned'] == true || map['is_pinned'] == 1 || map['is_pinned'] == true,
+      createdAt: parsedCreatedAt,
+      updatedAt: parsedUpdatedAt,
     );
   }
 
   Note copyWith({
-    int? id,
-    int? userId,
+    String? id,
+    String? userId,
     String? title,
     String? topic,
     String? content,
     bool? isPinned,
-    String? createdAt,
-    String? updatedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Note(
       id: id ?? this.id,
@@ -71,4 +84,3 @@ class Note {
     );
   }
 }
-

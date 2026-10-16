@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../models/question_model.dart';
-import '../../services/database_service.dart';
-import '../../utils/app_theme.dart';
-import '../../utils/constants.dart';
-import '../../widgets/empty_state.dart';
+import 'package:studymate_classroom/models/question_model.dart';
+import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/utils/constants.dart';
+import 'package:studymate_classroom/utils/app_theme.dart';
+import 'package:studymate_classroom/widgets/empty_state.dart';
 
 /// Tab enabling students to select academic topics and practice with tap-to-reveal question cards.
 class PracticeTab extends StatefulWidget {
@@ -14,263 +15,242 @@ class PracticeTab extends StatefulWidget {
 }
 
 class _PracticeTabState extends State<PracticeTab> {
-  String _selectedTopic = AppConstants.topics.first;
+  String _selectedTopic = AppConstants.academicTopics.first;
+  StreamSubscription? _questionsSub;
   List<Question> _questions = [];
   bool _isLoading = true;
+  bool _isFromCache = false;
 
   @override
   void initState() {
     super.initState();
-    _loadQuestions();
+    _subscribeQuestions();
   }
 
-  Future<void> _loadQuestions() async {
+  void _subscribeQuestions() {
+    _questionsSub?.cancel();
     setState(() => _isLoading = true);
-    try {
-      final list = await DatabaseService.instance.getQuestions(topic: _selectedTopic);
-      if (mounted) {
-        setState(() {
-          _questions = list;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load questions: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    }
+
+    _questionsSub = FirestoreService.instance.getQuestionsStream(topic: _selectedTopic).listen(
+      (data) {
+        if (mounted) {
+          setState(() {
+            _questions = data.questions;
+            _isFromCache = data.isFromCache;
+            _isLoading = false;
+          });
+        }
+      },
+      onError: (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load questions: $e'), backgroundColor: AppTheme.errorColor),
+          );
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _questionsSub?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          // Topic Selector Header
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing, vertical: 12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Choose Subject / Topic',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
+      backgroundColor: AppTheme.backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (_isFromCache)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                color: Colors.orange.shade800,
+                child: const Text(
+                  'Offline, will sync',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedTopic,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.category_outlined, size: 20),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              ),
+            // Topic Selector Header
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Academic Topic',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2D3748)),
                   ),
-                  items: AppConstants.topics.map((t) {
-                    return DropdownMenuItem(
-                      value: t,
-                      child: Text(t, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() => _selectedTopic = val);
-                      _loadQuestions();
-                    }
-                  },
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedTopic,
+                    decoration: const InputDecoration(
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    items: AppConstants.academicTopics
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null && val != _selectedTopic) {
+                        setState(() => _selectedTopic = val);
+                        _subscribeQuestions();
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1, color: AppTheme.borderColor),
-
-          // Practice Questions List
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _questions.isEmpty
-                    ? EmptyState(
-                        icon: Icons.school_outlined,
-                        title: 'No Practice Questions',
-                        message: 'No practice questions are available for "$_selectedTopic" yet. Check back once your teacher adds more!',
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadQuestions,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(AppTheme.spacing),
+            // Questions Count Bar
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.indigo.shade50,
+              child: Row(
+                children: [
+                  const Icon(Icons.psychology_outlined, size: 18, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Practice Questions: ${_questions.length}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                  ),
+                ],
+              ),
+            ),
+            // Question Cards List
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _questions.isEmpty
+                      ? Center(
+                          child: EmptyState(
+                            icon: Icons.quiz_outlined,
+                            title: 'No Questions Found',
+                            message: 'No practice questions have been authored for $_selectedTopic yet.',
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(16),
                           itemCount: _questions.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
+                          separatorBuilder: (_, _) => const SizedBox(height: 14),
                           itemBuilder: (context, index) {
-                            final question = _questions[index];
-                            return _PracticeQuestionCard(
-                              question: question,
+                            return _PracticeQuestionItem(
                               index: index + 1,
+                              question: _questions[index],
                             );
                           },
                         ),
-                      ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PracticeQuestionCard extends StatefulWidget {
-  final Question question;
+class _PracticeQuestionItem extends StatefulWidget {
   final int index;
+  final Question question;
 
-  const _PracticeQuestionCard({
-    required this.question,
+  const _PracticeQuestionItem({
     required this.index,
+    required this.question,
   });
 
   @override
-  State<_PracticeQuestionCard> createState() => _PracticeQuestionCardState();
+  State<_PracticeQuestionItem> createState() => _PracticeQuestionItemState();
 }
 
-class _PracticeQuestionCardState extends State<_PracticeQuestionCard> {
-  bool _revealed = false;
+class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
+  bool _isAnswerRevealed = false;
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(AppTheme.spacing),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Question Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: AppTheme.primaryColor,
                   child: Text(
-                    'Q${widget.index}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryDark,
-                    ),
+                    '${widget.index}',
+                    style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     widget.question.question,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                      height: 1.35,
-                    ),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, height: 1.3),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-
-            // Tap to Reveal / Answer Block
-            AnimatedCrossFade(
-              firstChild: InkWell(
-                onTap: () => setState(() => _revealed = true),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.touch_app_outlined, size: 18, color: AppTheme.primaryColor),
-                      SizedBox(width: 8),
-                      Text(
-                        'Tap to reveal answer',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              secondChild: Container(
+            if (_isAnswerRevealed) ...[
+              Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
+                  color: Colors.green.shade50,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                  border: Border.all(color: Colors.green.shade200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(Icons.verified_outlined, size: 18, color: AppTheme.successColor),
-                        const SizedBox(width: 6),
-                        const Text(
+                        Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
+                        SizedBox(width: 6),
+                        Text(
                           'Verified Answer:',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.successColor,
-                          ),
-                        ),
-                        const Spacer(),
-                        InkWell(
-                          onTap: () => setState(() => _revealed = false),
-                          child: const Padding(
-                            padding: EdgeInsets.all(2.0),
-                            child: Row(
-                              children: [
-                                Icon(Icons.visibility_off_outlined, size: 14, color: AppTheme.textMuted),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Hide',
-                                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                                ),
-                              ],
-                            ),
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       widget.question.answer,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF1E293B),
-                        height: 1.45,
-                      ),
+                      style: TextStyle(fontSize: 13, color: Colors.green.shade900, height: 1.4),
                     ),
                   ],
                 ),
               ),
-              crossFadeState: _revealed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 250),
-            ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.visibility_off_outlined, size: 16),
+                  label: const Text('Hide Answer', style: TextStyle(fontSize: 12)),
+                  onPressed: () => setState(() => _isAnswerRevealed = false),
+                ),
+              ),
+            ] else ...[
+              OutlinedButton.icon(
+                icon: const Icon(Icons.visibility_outlined, size: 16),
+                label: const Text('Tap to reveal answer'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  side: const BorderSide(color: AppTheme.primaryColor),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
+                onPressed: () => setState(() => _isAnswerRevealed = true),
+              ),
+            ],
           ],
         ),
       ),

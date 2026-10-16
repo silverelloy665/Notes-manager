@@ -15,9 +15,10 @@ class EmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
-    this.actionLabel,
+    String? actionLabel,
+    String? actionText,
     this.onAction,
-  });
+  }) : actionLabel = actionLabel ?? actionText;
 
   @override
   Widget build(BuildContext context) {
@@ -45,14 +46,14 @@ class EmptyState extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 17,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 340),
+              constraints: const BoxConstraints(maxWidth: 320),
               child: Text(
                 message,
                 textAlign: TextAlign.center,
@@ -67,8 +68,7 @@ class EmptyState extends StatelessWidget {
               const SizedBox(height: AppTheme.spacingLg),
               PrimaryButton(
                 label: actionLabel!,
-                width: 200,
-                height: 44,
+                width: 180,
                 onPressed: onAction,
               ),
             ],
@@ -78,4 +78,3 @@ class EmptyState extends StatelessWidget {
     );
   }
 }
-

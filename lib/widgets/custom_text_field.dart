@@ -9,9 +9,10 @@ class CustomTextField extends StatefulWidget {
   final TextInputType keyboardType;
   final bool isPassword;
   final int maxLines;
+  final int? maxLength;
   final String? Function(String?)? validator;
   final List<TextInputFormatter>? inputFormatters;
-  final Widget? prefixIcon;
+  final dynamic prefixIcon; // IconData or Widget
   final Widget? suffixIcon;
   final bool enabled;
   final void Function(String)? onChanged;
@@ -22,10 +23,12 @@ class CustomTextField extends StatefulWidget {
     super.key,
     required this.controller,
     required this.label,
-    required this.hint,
+    String? hint,
+    String? hintText,
     this.keyboardType = TextInputType.text,
     this.isPassword = false,
     this.maxLines = 1,
+    this.maxLength,
     this.validator,
     this.inputFormatters,
     this.prefixIcon,
@@ -34,7 +37,7 @@ class CustomTextField extends StatefulWidget {
     this.onChanged,
     this.textCapitalization = TextCapitalization.none,
     this.focusNode,
-  });
+  }) : hint = hint ?? hintText ?? '';
 
   @override
   State<CustomTextField> createState() => _CustomTextFieldState();
@@ -47,6 +50,17 @@ class _CustomTextFieldState extends State<CustomTextField> {
   void initState() {
     super.initState();
     _obscureText = widget.isPassword;
+  }
+
+  Widget? _buildPrefix() {
+    if (widget.prefixIcon == null) return null;
+    if (widget.prefixIcon is IconData) {
+      return Icon(widget.prefixIcon as IconData, size: 20, color: const Color(0xFF6B7280));
+    }
+    if (widget.prefixIcon is Widget) {
+      return widget.prefixIcon as Widget;
+    }
+    return null;
   }
 
   @override
@@ -69,6 +83,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           keyboardType: widget.keyboardType,
           obscureText: _obscureText,
           maxLines: widget.maxLines,
+          maxLength: widget.maxLength,
           enabled: widget.enabled,
           textCapitalization: widget.textCapitalization,
           inputFormatters: widget.inputFormatters,
@@ -81,7 +96,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           ),
           decoration: InputDecoration(
             hintText: widget.hint,
-            prefixIcon: widget.prefixIcon,
+            prefixIcon: _buildPrefix(),
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(
@@ -102,4 +117,3 @@ class _CustomTextFieldState extends State<CustomTextField> {
     );
   }
 }
-

@@ -1,41 +1,103 @@
 # StudyMate Classroom 🎓
-**Notes Organiser, Practice Questions and Classroom Grade Manager**
+**Cloud-Synchronized Notes Organiser, Subject Material ZIP Importer, Practice Engine & Classroom Grade Manager**
 
-StudyMate Classroom is an offline-first Android application built with Flutter (Dart) and SQLite (`sqflite`). Designed with an educational dual-role architecture (**Student** and **Teacher**), it unites structured subject-wise study notes, interactive practice questions with revealable answers, 6-character code-based classroom enrollments, and an assessment grade manager with cumulative percentage computation.
+StudyMate Classroom is an Android application built with Flutter (Dart) and powered by **Google Firebase** (**Firebase Authentication** & **Cloud Firestore**). Designed with an educational dual-role architecture (**Student** and **Teacher**), it unites structured subject-wise study notes, interactive practice questions with revealable answers, curriculum material ZIP importing (Subject > Unit > Notes & Practicals), 6-character code-based classroom enrollments, and an assessment grade manager with cumulative percentage metrics.
 
 ---
 
-## Key Features
+## 🌟 Key Features
 
-### 🔐 Authentication & Security
+### 🔐 Authentication & Role Management (Firebase Auth)
 - **Dual User Roles**: Register and login as either a **Student** or a **Teacher**.
-- **Cryptographic Security**: Passwords are saved as salted SHA-256 hashes (`crypto` package); plain text passwords are never stored.
-- **Account Validation**: Unique email constraint enforcement with user-friendly duplication error handling.
-- **Session Management**: Dedicated logout action with confirmation dialog on both Student and Teacher home screens.
+- **Secure Cloud Authentication**: Powered by Firebase Authentication (Email/Password).
+- **User Document Profile**: Registration stores user details (`fullName`, `email`, `phone`, `role`, `createdAt`) in `users/{uid}` in Cloud Firestore.
+- **Graceful Error Mapping**: Friendly error messages for `email-already-in-use`, `wrong-password`, `invalid-credential`, `too-many-requests`, etc.
+- **Dedicated Logout**: Logout button with confirmation dialog on both Student and Teacher dashboards.
 
-### 📚 Student Module
-- **Notes Manager**: Create, edit, delete, search, and pin study notes. Pinned notes dynamically sort to the top.
-- **Academic Topics**: Pre-categorized under *Operating Systems*, *Database Management*, *Computer Networks*, *Mathematics*, *Physics*, and *Other*.
-- **Sample Questions per Note**: Quick shortcut on each note to inspect practice questions for that note's specific topic.
-- **Interactive Practice Tab**: Select any academic topic and test comprehension with tap-to-reveal animated answer cards. Pre-seeded with 20 foundational questions upon first database creation.
-- **Joined Classrooms & Grades**: Join classes using a 6-character code. View instructor names, individual assessment scores (marks/max marks and percentage), and cumulative overall percentage.
+### 📚 Student Module (4 Bottom Navigation Tabs)
+1. **Notes Tab**:
+   - Create, edit, delete, search, and pin study notes in `users/{uid}/notes`.
+   - Pinned notes dynamically sort to the top.
+   - Categorized by academic topics: *Operating Systems*, *Database Management*, *Computer Networks*, *Mathematics*, *Physics*, *Other*.
+   - Shortcut on each note card to view topic sample questions.
+   - Offline sync indicator showing when snapshots are served from local cache.
+2. **Practice Tab**:
+   - Filter by academic topic and test comprehension with tap-to-reveal animated answer cards.
+   - Real-time updates from the global `questions` collection.
+   - Pre-seeded with 20 foundational questions upon first setup.
+3. **Library Tab (ZIP Import of Subject Material)**:
+   - Pick a `.zip` archive from phone storage.
+   - Background isolate extraction parses the multi-tier hierarchy: `Subject > Unit > (Notes / Practicals / questions.json)`.
+   - Security protection: Zip-slip prevention (`../` path blocking) and executable skipping (`.exe`, `.bat`, `.apk`, `.sh`).
+   - Pre-commit interactive preview tree allows reviewing and renaming subjects before importing.
+   - Built-in monospace code/text file viewer with clipboard copy and fallback external app launcher (`open_filex`).
+   - Unit completion checkboxes with dynamic progress bars.
+   - Full subject and unit management (rename, delete with cascading document cleanup).
+   - In-app "How to prepare your ZIP" help dialog explaining the supported directory layout.
+4. **Classrooms Tab**:
+   - Join classrooms using a unique 6-character join code.
+   - Enforce duplicate join prevention and invalid code detection via transactions.
+   - View enrolled courses and tap to inspect detailed evaluation grades (marks obtained, maximum marks, percentage, instructor remarks) and overall classroom percentage.
 
-### 🧑‍🏫 Teacher Module
-- **Classroom Creation**: Create courses by title and subject. Automatically generates a unique 6-character join code (e.g., `OS301A`).
-- **One-Tap Code Sharing**: Quick copy button to copy the classroom code to the clipboard with visual SnackBar confirmation.
-- **Student Roster & Grade Overview**: Inspect enrolled student rosters with each student's contact info and overall percentage badge.
-- **Student Evaluation & Grading**: Tap any enrolled student to view their evaluation history and award new marks (assessment title, max marks, marks obtained, remarks).
-- **Question Bank Authoring**: Author new practice questions and verified answers under any topic, instantly accessible to students in their Practice tab.
+### 🧑‍🏫 Teacher Module (2 Bottom Navigation Tabs)
+1. **Classrooms Tab**:
+   - Create classrooms (name, subject). The system generates a unique 6-character join code (e.g. `OS301A`) guarded by a Firestore transaction reservation in `codes/{code}`.
+   - One-tap copy button with clipboard integration and SnackBar confirmation.
+   - Inspect enrolled student rosters showing individual overall percentages.
+   - Tap any student to view their evaluation history and award new grades (assessment title, max marks, marks obtained, remarks).
+2. **Question Bank Tab**:
+   - Author new practice questions and verified answers under any topic.
+   - Questions immediately sync to all students' Practice tabs.
+   - Filter questions by topic or browse the entire catalog.
+
+---
+
+## 📁 Expected ZIP File Layout
+
+When preparing a study material ZIP archive for import into the Student Library:
+```text
+<Subject Name>/
+  Unit 1 - <Unit Title>/
+    notes/
+      lecture_notes.pdf
+      summary.txt
+    practicals/
+      lab_experiment1.c
+      query.sql
+    questions.json        <-- Optional: array of {"question": "...", "answer": "..."}
+  Unit 2 - <Unit Title>/
+    notes/
+      ...
+    practicals/
+      ...
+```
+
+### Flexible Layout Rules:
+- **Unit Naming**: Supports `Unit 1 - Basics`, `Unit 2. Concurrency`, `Unit_3`, `Module 1`, etc.
+- **Practical Folders**: Supports folder names like `practicals`, `practical`, `lab`, `labs`, `code`, `experiments`.
+- **Top-Level Units**: If the archive has no top-level Subject folder and starts directly with `Unit 1`, `Unit 2`, the app detects this and prompts the student to provide or confirm the subject name.
+- **Embedded Questions**: If a unit folder contains `questions.json`, its questions are parsed and added directly to the app's practice question bank.
+- **Sample ZIP Generator**: Generate a test archive anytime by running:
+  ```bash
+  dart run tool/make_sample_zip.dart
+  ```
+  This creates `sample_study_material.zip` in the project root.
 
 ---
 
 ## 🛠️ Technology Stack & Dependencies
+
 - **Framework**: Flutter 3.47+ (Channel stable)
 - **Language**: Dart 3.13+
-- **Database**: Local SQLite via `sqflite: ^2.3.3+1`
-- **File System**: `path: ^1.9.0`
-- **Security**: `crypto: ^3.0.3` (SHA-256 salted hashing)
-- **Theme**: Material 3 Light Theme only, Indigo primary palette (`#3F51B5`), 12px corner radius, 16px standard spacing.
+- **Authentication**: `firebase_auth: ^6.7.0`
+- **Database & Sync**: `cloud_firestore: ^6.10.0`
+- **Core Firebase**: `firebase_core: ^4.15.0`
+- **Archive Extraction**: `archive: ^3.6.1`
+- **File Picker**: `file_picker: ^13.1.0`
+- **Device Paths**: `path_provider: ^2.1.6`
+- **File Opener**: `open_filex: ^5.0.0`
+- **Testing & Mocking**: `fake_cloud_firestore: ^4.3.0`, `flutter_test`
+- **UI & Design**: Material 3 Light Theme, Indigo primary palette (`#3F51B5`), 12px border radius, 16px standard spacing.
 
 ---
 
@@ -46,120 +108,60 @@ StudyMate Classroom is an offline-first Android application built with Flutter (
 2. Open VS Code Extensions view (`Ctrl+Shift+X` on Windows) and install:
    - **Flutter** (`Dart-Code.flutter`)
    - **Dart** (`Dart-Code.dart-code`)
-3. Install the [Flutter SDK](https://docs.flutter.dev/get-started/install/windows/mobile) and ensure `flutter/bin` is added to your environment `PATH`.
-4. Ensure [Android Studio](https://developer.android.com/studio) or Android Command-line Tools is installed for Android SDK and emulator support.
+3. Install the [Flutter SDK](https://docs.flutter.dev/get-started/install/windows/mobile) and ensure `flutter/bin` is in your environment `PATH`.
+4. Install [Android Studio](https://developer.android.com/studio) or Android Command-line Tools for Android SDK and emulator support.
 
-### 2. Verify Flutter Environment
-Open a terminal in the project root and execute:
+### 2. Configure Firebase (Mandatory for Live Device / Emulator Execution)
+For security and privacy, `firebase_options.dart` and `google-services.json` must be generated for your own Firebase project. Follow the detailed steps in [SETUP_FIREBASE.md](file:///c:/Users/Aarush/Desktop/Notes_manager/Notes-manager/SETUP_FIREBASE.md):
+
 ```bash
-flutter doctor
-```
-Resolve any highlighted issues (e.g., Android toolchain or license acceptance via `flutter doctor --android-licenses`).
+# 1. Install CLI tools
+npm install -g firebase-tools
+dart pub global activate flutterfire_cli
 
-### 3. Scaffolding Android Platform (If Platform Folders are Missing)
-If cloning into a clean repository where Android platform folders need reconstruction without overwriting `lib/`:
-```bash
-flutter create --platforms=android .
+# 2. Login to Firebase
+firebase login
+
+# 3. Configure FlutterFire (creates lib/firebase_options.dart and android/app/google-services.json)
+flutterfire configure
+
+# 4. Deploy security rules
+firebase deploy --only firestore:rules
 ```
 
-### 4. Fetch Dependencies
-Install all required pub packages:
+> **Note**: If you run the app before configuring Firebase, StudyMate Classroom will display a helpful in-app setup guidance screen (`FirebaseNotConfiguredScreen`) with one-tap clipboard copy buttons instead of crashing.
+
+### 3. Fetch Dependencies
 ```bash
 flutter pub get
 ```
 
-### 5. Static Analysis & Unit Tests
-Verify that there are zero analyzer errors/warnings and run the automated test suite:
+### 4. Static Analysis & Unit Tests
+Verify zero analyzer issues and run the comprehensive automated test suite (48 test cases):
 ```bash
-# Static analysis (reports 0 errors and 0 warnings)
+# Static analysis (reports zero issues)
 flutter analyze
 
-# Automated unit tests (16 test cases covering Validators)
+# Automated unit tests (48 tests covering Validators, ZIP Parser, and Firestore)
 flutter test
 ```
 
-### 6. Run on an Android Emulator
-1. Check available emulators:
-   ```bash
-   flutter emulators
-   ```
-2. If no emulator exists, create one via the Flutter CLI or Android Studio Device Manager:
-   ```bash
-   flutter emulators --create --name Pixel_8_API_34
-   ```
-3. Launch the emulator:
-   ```bash
-   flutter emulators --launch Pixel_8_API_34
-   ```
-4. Verify connected devices:
-   ```bash
-   flutter devices
-   ```
-5. Run the application with hot reload:
-   ```bash
-   flutter run
-   ```
-
-### 7. Run on a Physical Android Smartphone
-1. On your Android phone, enable **Developer Options**:
-   - Go to **Settings** > **About Phone**.
-   - Tap **Build Number** 7 times continuously until you see *"You are now a developer!"*.
-2. Enable **USB Debugging**:
-   - Go to **Settings** > **System / Additional Settings** > **Developer Options**.
-   - Toggle **USB Debugging** to ON.
-3. Connect your phone to your PC via a USB cable. Accept the *"Allow USB debugging?"* prompt on your phone screen.
-4. Verify your phone is detected:
-   ```bash
-   flutter devices
-   ```
-5. Deploy and run the app directly on your phone:
-   ```bash
-   flutter run -d <your-device-id>
-   ```
-
-### 8. Build Release APK
-To compile the standalone production release APK for Android:
+### 5. Run on Device / Emulator
+Select your connected Android device or emulator in the VS Code status bar and run:
 ```bash
-flutter build apk --release
-```
-**APK Output Path**:
-```
-build/app/outputs/flutter-apk/app-release.apk
+flutter run
 ```
 
 ---
 
-## 🧪 Testing Matrix & Documentation
-- `test/validators_test.dart`: Contains 16 unit tests (`TC-P1`..`TC-P8` positive cases, `TC-N1`..`TC-N8` negative cases).
-- `docs/TEST_CASES.md`: Comprehensive test matrix including unit test execution logs and manual UI test scenarios.
-- `docs/REPORT.md`: Full academic project report (Chapters 1 to 8) with Mermaid diagrams (Architecture, Flowchart, Use Cases, ER Diagram).
+## 🔒 Security Rules & Indexes
+
+- **Security Rules (`firestore.rules`)**: Strict role-based rules protecting `users/{uid}`, `notes`, `subjects`, `units`, `resources`, `classrooms`, `codes`, `grades`, and `questions`. See [firestore.rules](file:///c:/Users/Aarush/Desktop/Notes_manager/Notes-manager/firestore.rules) and [SETUP_FIREBASE.md](file:///c:/Users/Aarush/Desktop/Notes_manager/Notes-manager/SETUP_FIREBASE.md) for full explanations.
+- **Composite Indexes (`firestore.indexes.json`)**: Configured for compound queries (e.g. notes ordered by `pinned` desc, `createdAt` desc).
 
 ---
 
-## 📁 Project Directory Structure
-```
-studymate_classroom/
-├── android/                   # Android native platform files
-├── docs/
-│   ├── REPORT.md              # 8-chapter academic project report with Mermaid diagrams
-│   └── TEST_CASES.md          # Positive & negative test case matrix
-├── lib/
-│   ├── models/                # Data entities (User, Note, Classroom, Grade, Question)
-│   ├── screens/
-│   │   ├── auth/              # LoginScreen, RegisterScreen
-│   │   ├── student/           # StudentHomeScreen, NotesTab, PracticeTab, ClassroomsTab, GradesScreen
-│   │   └── teacher/           # TeacherHomeScreen, ClassroomsTab, DetailScreen, GradeHistoryScreen, QuestionBankTab
-│   ├── services/
-│   │   └── database_service.dart # Central SQLite repository with salted SHA-256
-│   ├── utils/
-│   │   ├── app_exception.dart # Domain AppException class
-│   │   ├── app_theme.dart     # Material 3 light theme (Indigo, 12px radius, 16px spacing)
-│   │   ├── constants.dart     # Academic topics and 20 seeded practice questions
-│   │   └── validators.dart    # Pure static form validators
-│   ├── widgets/               # Reusable UI widgets (CustomTextField, PrimaryButton, CustomDialog, EmptyState)
-│   └── main.dart              # Application entry point
-├── test/
-│   └── validators_test.dart   # Unit tests with flutter_test
-├── pubspec.yaml               # Project dependencies (sqflite, path, crypto)
-└── README.md                  # Setup and execution instructions
-```
+## ⚠️ Limitations & Notes
+
+- **SQLite Data Migration**: Legacy local data stored in `sqflite` databases from earlier versions of this project is not automatically migrated to Cloud Firestore.
+- **Real Device Execution**: Running the app on a live emulator or phone requires running `flutterfire configure` to generate project-specific Firebase credentials.

@@ -1,23 +1,27 @@
-/// Represents an academic assessment evaluation score awarded to an enrolled student.
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Represents an assessment grade in Cloud Firestore: classrooms/{classId}/grades/{gradeId}
 class Grade {
-  final int? id;
-  final int classroomId;
-  final int studentId;
+  final String id;
+  final String classroomId;
+  final String studentId;
+  final String studentName;
   final String assessmentTitle;
   final double maxMarks;
   final double marksObtained;
   final String? remarks;
-  final String gradedAt;
+  final DateTime? createdAt;
 
   const Grade({
-    this.id,
+    required this.id,
     required this.classroomId,
     required this.studentId,
+    this.studentName = '',
     required this.assessmentTitle,
     required this.maxMarks,
     required this.marksObtained,
     this.remarks,
-    required this.gradedAt,
+    this.createdAt,
   });
 
   /// Computed percentage for this assessment.
@@ -30,54 +34,64 @@ class Grade {
   String get percentageString => '${percentage.toStringAsFixed(1)}%';
 
   Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
-      'classroom_id': classroomId,
-      'student_id': studentId,
-      'assessment_title': assessmentTitle,
-      'max_marks': maxMarks,
-      'marks_obtained': marksObtained,
+    return {
+      'studentId': studentId,
+      'studentName': studentName,
+      'title': assessmentTitle,
+      'maxMarks': maxMarks,
+      'marksObtained': marksObtained,
       'remarks': remarks,
-      'graded_at': gradedAt,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
-    if (id != null) {
-      map['id'] = id;
-    }
-    return map;
   }
 
-  factory Grade.fromMap(Map<String, dynamic> map) {
+  factory Grade.fromMap(Map<String, dynamic> map, String docId, {String classroomId = ''}) {
+    DateTime? parsedCreatedAt;
+    final rawDate = map['createdAt'] ?? map['graded_at'];
+    if (rawDate is Timestamp) {
+      parsedCreatedAt = rawDate.toDate();
+    } else if (rawDate is String) {
+      parsedCreatedAt = DateTime.tryParse(rawDate);
+    }
+
     return Grade(
-      id: map['id'] as int?,
-      classroomId: map['classroom_id'] as int,
-      studentId: map['student_id'] as int,
-      assessmentTitle: map['assessment_title'] as String,
-      maxMarks: (map['max_marks'] as num).toDouble(),
-      marksObtained: (map['marks_obtained'] as num).toDouble(),
+      id: docId,
+      classroomId: classroomId.isNotEmpty ? classroomId : (map['classroomId'] ?? map['classroom_id'] ?? '').toString(),
+      studentId: (map['studentId'] ?? map['student_id'] ?? '').toString(),
+      studentName: (map['studentName'] ?? map['student_name'] ?? '') as String,
+      assessmentTitle: (map['title'] ?? map['assessment_title'] ?? '') as String,
+      maxMarks: (map['maxMarks'] ?? map['max_marks'] as num? ?? 100.0).toDouble(),
+      marksObtained: (map['marksObtained'] ?? map['marks_obtained'] as num? ?? 0.0).toDouble(),
       remarks: map['remarks'] as String?,
-      gradedAt: map['graded_at'] as String,
+      createdAt: parsedCreatedAt,
     );
   }
 }
 
-/// Helper model encapsulating a student's profile together with their classroom grade summary.
+/// Helper model encapsulating aggregate student score within a classroom.
 class StudentGradeSummary {
-  final int studentId;
-  final String name;
-  final String email;
-  final String phone;
-  final double? overallPercentage;
+  final String studentId;
+  final String studentName;
+  final String studentEmail;
+  final String studentPhone;
+  final double totalObtained;
+  final double totalMax;
   final int assessmentsCount;
 
   const StudentGradeSummary({
     required this.studentId,
-    required this.name,
-    required this.email,
-    required this.phone,
-    this.overallPercentage,
-    this.assessmentsCount = 0,
+    required this.studentName,
+    required this.studentEmail,
+    required this.studentPhone,
+    required this.totalObtained,
+    required this.totalMax,
+    required this.assessmentsCount,
   });
 
-  String get percentageDisplay =>
-      overallPercentage != null ? '${overallPercentage!.toStringAsFixed(1)}%' : 'Not Graded';
-}
+  double get overallPercentage {
+    if (totalMax <= 0) return 0.0;
+    return (totalObtained / totalMax) * 100.0;
+  }
 
+  String get overallPercentageString => '${overallPercentage.toStringAsFixed(1)}%';
+}

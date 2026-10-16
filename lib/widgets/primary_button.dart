@@ -14,7 +14,8 @@ class PrimaryButton extends StatelessWidget {
 
   const PrimaryButton({
     super.key,
-    required this.label,
+    String? label,
+    String? text,
     required this.onPressed,
     this.isLoading = false,
     this.icon,
@@ -22,7 +23,7 @@ class PrimaryButton extends StatelessWidget {
     this.foregroundColor,
     this.height = 48.0,
     this.width,
-  });
+  }) : label = label ?? text ?? '';
 
   @override
   Widget build(BuildContext context) {
@@ -58,16 +59,14 @@ class PrimaryButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (icon != null) ...[
-                    Icon(icon, size: 20, color: effectiveFg),
+                    Icon(icon, size: 20),
                     const SizedBox(width: 8),
                   ],
                   Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: effectiveFg,
-                      letterSpacing: 0.3,
                     ),
                   ),
                 ],
@@ -76,4 +75,3 @@ class PrimaryButton extends StatelessWidget {
     );
   }
 }
-

@@ -1,80 +1,96 @@
-/// Represents a classroom managed by a teacher and joined by students.
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Represents a classroom in Cloud Firestore: classrooms/{classId}
 class Classroom {
-  final int? id;
-  final int teacherId;
+  final String id;
+  final String teacherId;
+  final String teacherName;
   final String name;
   final String subject;
-  final String code; // 6-character unique code
-  final String createdAt;
+  final String code; // 6-character unique join code
+  final List<String> studentIds;
+  final DateTime? createdAt;
 
   // Joined presentation fields
-  final String? teacherName;
-  final int studentCount;
   final double? studentOverallPercentage;
 
   const Classroom({
-    this.id,
+    required this.id,
     required this.teacherId,
+    required this.teacherName,
     required this.name,
     required this.subject,
     required this.code,
-    required this.createdAt,
-    this.teacherName,
-    this.studentCount = 0,
+    this.studentIds = const [],
+    this.createdAt,
     this.studentOverallPercentage,
   });
 
+  int get studentCount => studentIds.length;
+
   Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
-      'teacher_id': teacherId,
+    return {
       'name': name,
       'subject': subject,
+      'teacherId': teacherId,
+      'teacherName': teacherName,
       'code': code,
-      'created_at': createdAt,
+      'studentIds': studentIds,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
-    if (id != null) {
-      map['id'] = id;
-    }
-    return map;
   }
 
-  factory Classroom.fromMap(Map<String, dynamic> map) {
+  factory Classroom.fromMap(Map<String, dynamic> map, String docId, {double? overallPercentage}) {
+    DateTime? parsedCreatedAt;
+    final rawCreated = map['createdAt'] ?? map['created_at'];
+    if (rawCreated is Timestamp) {
+      parsedCreatedAt = rawCreated.toDate();
+    } else if (rawCreated is String) {
+      parsedCreatedAt = DateTime.tryParse(rawCreated);
+    }
+
+    final rawStudentIds = map['studentIds'] ?? map['student_ids'];
+    final List<String> parsedStudentIds = [];
+    if (rawStudentIds is List) {
+      for (final item in rawStudentIds) {
+        parsedStudentIds.add(item.toString());
+      }
+    }
+
     return Classroom(
-      id: map['id'] as int?,
-      teacherId: map['teacher_id'] as int,
-      name: map['name'] as String,
-      subject: map['subject'] as String,
-      code: map['code'] as String,
-      createdAt: map['created_at'] as String,
-      teacherName: map['teacher_name'] as String?,
-      studentCount: (map['student_count'] as num?)?.toInt() ?? 0,
-      studentOverallPercentage: (map['overall_percentage'] as num?)?.toDouble(),
+      id: docId,
+      teacherId: (map['teacherId'] ?? map['teacher_id'] ?? '').toString(),
+      teacherName: (map['teacherName'] ?? map['teacher_name'] ?? 'Instructor') as String,
+      name: (map['name'] ?? '') as String,
+      subject: (map['subject'] ?? '') as String,
+      code: (map['code'] ?? '') as String,
+      studentIds: parsedStudentIds,
+      createdAt: parsedCreatedAt,
+      studentOverallPercentage: overallPercentage ?? (map['overall_percentage'] as num?)?.toDouble(),
     );
   }
 
   Classroom copyWith({
-    int? id,
-    int? teacherId,
+    String? id,
+    String? teacherId,
+    String? teacherName,
     String? name,
     String? subject,
     String? code,
-    String? createdAt,
-    String? teacherName,
-    int? studentCount,
+    List<String>? studentIds,
+    DateTime? createdAt,
     double? studentOverallPercentage,
   }) {
     return Classroom(
       id: id ?? this.id,
       teacherId: teacherId ?? this.teacherId,
+      teacherName: teacherName ?? this.teacherName,
       name: name ?? this.name,
       subject: subject ?? this.subject,
       code: code ?? this.code,
+      studentIds: studentIds ?? this.studentIds,
       createdAt: createdAt ?? this.createdAt,
-      teacherName: teacherName ?? this.teacherName,
-      studentCount: studentCount ?? this.studentCount,
-      studentOverallPercentage:
-          studentOverallPercentage ?? this.studentOverallPercentage,
+      studentOverallPercentage: studentOverallPercentage ?? this.studentOverallPercentage,
     );
   }
 }
-

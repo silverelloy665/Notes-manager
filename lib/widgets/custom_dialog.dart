@@ -12,18 +12,21 @@ class CustomDialog extends StatelessWidget {
   final VoidCallback? onCancel;
   final bool isLoading;
   final IconData? titleIcon;
+  final Color? confirmColor;
 
   const CustomDialog({
     super.key,
     required this.title,
     required this.content,
-    this.confirmLabel = 'Save',
+    String? confirmLabel,
+    String? confirmText,
     this.onConfirm,
     this.cancelLabel = 'Cancel',
     this.onCancel,
     this.isLoading = false,
     this.titleIcon,
-  });
+    this.confirmColor,
+  }) : confirmLabel = confirmLabel ?? confirmText ?? 'Save';
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +97,7 @@ class CustomDialog extends StatelessWidget {
                     width: 120,
                     height: 42,
                     isLoading: isLoading,
+                    backgroundColor: confirmColor,
                     onPressed: onConfirm,
                   ),
                 ],
@@ -105,4 +109,3 @@ class CustomDialog extends StatelessWidget {
     );
   }
 }
-

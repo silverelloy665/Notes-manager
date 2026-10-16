@@ -42,6 +42,21 @@ void main() {
       final result = Validators.validateMarksObtained('85.5', 100.0);
       expect(result, isNull);
     });
+
+    test('TC-P9: Valid subject name between 2 and 50 characters returns null', () {
+      final result = Validators.validateSubjectName('Operating Systems');
+      expect(result, isNull);
+    });
+
+    test('TC-P10: Valid unit title returns null', () {
+      final result = Validators.validateUnitTitle('Process Management & Threads');
+      expect(result, isNull);
+    });
+
+    test('TC-P11: Valid ZIP file under 100MB with .zip extension returns null', () {
+      final result = Validators.validateZipFile(fileName: 'materials.zip', sizeInBytes: 1024 * 1024);
+      expect(result, isNull);
+    });
   });
 
   group('Validators Negative Test Suite', () {
@@ -91,6 +106,45 @@ void main() {
       final result = Validators.validateMarksObtained('105', 100.0);
       expect(result, isNotNull);
       expect(result, contains('cannot exceed maximum marks'));
+    });
+
+    test('TC-N9: Single character subject name returns error message', () {
+      final result = Validators.validateSubjectName('A');
+      expect(result, isNotNull);
+      expect(result, contains('at least 2 characters'));
+    });
+
+    test('TC-N10: Subject name exceeding 50 characters returns error message', () {
+      final result = Validators.validateSubjectName('A' * 51);
+      expect(result, isNotNull);
+      expect(result, contains('cannot exceed 50 characters'));
+    });
+
+    test('TC-N11: Empty unit title returns error message', () {
+      final result = Validators.validateUnitTitle('   ');
+      expect(result, isNotNull);
+      expect(result, contains('Unit title is required.'));
+    });
+
+    test('TC-N12: File without .zip extension returns error message', () {
+      final result = Validators.validateZipFile(fileName: 'document.pdf', sizeInBytes: 5000);
+      expect(result, isNotNull);
+      expect(result, contains('must have a .zip extension'));
+    });
+
+    test('TC-N13: Zero byte ZIP file returns error message', () {
+      final result = Validators.validateZipFile(fileName: 'archive.zip', sizeInBytes: 0);
+      expect(result, isNotNull);
+      expect(result, contains('empty'));
+    });
+
+    test('TC-N14: ZIP file exceeding 100MB returns error message', () {
+      final result = Validators.validateZipFile(
+        fileName: 'huge.zip',
+        sizeInBytes: 101 * 1024 * 1024,
+      );
+      expect(result, isNotNull);
+      expect(result, contains('exceeds the maximum size limit of 100 MB'));
     });
   });
 }

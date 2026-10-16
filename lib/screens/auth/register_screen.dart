@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/database_service.dart';
-import '../../utils/app_exception.dart';
-import '../../utils/app_theme.dart';
-import '../../utils/validators.dart';
-import '../../widgets/custom_text_field.dart';
-import '../../widgets/primary_button.dart';
-import '../student/student_home_screen.dart';
-import '../teacher/teacher_home_screen.dart';
+import 'package:studymate_classroom/models/user_model.dart';
+import 'package:studymate_classroom/screens/student/student_home_screen.dart';
+import 'package:studymate_classroom/screens/teacher/teacher_home_screen.dart';
+import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/utils/app_exception.dart';
+import 'package:studymate_classroom/utils/app_theme.dart';
+import 'package:studymate_classroom/utils/validators.dart';
+import 'package:studymate_classroom/widgets/custom_text_field.dart';
+import 'package:studymate_classroom/widgets/primary_button.dart';
 
-/// Screen allowing new users to register as a Student or Teacher.
+/// Screen allowing new users to register as a Student or Teacher using Firebase Auth and Firestore.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -44,7 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = await DatabaseService.instance.registerUser(
+      final user = await FirestoreService.instance.register(
         name: _nameController.text,
         email: _emailController.text,
         phone: _phoneController.text,
@@ -61,15 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
 
-      // Route to appropriate home screen
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => user.isTeacher
-              ? TeacherHomeScreen(currentUser: user)
-              : StudentHomeScreen(currentUser: user),
-        ),
-        (route) => false,
-      );
+      _navigateUser(user);
     } on AppException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -82,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Registration failed: ${e.toString()}'),
+          content: Text('Registration failed: $e'),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -93,152 +86,159 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  void _navigateUser(User user) {
+    if (user.isTeacher) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => TeacherHomeScreen(currentUser: user)),
+        (route) => false,
+      );
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => StudentHomeScreen(currentUser: user)),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Create Account'),
       ),
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacingLg, vertical: 20.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: AppTheme.maxFormWidth),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppTheme.spacing),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                      ),
                       child: Padding(
-                        padding: const EdgeInsets.all(AppTheme.spacingLg),
+                        padding: const EdgeInsets.all(20.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             const Text(
-                              'User Registration',
+                              'Join StudyMate Classroom',
                               style: TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A202C),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 16),
+                            // Role Selector Segmented Controls
                             const Text(
-                              'Please complete the fields below to register.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Full Name
-                            CustomTextField(
-                              controller: _nameController,
-                              label: 'Full Name',
-                              hint: 'Enter your full name (letters only)',
-                              textCapitalization: TextCapitalization.words,
-                              prefixIcon: const Icon(Icons.person_outline, size: 20),
-                              validator: Validators.validateName,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Email Address
-                            CustomTextField(
-                              controller: _emailController,
-                              label: 'Email Address',
-                              hint: 'example@domain.com',
-                              keyboardType: TextInputType.emailAddress,
-                              prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                              validator: Validators.validateEmail,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // 10-digit Phone
-                            CustomTextField(
-                              controller: _phoneController,
-                              label: 'Phone Number (10 digits)',
-                              hint: '9876543210',
-                              keyboardType: TextInputType.phone,
-                              prefixIcon: const Icon(Icons.phone_outlined, size: 20),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(10),
-                              ],
-                              validator: Validators.validatePhone,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Role Selection Dropdown
-                            const Text(
-                              'Select Role',
+                              'Select Your Role',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151),
+                                color: Color(0xFF2D3748),
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            DropdownButtonFormField<String>(
-                              initialValue: _selectedRole,
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.badge_outlined, size: 20),
-                              ),
-                              items: const [
-                                DropdownMenuItem(
+                            const SizedBox(height: 8),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
                                   value: 'Student',
-                                  child: Text('Student (View notes, practice, track grades)'),
+                                  label: Text('Student'),
+                                  icon: Icon(Icons.school_outlined),
                                 ),
-                                DropdownMenuItem(
+                                ButtonSegment(
                                   value: 'Teacher',
-                                  child: Text('Teacher (Create classrooms, grade, add questions)'),
+                                  label: Text('Teacher'),
+                                  icon: Icon(Icons.co_present_outlined),
                                 ),
                               ],
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _selectedRole = val);
-                                }
+                              selected: {_selectedRole},
+                              onSelectionChanged: (newSelection) {
+                                setState(() => _selectedRole = newSelection.first);
                               },
                             ),
                             const SizedBox(height: 16),
-
-                            // Password
+                            CustomTextField(
+                              controller: _nameController,
+                              label: 'Full Name',
+                              hintText: 'Enter your full name (letters only)',
+                              textCapitalization: TextCapitalization.words,
+                              prefixIcon: Icons.person_outline,
+                              validator: Validators.validateName,
+                            ),
+                            const SizedBox(height: 16),
+                            CustomTextField(
+                              controller: _emailController,
+                              label: 'Email Address',
+                              hintText: 'student@domain.com',
+                              keyboardType: TextInputType.emailAddress,
+                              prefixIcon: Icons.email_outlined,
+                              validator: Validators.validateEmail,
+                            ),
+                            const SizedBox(height: 16),
+                            CustomTextField(
+                              controller: _phoneController,
+                              label: 'Phone Number (10 digits)',
+                              hintText: '9876543210',
+                              keyboardType: TextInputType.phone,
+                              prefixIcon: Icons.phone_outlined,
+                              maxLength: 10,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              validator: Validators.validatePhone,
+                            ),
+                            const SizedBox(height: 16),
                             CustomTextField(
                               controller: _passwordController,
                               label: 'Password',
-                              hint: 'Min 8 chars, 1 uppercase & 1 number',
+                              hintText: 'Min 8 chars, 1 uppercase & 1 number',
                               isPassword: true,
-                              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                              prefixIcon: Icons.lock_outline,
                               validator: Validators.validatePassword,
                             ),
                             const SizedBox(height: 16),
-
-                            // Confirm Password
                             CustomTextField(
                               controller: _confirmPasswordController,
                               label: 'Confirm Password',
-                              hint: 'Re-enter your password',
+                              hintText: 'Re-enter your password',
                               isPassword: true,
-                              prefixIcon: const Icon(Icons.lock_reset_outlined, size: 20),
+                              prefixIcon: Icons.lock_outline,
                               validator: (val) => Validators.validateConfirmPassword(
                                 val,
                                 _passwordController.text,
                               ),
                             ),
                             const SizedBox(height: 24),
-
-                            // Submit Button
                             PrimaryButton(
-                              label: 'Create Account',
-                              icon: Icons.person_add_alt_1,
+                              text: 'Create Account',
                               isLoading: _isLoading,
+                              icon: Icons.person_add_rounded,
                               onPressed: _handleRegister,
                             ),
                           ],
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Already have an account?', style: TextStyle(color: Colors.grey.shade700)),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text(
+                            'Sign In',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
