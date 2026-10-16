@@ -1,0 +1,163 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // HELPER FUNCTIONS
+    // =========================================================================
+
+    // Returns true if the request is from an authenticated user.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Returns true if the authenticated user owns the given userId.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Safely retrieves the authenticated user's profile document data.
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Returns true if the authenticated user has the 'Teacher' role.
+    function isTeacher() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserData().get('role', '') == 'Teacher';
+    }
+
+    // Returns true if the authenticated user has the 'Student' role.
+    function isStudent() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserData().get('role', '') == 'Student';
+    }
+
+    // Retrieves the owner teacherId for a given classroom.
+    function classroomTeacherId(classId) {
+      return get(/databases/$(database)/documents/classrooms/$(classId)).data.teacherId;
+    }
+
+    // Returns true if a student is only adding or removing their own UID in studentIds.
+    function isStudentEnrollmentUpdate() {
+      let diff = request.resource.data.diff(resource.data);
+      let added = request.resource.data.studentIds.toSet().difference(resource.data.studentIds.toSet());
+      let removed = resource.data.studentIds.toSet().difference(request.resource.data.studentIds.toSet());
+      return diff.affectedKeys().hasOnly(['studentIds']) &&
+        ((added == [request.auth.uid].toSet() && removed == [].toSet()) ||
+         (removed == [request.auth.uid].toSet() && added == [].toSet()));
+    }
+
+    // =========================================================================
+    // 1. USERS & USER SUBCOLLECTIONS
+    // =========================================================================
+
+    match /users/{userId} {
+      // Users can read their own profile; teachers can read profiles to view classroom rosters
+      allow read: if isSignedIn() && (request.auth.uid == userId || isTeacher());
+
+      // On create: must be owner, and role may only be 'Student' or 'Teacher'
+      allow create: if isOwner(userId) &&
+        request.resource.data.get('role', '') in ['Student', 'Teacher'];
+
+      // On update: must be owner, and role cannot change
+      allow update: if isOwner(userId) &&
+        request.resource.data.get('role', '') == resource.data.get('role', '');
+
+      // User profile documents cannot be deleted
+      allow delete: if false;
+
+      // Subcollections (notes, subjects, units, resources, questions) strictly owned by the student
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // =========================================================================
+    // 2. CLASSROOMS & GRADES
+    // =========================================================================
+
+    match /classrooms/{classId} {
+      // Any signed-in user can get a specific classroom document by ID (required for join-by-code transaction)
+      allow get: if isSignedIn();
+
+      // List queries are restricted to the owner teacher and enrolled students
+      allow list: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        request.auth.uid in resource.data.studentIds
+      );
+
+      // Only teachers can create classrooms they own
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+
+      // Writable by the owning teacher, or by an authenticated student joining/leaving (only altering studentIds)
+      allow update: if isSignedIn() && (
+        resource.data.teacherId == request.auth.uid ||
+        isStudentEnrollmentUpdate()
+      );
+
+      // Only the owning teacher can delete the classroom
+      allow delete: if isSignedIn() && resource.data.teacherId == request.auth.uid;
+
+      // Classroom assessment grades
+      match /grades/{gradeId} {
+        // Readable by the classroom teacher or the specific student who received the grade
+        allow read: if isSignedIn() && (
+          classroomTeacherId(classId) == request.auth.uid ||
+          resource.data.studentId == request.auth.uid
+        );
+
+        // Writable exclusively by the classroom's owner teacher
+        allow write: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
+      }
+    }
+
+    // =========================================================================
+    // 3. CLASSROOM CODE RESERVATIONS
+    // =========================================================================
+
+    match /codes/{code} {
+      // Readable by any authenticated user to look up classroom join codes
+      allow read: if isSignedIn();
+
+      // Created by teachers during classroom code reservation
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+
+      // Updated or deleted exclusively by the owning teacher
+      allow update, delete: if isSignedIn() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // =========================================================================
+    // 4. PRACTICE QUESTIONS & QUESTION BANK
+    // =========================================================================
+
+    match /questions/{questionId} {
+      // Readable by any authenticated user for revision and practice
+      allow read: if isSignedIn();
+
+      // Creatable, updatable, and deletable exclusively by teachers (no createdBy == null bypass)
+      allow create, update, delete: if isTeacher();
+    }
+
+    // =========================================================================
+    // 5. SYSTEM CONFIGURATION & SEED GUARD
+    // =========================================================================
+
+    match /config/{configId} {
+      // Allows reading system configuration, writable only by teachers for idempotent seeding
+      allow read: if isSignedIn();
+      allow write: if isTeacher() && configId == 'seed';
+    }
+
+    // =========================================================================
+    // 6. DEFAULT CATCH-ALL (DENY EVERYTHING ELSE)
+    // =========================================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
