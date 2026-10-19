@@ -1,10 +1,12 @@
 {
   "java.import.gradle.enabled": false,
   "java.import.gradle.wrapper.enabled": false,
+  "java.import.gradle.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot",
   "java.gradle.buildServer.enabled": "off",
   "gradle.autoDetect": "off",
   "java.configuration.updateBuildConfiguration": "disabled",
   "java.autobuild.enabled": false,
+  "java.jdt.ls.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot",
   "java.import.exclusions": [
     "**/node_modules/**",
     "**/.metadata/**",
