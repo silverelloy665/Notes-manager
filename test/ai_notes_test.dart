@@ -61,10 +61,10 @@ It is important to remember that binary semaphores can be signaled by any thread
         topic: 'Operating Systems',
       );
 
-      expect(summary, contains('## 📌 Executive Overview'));
-      expect(summary, contains('## 🎯 Core Concepts & Definitions'));
-      expect(summary, contains('## 🔑 Key Takeaways & Summary Points'));
-      expect(summary, contains('## 💡 Exam & Revision Tips'));
+      expect(summary, contains('## ⚡ One-Line TL;DR'));
+      expect(summary, contains('## 🔑 5 High-Yield Key Points'));
+      expect(summary, contains('## 📖 Section-by-Section Deep Dive'));
+      expect(summary, contains('## 📝 Exam Cheat Sheet'));
       expect(summary, contains('semaphore'));
     });
 

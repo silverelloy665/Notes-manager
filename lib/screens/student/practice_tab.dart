@@ -9,6 +9,8 @@ import 'package:studymate_classroom/services/document_processing_service.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
 import 'package:studymate_classroom/services/notes_ai_service.dart';
 import 'package:studymate_classroom/screens/student/exam_simulation_view.dart';
+import 'package:studymate_classroom/services/spaced_repetition_service.dart';
+import 'package:studymate_classroom/widgets/mastery_dashboard_view.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/utils/constants.dart';
 import 'package:studymate_classroom/widgets/botanical_decoration.dart';
@@ -32,8 +34,10 @@ class _PracticeTabState extends State<PracticeTab> {
   bool _isProcessingPdf = false;
   bool _hasSeeded = false;
 
-  // Flashcard Deck, Question Bank & Exam Simulator view mode
-  String _currentViewMode = 'bank'; // 'bank', 'deck', 'exam'
+  // Flashcard Deck, Question Bank, Exam Simulator & Adaptive Practice view mode
+  String _currentViewMode = 'bank'; // 'bank', 'deck', 'exam', 'adaptive'
+  bool _showMasteryDashboard = false;
+  bool _reviewDueOnly = false;
   String _questionTypeFilter = 'all'; // 'all', 'mcq', 'qa'
   String _searchQuery = '';
   String _selectedDifficulty = 'all'; // 'all', 'Easy', 'Medium', 'Hard'
@@ -1403,35 +1407,73 @@ class _PracticeTabState extends State<PracticeTab> {
                   children: [
                     Row(
                       children: [
-                        // Mode Switcher: Flashcards vs Question Bank vs Exam Simulator
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildModeButton(
-                                label: '📋 Question Bank',
-                                isSelected: _currentViewMode == 'bank',
-                                onTap: () => setState(() => _currentViewMode = 'bank'),
-                              ),
-                              _buildModeButton(
-                                label: '🎴 Flashcard Deck',
-                                isSelected: _currentViewMode == 'deck',
-                                onTap: () => setState(() => _currentViewMode = 'deck'),
-                              ),
-                              _buildModeButton(
-                                label: '🎓 Exam Simulator',
-                                isSelected: _currentViewMode == 'exam',
-                                onTap: () => setState(() => _currentViewMode = 'exam'),
-                              ),
-                            ],
+                        // Mode Switcher: Flashcards vs Question Bank vs Exam Simulator vs Adaptive Practice
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildModeButton(
+                                  label: '📋 Question Bank',
+                                  isSelected: _currentViewMode == 'bank',
+                                  onTap: () => setState(() {
+                                    _currentViewMode = 'bank';
+                                    _reviewDueOnly = false;
+                                  }),
+                                ),
+                                _buildModeButton(
+                                  label: '🎴 Flashcard Deck',
+                                  isSelected: _currentViewMode == 'deck',
+                                  onTap: () => setState(() {
+                                    _currentViewMode = 'deck';
+                                    _reviewDueOnly = false;
+                                  }),
+                                ),
+                                _buildModeButton(
+                                  label: '🎓 Exam Simulator',
+                                  isSelected: _currentViewMode == 'exam',
+                                  onTap: () => setState(() {
+                                    _currentViewMode = 'exam';
+                                    _reviewDueOnly = false;
+                                  }),
+                                ),
+                                _buildModeButton(
+                                  label: '🧠 Adaptive Practice',
+                                  isSelected: _currentViewMode == 'adaptive',
+                                  onTap: () => setState(() {
+                                    _currentViewMode = 'adaptive';
+                                    _reviewDueOnly = false;
+                                  }),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const Spacer(),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: _showMasteryDashboard ? AppTheme.primaryLight : Colors.white,
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.psychology_rounded, size: 16),
+                          label: Text(
+                            SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
+                                ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
+                                : 'Mastery Dashboard',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
+                        ),
+                        const SizedBox(width: 8),
                         Text(
                           '${filtered.length} Questions',
                           style: const TextStyle(
@@ -1541,7 +1583,37 @@ class _PracticeTabState extends State<PracticeTab> {
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
-                    : filtered.isEmpty
+                    : _showMasteryDashboard
+                        ? SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: MasteryDashboardView(
+                              questions: _allQuestions,
+                              onStartAdaptivePractice: () {
+                                setState(() {
+                                  _currentViewMode = 'adaptive';
+                                  _reviewDueOnly = false;
+                                  _showMasteryDashboard = false;
+                                });
+                              },
+                              onReviewDue: () {
+                                setState(() {
+                                  _currentViewMode = 'deck';
+                                  _reviewDueOnly = true;
+                                  _showMasteryDashboard = false;
+                                });
+                              },
+                              onPracticeTopic: (topic) {
+                                setState(() {
+                                  _selectedTopic = topic;
+                                  _currentViewMode = 'adaptive';
+                                  _reviewDueOnly = false;
+                                  _showMasteryDashboard = false;
+                                });
+                              },
+                              onClose: () => setState(() => _showMasteryDashboard = false),
+                            ),
+                          )
+                        : filtered.isEmpty
                         ? Center(
                             child: SingleChildScrollView(
                               padding: const EdgeInsets.all(24),
@@ -1638,11 +1710,25 @@ class _PracticeTabState extends State<PracticeTab> {
                                 initialTopic: _selectedTopic,
                                 onExit: () => setState(() => _currentViewMode = 'bank'),
                               )
-                            : _currentViewMode == 'deck'
+                            : (_currentViewMode == 'deck' || _currentViewMode == 'adaptive')
                                 ? _FlashcardDeckView(
-                                    questions: filtered,
-                                    topic: _selectedTopic,
-                                    onExitFlashcards: () => setState(() => _currentViewMode = 'bank'),
+                                    questions: _reviewDueOnly
+                                        ? (SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
+                                            ? SpacedRepetitionService.instance.getDueQuestions(_allQuestions)
+                                            : filtered)
+                                        : (_currentViewMode == 'adaptive'
+                                            ? SpacedRepetitionService.instance.generateAdaptiveQueue(
+                                                filtered.isNotEmpty ? filtered : _allQuestions,
+                                                preferredTopic: _selectedTopic,
+                                              )
+                                            : filtered),
+                                    topic: _reviewDueOnly
+                                        ? 'Due for Review'
+                                        : (_currentViewMode == 'adaptive' ? 'Adaptive: $_selectedTopic' : _selectedTopic),
+                                    onExitFlashcards: () => setState(() {
+                                      _currentViewMode = 'bank';
+                                      _reviewDueOnly = false;
+                                    }),
                                   )
                                 : ListView.separated(
                                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
@@ -1756,6 +1842,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
   final Map<int, int> _userAnswers = {}; // questionIndex -> selectedOptionIndex
   final Set<int> _understoodQa = {}; // questionIndex -> marked as understood
   final Map<int, double> _confidenceLevels = {}; // questionIndex -> 0.25 (Guessing), 0.50 (50/50), 1.0 (100% Sure)
+  final Map<int, SrsReviewResult> _recordedSrs = {}; // questionIndex -> calculated SM-2 result
   double _currentConfidence = 1.0;
   int _score = 0;
   bool _isDeckFinished = false;
@@ -1835,8 +1922,51 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
     });
   }
 
+  Future<void> _recordSrsRating(int grade, Question q, bool isCorrect) async {
+    final uid = FirestoreService.instance.currentUid ?? 'student';
+    final srs = SpacedRepetitionService.instance.calculateSm2(
+      currentInterval: q.srsInterval,
+      currentRepetitions: q.srsRepetitions,
+      currentEaseFactor: q.srsEaseFactor,
+      grade: grade,
+    );
+    await SpacedRepetitionService.instance.recordReview(
+      userId: uid,
+      question: q,
+      grade: grade,
+      score: isCorrect ? 1.0 : 0.0,
+    );
+    if (!mounted) return;
+    setState(() {
+      _recordedSrs[_currentIndex] = srs;
+    });
+  }
+
   void _nextCard() {
     _cardTimer?.cancel();
+    if (_currentIndex < widget.questions.length) {
+      final q = widget.questions[_currentIndex];
+      final hasAnswered = _userAnswers.containsKey(_currentIndex);
+      final isQaUnderstood = _understoodQa.contains(_currentIndex);
+
+      // Auto-schedule SM-2 if the student did not click an explicit button
+      if (!_recordedSrs.containsKey(_currentIndex) && (hasAnswered || isQaUnderstood)) {
+        final isCorrect = hasAnswered ? (_userAnswers[_currentIndex] == q.correctOptionIndex) : isQaUnderstood;
+        final conf = _confidenceLevels[_currentIndex] ?? 1.0;
+        final grade = SpacedRepetitionService.instance.gradeFromAccuracyAndConfidence(
+          isCorrect: isCorrect,
+          confidence: conf,
+        );
+        final uid = FirestoreService.instance.currentUid ?? 'student';
+        SpacedRepetitionService.instance.recordReview(
+          userId: uid,
+          question: q,
+          grade: grade,
+          score: isCorrect ? 1.0 : 0.0,
+        ).ignore();
+      }
+    }
+
     if (_currentIndex < widget.questions.length - 1) {
       setState(() {
         _currentIndex++;
@@ -1866,6 +1996,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
       _userAnswers.clear();
       _understoodQa.clear();
       _confidenceLevels.clear();
+      _recordedSrs.clear();
       _currentConfidence = 1.0;
       _score = 0;
       _isDeckFinished = false;
@@ -2230,6 +2361,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        _buildSrsBadge(q),
                         const Spacer(),
                         // Timed Mode Toggle
                         OutlinedButton.icon(
@@ -2568,6 +2701,12 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                       ),
                     ],
 
+                    // Spaced Repetition (SM-2) Rating Bar (Visible once answered or understood)
+                    if (hasAnswered || isQaUnderstood) ...[
+                      const SizedBox(height: 14),
+                      _buildSm2RatingSection(q, hasAnswered ? (chosenOption == q.correctOptionIndex) : isQaUnderstood),
+                    ],
+
                     const SizedBox(height: 20),
 
                     // Card Navigation Bottom Row
@@ -2613,6 +2752,186 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSm2RatingSection(Question q, bool isCorrect) {
+    final intervals = SpacedRepetitionService.instance.previewNextIntervals(
+      currentInterval: q.srsInterval,
+      currentRepetitions: q.srsRepetitions,
+      currentEaseFactor: q.srsEaseFactor,
+    );
+    final alreadyRated = _recordedSrs[_currentIndex];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7FBF9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology_alt_rounded, size: 16, color: AppTheme.primaryColor),
+              const SizedBox(width: 6),
+              const Text(
+                'Spaced Repetition (SM-2) Schedule:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
+              ),
+              const Spacer(),
+              if (alreadyRated != null)
+                Text(
+                  'Scheduled: ${alreadyRated.ratingLabel} (${alreadyRated.interval}d)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryColor),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildRatingButton(
+                label: 'Again',
+                days: intervals['Again']!,
+                color: const Color(0xFFC62828),
+                bgColor: const Color(0xFFFFEBEE),
+                isSelected: alreadyRated?.grade == 1,
+                onTap: () => _recordSrsRating(1, q, false),
+              ),
+              const SizedBox(width: 6),
+              _buildRatingButton(
+                label: 'Hard',
+                days: intervals['Hard']!,
+                color: const Color(0xFFE65100),
+                bgColor: const Color(0xFFFFF3E0),
+                isSelected: alreadyRated?.grade == 3,
+                onTap: () => _recordSrsRating(3, q, isCorrect),
+              ),
+              const SizedBox(width: 6),
+              _buildRatingButton(
+                label: 'Good',
+                days: intervals['Good']!,
+                color: const Color(0xFF2E7D32),
+                bgColor: const Color(0xFFE8F5E9),
+                isSelected: alreadyRated?.grade == 4,
+                onTap: () => _recordSrsRating(4, q, isCorrect),
+              ),
+              const SizedBox(width: 6),
+              _buildRatingButton(
+                label: 'Easy',
+                days: intervals['Easy']!,
+                color: const Color(0xFF0277BD),
+                bgColor: const Color(0xFFE1F5FE),
+                isSelected: alreadyRated?.grade == 5,
+                onTap: () => _recordSrsRating(5, q, true),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingButton({
+    required String label,
+    required int days,
+    required Color color,
+    required Color bgColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color : bgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color, width: isSelected ? 1.8 : 1.0),
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : color,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$days d',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white.withValues(alpha: 0.9) : color.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSrsBadge(Question q) {
+    final level = SpacedRepetitionService.instance.getMasteryLevel(q);
+    Color textColor;
+    Color bgColor;
+    String text;
+    IconData icon;
+
+    switch (level) {
+      case MasteryLevel.reviewDue:
+        textColor = const Color(0xFFD32F2F);
+        bgColor = const Color(0xFFFFEBEE);
+        text = '⏰ Due Review';
+        icon = Icons.alarm_rounded;
+        break;
+      case MasteryLevel.mastered:
+        textColor = const Color(0xFF2E7D32);
+        bgColor = const Color(0xFFE8F5E9);
+        text = '🌟 Mastered (${q.srsInterval}d)';
+        icon = Icons.workspace_premium_rounded;
+        break;
+      case MasteryLevel.learning:
+        textColor = const Color(0xFFE65100);
+        bgColor = const Color(0xFFFFF3E0);
+        text = '📖 Learning (${q.srsInterval}d)';
+        icon = Icons.auto_stories_rounded;
+        break;
+      case MasteryLevel.newCard:
+        textColor = const Color(0xFF546E7A);
+        bgColor = const Color(0xFFECEFF1);
+        text = '🆕 New Card';
+        icon = Icons.fiber_new_rounded;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: textColor),
+          ),
+        ],
       ),
     );
   }
