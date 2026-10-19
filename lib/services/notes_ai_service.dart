@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../models/topic_map_model.dart';
 import 'document_processing_service.dart';
 
 /// Represents a practice question generated from uploaded notes.
-/// Supports both detailed conceptual Q&As and interactive 4-option MCQ flashcards.
+/// Supports both detailed conceptual Q&As and interactive 4-option MCQ flashcards with grounding metadata.
 class GeneratedPracticeQuestion {
   final String topic;
   final String question;
@@ -12,6 +13,14 @@ class GeneratedPracticeQuestion {
   final List<String>? options; // 4 multiple choice options for MCQ flashcards
   final int? correctOptionIndex; // 0..3 index of the correct option
   final String? explanation; // Educational reasoning and explanation
+  final int? sourcePage;
+  final String? difficulty; // 'Easy', 'Medium', 'Hard'
+  final String? bloomLevel; // 'Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate'
+  final String? subtopic;
+  final String? sourceChunkId;
+  final String? supportingExcerpt;
+  final List<String>? keyPointsRubric;
+  final Map<String, String>? distractorReasoning;
 
   const GeneratedPracticeQuestion({
     required this.topic,
@@ -21,6 +30,14 @@ class GeneratedPracticeQuestion {
     this.options,
     this.correctOptionIndex,
     this.explanation,
+    this.sourcePage,
+    this.difficulty = 'Medium',
+    this.bloomLevel = 'Understand',
+    this.subtopic,
+    this.sourceChunkId,
+    this.supportingExcerpt,
+    this.keyPointsRubric,
+    this.distractorReasoning,
   });
 
   bool get isMcq => options != null && options!.length >= 2 && correctOptionIndex != null;
@@ -34,6 +51,14 @@ class GeneratedPracticeQuestion {
       if (options != null) 'options': options,
       if (correctOptionIndex != null) 'correctOptionIndex': correctOptionIndex,
       if (explanation != null) 'explanation': explanation,
+      if (sourcePage != null) 'sourcePage': sourcePage,
+      if (difficulty != null) 'difficulty': difficulty,
+      if (bloomLevel != null) 'bloomLevel': bloomLevel,
+      if (subtopic != null) 'subtopic': subtopic,
+      if (sourceChunkId != null) 'sourceChunkId': sourceChunkId,
+      if (supportingExcerpt != null) 'supportingExcerpt': supportingExcerpt,
+      if (keyPointsRubric != null) 'keyPointsRubric': keyPointsRubric,
+      if (distractorReasoning != null) 'distractorReasoning': distractorReasoning,
     };
   }
 }
@@ -44,12 +69,16 @@ class NoteAiProcessingResult {
   final String topic;
   final String summaryContent;
   final List<GeneratedPracticeQuestion> practiceQuestions;
+  final TopicMap? topicMap;
+  final List<SemanticChunk> chunks;
 
   const NoteAiProcessingResult({
     required this.title,
     required this.topic,
     required this.summaryContent,
     required this.practiceQuestions,
+    this.topicMap,
+    this.chunks = const [],
   });
 }
 
@@ -97,6 +126,8 @@ class NotesAiService {
       topic: topic,
       summaryContent: summary,
       practiceQuestions: questions,
+      topicMap: doc.topicMap,
+      chunks: doc.chunks,
     );
   }
 

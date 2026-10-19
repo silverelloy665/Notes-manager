@@ -203,20 +203,32 @@ class _PracticeTabState extends State<PracticeTab> {
       // Generate detailed topic-by-topic summary and questions
       final aiResult = await NotesAiService.instance.processDocument(doc);
 
-      // Save practice questions to Firestore (user-owned with global fallback)
+      // Save TopicMap for the uploaded document
       final authorId = FirestoreService.instance.currentUid ?? 'student_upload';
+      await FirestoreService.instance.saveTopicMap(authorId, doc.topicMap);
+
+      // Save practice questions to Firestore with complete grounding metadata
       if (aiResult.practiceQuestions.isNotEmpty) {
-        await FirestoreService.instance.createQuestionsBatch(
+        await FirestoreService.instance.saveQuestionsFullBatch(
           questions: aiResult.practiceQuestions
-              .map((g) => (
+              .map((g) => Question(
+                    id: '',
                     topic: aiResult.topic,
                     question: g.question,
                     answer: g.answer,
-                    subjectId: null,
-                    unitId: null,
+                    createdBy: authorId,
                     options: g.options,
                     correctOptionIndex: g.correctOptionIndex,
                     explanation: g.explanation,
+                    documentId: doc.topicMap.id,
+                    sourcePage: g.sourcePage,
+                    subtopic: g.subtopic,
+                    difficulty: g.difficulty ?? 'Medium',
+                    bloomLevel: g.bloomLevel ?? 'Understand',
+                    sourceChunkId: g.sourceChunkId,
+                    supportingExcerpt: g.supportingExcerpt,
+                    keyPointsRubric: g.keyPointsRubric,
+                    distractorReasoning: g.distractorReasoning,
                   ))
               .toList(),
           createdBy: authorId,
@@ -560,17 +572,26 @@ class _PracticeTabState extends State<PracticeTab> {
 
       final authorId = FirestoreService.instance.currentUid ?? 'student_upload';
       if (questions.isNotEmpty) {
-        await FirestoreService.instance.createQuestionsBatch(
+        await FirestoreService.instance.saveQuestionsFullBatch(
           questions: questions
-              .map((g) => (
+              .map((g) => Question(
+                    id: '',
                     topic: note.topic,
                     question: g.question,
                     answer: g.answer,
-                    subjectId: null,
-                    unitId: null,
+                    createdBy: authorId,
                     options: g.options,
                     correctOptionIndex: g.correctOptionIndex,
                     explanation: g.explanation,
+                    documentId: note.id,
+                    sourcePage: g.sourcePage,
+                    subtopic: g.subtopic,
+                    difficulty: g.difficulty ?? 'Medium',
+                    bloomLevel: g.bloomLevel ?? 'Understand',
+                    sourceChunkId: g.sourceChunkId,
+                    supportingExcerpt: g.supportingExcerpt,
+                    keyPointsRubric: g.keyPointsRubric,
+                    distractorReasoning: g.distractorReasoning,
                   ))
               .toList(),
           createdBy: authorId,

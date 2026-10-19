@@ -8,6 +8,7 @@ import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/models/subject_model.dart';
+import 'package:studymate_classroom/models/topic_map_model.dart';
 import 'package:studymate_classroom/models/user_model.dart';
 import 'package:studymate_classroom/utils/constants.dart';
 import 'package:studymate_classroom/utils/app_exception.dart';
@@ -744,6 +745,116 @@ class FirestoreService {
     }
 
     return createdList;
+  }
+
+  /// Saves a complete batch of Question model objects with full grounding metadata.
+  Future<List<Question>> saveQuestionsFullBatch({
+    required List<Question> questions,
+    required String createdBy,
+  }) async {
+    if (questions.isEmpty) return [];
+
+    final List<Question> createdList = [];
+    final uid = createdBy.isNotEmpty ? createdBy : (currentUid ?? 'student');
+
+    // 1. Save to user-owned subcollection
+    try {
+      final userBatch = _firestore.batch();
+      for (final q in questions) {
+        final docRef = q.id.isNotEmpty
+            ? _firestore.collection('users').doc(uid).collection('questions').doc(q.id)
+            : _firestore.collection('users').doc(uid).collection('questions').doc();
+
+        final qWithId = q.id.isEmpty
+            ? q.copyWith(id: docRef.id, createdBy: uid)
+            : q;
+
+        userBatch.set(docRef, qWithId.toMap());
+        createdList.add(qWithId);
+      }
+      await userBatch.commit();
+    } catch (_) {}
+
+    // 2. Also save to global collection
+    try {
+      final globalBatch = _firestore.batch();
+      for (final q in (createdList.isNotEmpty ? createdList : questions)) {
+        final docRef = _firestore.collection('questions').doc(q.id);
+        globalBatch.set(docRef, q.toMap());
+      }
+      await globalBatch.commit();
+    } catch (_) {}
+
+    return createdList.isNotEmpty ? createdList : questions;
+  }
+
+  /// Saves a hierarchical TopicMap for a processed document under users/{uid}/topic_maps.
+  Future<void> saveTopicMap(String userId, TopicMap topicMap) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('topic_maps')
+          .doc(topicMap.id)
+          .set(topicMap.toMap());
+    } catch (_) {}
+  }
+
+  /// Retrieves a TopicMap by ID for a user.
+  Future<TopicMap?> getTopicMap(String userId, String topicMapId) async {
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('topic_maps')
+          .doc(topicMapId)
+          .get();
+      if (!doc.exists || doc.data() == null) return null;
+      return TopicMap.fromMap(doc.data()!, doc.id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Live stream of all TopicMaps for an uploaded document or user.
+  Stream<List<TopicMap>> getTopicMapsStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('topic_maps')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => TopicMap.fromMap(d.data(), d.id)).toList());
+  }
+
+  /// Updates Spaced Repetition (SM-2) stats for a practiced question.
+  Future<void> updateQuestionSrs(String userId, String questionId, {
+    required int srsInterval,
+    required int srsRepetitions,
+    required double srsEaseFactor,
+    required DateTime nextReviewDate,
+    required double lastScore,
+  }) async {
+    try {
+      final updateData = {
+        'srsInterval': srsInterval,
+        'srsRepetitions': srsRepetitions,
+        'srsEaseFactor': srsEaseFactor,
+        'nextReviewDate': Timestamp.fromDate(nextReviewDate),
+        'lastScore': lastScore,
+      };
+
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('questions')
+          .doc(questionId)
+          .update(updateData);
+
+      // Also try to update global question if exists
+      try {
+        await _firestore.collection('questions').doc(questionId).update(updateData);
+      } catch (_) {}
+    } catch (_) {}
   }
 
   /// Seeds 20 foundational questions once, guarded by `config/seed`. Never duplicates.
