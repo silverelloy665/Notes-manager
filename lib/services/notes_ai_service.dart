@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/coverage_report_model.dart';
 import '../models/question_model.dart';
+import '../models/summary_model.dart';
 import '../models/topic_map_model.dart';
 import 'document_processing_service.dart';
 
@@ -145,6 +146,7 @@ class NoteAiProcessingResult {
   final String title;
   final String topic;
   final String summaryContent;
+  final MultiLevelSummary? multiLevelSummary;
   final List<GeneratedPracticeQuestion> practiceQuestions;
   final TopicMap? topicMap;
   final List<SemanticChunk> chunks;
@@ -154,6 +156,7 @@ class NoteAiProcessingResult {
     required this.title,
     required this.topic,
     required this.summaryContent,
+    this.multiLevelSummary,
     required this.practiceQuestions,
     this.topicMap,
     this.chunks = const [],
@@ -191,13 +194,15 @@ class NotesAiService {
       0.15,
     );
 
-    // 1. Generate Summarized Notes
-    final summary = await summarize(
-      text: text,
+    // 1. Generate Smart Multi-Level Summarized Notes using Map-Reduce
+    final multiSummary = await generateSmartMultiLevelSummary(
       title: title,
       topic: topic,
+      text: text,
       sections: doc.sections,
+      topicMap: doc.topicMap,
     );
+    final summary = multiSummary.toMarkdown(includeSources: true);
 
     // 2. Deep Question Generation with 100% Topic & Page Coverage
     final deepResult = await generateDeepCoverageQuestions(
@@ -209,6 +214,7 @@ class NotesAiService {
       title: title,
       topic: topic,
       summaryContent: summary,
+      multiLevelSummary: multiSummary,
       practiceQuestions: deepResult.questions,
       topicMap: doc.topicMap,
       chunks: doc.chunks,
@@ -216,53 +222,32 @@ class NotesAiService {
     );
   }
 
-  /// Generates a structured study summary for the given text.
+  /// Generates a structured multi-level study summary for the given text.
   Future<String> summarize({
     required String text,
     required String title,
     required String topic,
     List<DocumentSection> sections = const [],
+    TopicMap? topicMap,
+    String tone = 'academic',
+    String length = 'detailed',
+    String language = 'en',
   }) async {
     if (text.trim().isEmpty) {
       return 'No readable text was found in this document.';
     }
 
-    if (hasApiKey) {
-      try {
-        final model = GenerativeModel(
-          model: 'gemini-1.5-flash',
-          apiKey: _geminiApiKey!,
-        );
-
-        final prompt = '''
-You are an expert academic tutor and professor.
-Summarize the following study material on the topic "$topic" (Title: "$title").
-
-Structure your response clearly with these sections:
-## 📌 Executive Overview
-(2-3 sentences explaining what this document is about and its core importance)
-
-## 🎯 Core Concepts & Definitions
-(Define 3-6 essential terms and concepts accurately with bullet points)
-
-## 🔑 Key Takeaways & Summary Points
-(5-8 clear, concise high-yield bullet points summarizing the core subject matter)
-
-## 💡 Important Formulas / Rules / Insights
-(Highlight key rules, steps, gotchas, or formulas students need for exams)
-
-Text to summarize:
-$text
-''';
-
-        final response = await model.generateContent([Content.text(prompt)]);
-        if (response.text != null && response.text!.trim().isNotEmpty) {
-          return response.text!.trim();
-        }
-      } catch (_) {}
-    }
-
-    return _generateLocalSummary(text: text, title: title, topic: topic, sections: sections);
+    final multi = await generateSmartMultiLevelSummary(
+      title: title,
+      topic: topic,
+      text: text,
+      sections: sections,
+      topicMap: topicMap,
+      tone: tone,
+      length: length,
+      language: language,
+    );
+    return multi.toMarkdown(includeSources: true);
   }
 
   /// Core Phase 2 Deep Coverage Question & MCQ Generator.
@@ -1292,88 +1277,278 @@ Return JSON with:
   }
 
   /// High-yield local NLP summary generator.
-  String _generateLocalSummary({
-    required String text,
+  /// Map-Reduce multi-level summarizer that traverses every topic/subtopic node.
+  /// Generates:
+  /// (a) One-line TL;DR
+  /// (b) 5-bullet key points
+  /// (c) Detailed section-by-section breakdown with source page references
+  /// (d) Exam cheat sheet with core definitions, formulas/rules, and gotchas
+  /// (e) Glossary of terms
+  /// Plus visual Mind Map in Mermaid syntax.
+  Future<MultiLevelSummary> generateSmartMultiLevelSummary({
     required String title,
     required String topic,
+    required String text,
     List<DocumentSection> sections = const [],
-  }) {
-    final sentences = _extractSentences(text);
-    final definitions = _extractDefinitions(sentences);
-    final sb = StringBuffer();
+    TopicMap? topicMap,
+    String tone = 'academic',
+    String length = 'detailed',
+    String language = 'en',
+  }) async {
+    final sectionSummaries = <SectionSummary>[];
+    final allDefinitions = <String, DefinitionItem>{};
+    final allFormulas = <String, FormulaItem>{};
+    final glossary = <String, String>{};
+    final keyTakeawaysAccumulator = <String>[];
 
-    sb.writeln('## 📌 Executive Overview');
-    if (sentences.isNotEmpty) {
-      final overview = sentences.take(2).join(' ');
-      sb.writeln('This study presentation covers the foundational and analytical principles of **$topic** (Document: "$title"). $overview');
-    } else {
-      sb.writeln('Comprehensive study summary and presentation notes for **$topic** ("$title").');
-    }
-    sb.writeln();
+    final topicNodes = topicMap?.topics ?? [];
 
-    if (sections.isNotEmpty) {
-      sb.writeln('## 🍃 Detailed Breakdown by Topic');
-      sb.writeln();
+    if (topicNodes.isNotEmpty) {
+      for (final tNode in topicNodes) {
+        final topicChunks = (topicMap?.chunks ?? []).where((c) => c.topic.toLowerCase() == tNode.title.toLowerCase()).toList();
+        final topicText = topicChunks.map((c) => c.content).join('\n');
+        final sentences = _extractSentences(topicText.isNotEmpty ? topicText : text);
 
-      for (int i = 0; i < sections.length; i++) {
-        final sec = sections[i];
-        final secTitle = sec.title.trim();
-        if (secTitle.toLowerCase() == 'thank you') continue;
-
-        sb.writeln('### 📖 ${i + 1}. $secTitle');
-        final secSentences = _extractSentences(sec.content);
-
-        if (secSentences.isNotEmpty) {
-          sb.writeln('- **Core Focus:** ${secSentences.first}');
-          if (secSentences.length > 1) {
-            sb.writeln('- **Detailed Analysis:** ${secSentences.skip(1).take(2).join(' ')}');
-          }
-        } else {
-          sb.writeln('- **Core Focus:** Detailed discussion and foundational principles of $secTitle.');
-        }
-
-        final lines = sec.content.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
-        final bullets = lines.where((l) => l.startsWith('•') || l.startsWith('-') || l.startsWith('*') || RegExp(r'^\d+\.').hasMatch(l)).toList();
-        if (bullets.isNotEmpty) {
-          sb.writeln('- **Key Takeaways:**');
-          for (final b in bullets.take(4)) {
-            sb.writeln('  • ${b.replaceAll(RegExp(r'^[•\-*\d.\s]+'), '')}');
+        final defs = _extractDefinitions(sentences);
+        for (final d in defs) {
+          if (!allDefinitions.containsKey(d.term.toLowerCase())) {
+            allDefinitions[d.term.toLowerCase()] = DefinitionItem(
+              term: d.term,
+              definition: d.explanation,
+              page: tNode.pageStart,
+            );
+            glossary[d.term] = d.explanation;
           }
         }
-        sb.writeln();
-      }
-    }
 
-    sb.writeln('## 🎯 Core Concepts & Definitions');
-    if (definitions.isNotEmpty) {
-      for (final def in definitions.take(6)) {
-        sb.writeln('- **${def.term}**: ${def.explanation}');
+        final formulas = _extractFormulasAndRules(sentences, tNode.pageStart);
+        for (final f in formulas) {
+          allFormulas[f.name.toLowerCase()] = f;
+        }
+
+        final bullets = <String>[];
+        if (sentences.length > 1) {
+          bullets.addAll(sentences.skip(1).take(length == 'comprehensive' ? 5 : 3));
+        }
+
+        final mainContent = sentences.isNotEmpty
+            ? sentences.first
+            : (tNode.contentSnippet.isNotEmpty ? tNode.contentSnippet : 'Explores essential academic principles of ${tNode.title}.');
+
+        sectionSummaries.add(SectionSummary(
+          title: tNode.title,
+          subtopic: null,
+          sourcePage: tNode.pageStart,
+          content: tone == 'simple' ? 'In plain terms: $mainContent' : mainContent,
+          bulletPoints: bullets,
+          keyTerms: defs.map((d) => d.term).toList(),
+        ));
+
+        if (sentences.isNotEmpty) {
+          keyTakeawaysAccumulator.add(sentences.first);
+        }
+
+        for (final sub in tNode.subtopics) {
+          final subSentences = _extractSentences(sub.summary);
+          final subDefs = _extractDefinitions(subSentences);
+          for (final d in subDefs) {
+            if (!allDefinitions.containsKey(d.term.toLowerCase())) {
+              allDefinitions[d.term.toLowerCase()] = DefinitionItem(
+                term: d.term,
+                definition: d.explanation,
+                page: sub.pageNumber,
+              );
+              glossary[d.term] = d.explanation;
+            }
+          }
+          for (final c in sub.concepts) {
+            if (!allDefinitions.containsKey(c.name.toLowerCase())) {
+              allDefinitions[c.name.toLowerCase()] = DefinitionItem(
+                term: c.name,
+                definition: c.description,
+                page: c.pageNumber,
+              );
+              glossary[c.name] = c.description;
+            }
+          }
+
+          sectionSummaries.add(SectionSummary(
+            title: '${tNode.title}: ${sub.title}',
+            subtopic: sub.title,
+            sourcePage: sub.pageNumber,
+            content: tone == 'simple' ? 'Simply put: ${sub.summary}' : sub.summary,
+            bulletPoints: subSentences.length > 1 ? subSentences.skip(1).take(2).toList() : const [],
+            keyTerms: sub.concepts.map((c) => c.name).toList(),
+          ));
+        }
       }
     } else if (sections.isNotEmpty) {
-      for (final sec in sections.where((s) => s.title.toLowerCase() != 'thank you').take(5)) {
-        sb.writeln('- **${sec.title}**: Key thematic area addressing essential principles in $topic.');
+      for (int i = 0; i < sections.length; i++) {
+        final sec = sections[i];
+        if (sec.title.toLowerCase() == 'thank you') continue;
+        final secSentences = _extractSentences(sec.content);
+        final defs = _extractDefinitions(secSentences);
+        for (final d in defs) {
+          if (!allDefinitions.containsKey(d.term.toLowerCase())) {
+            allDefinitions[d.term.toLowerCase()] = DefinitionItem(
+              term: d.term,
+              definition: d.explanation,
+              page: sec.pageNumber,
+            );
+            glossary[d.term] = d.explanation;
+          }
+        }
+        final formulas = _extractFormulasAndRules(secSentences, sec.pageNumber);
+        for (final f in formulas) {
+          allFormulas[f.name.toLowerCase()] = f;
+        }
+
+        final content = secSentences.isNotEmpty
+            ? secSentences.first
+            : 'Key concepts and analytical structure for ${sec.title}.';
+        final bullets = secSentences.skip(1).take(length == 'comprehensive' ? 4 : 2).toList();
+
+        sectionSummaries.add(SectionSummary(
+          title: sec.title,
+          sourcePage: sec.pageNumber,
+          content: tone == 'simple' ? 'In plain terms: $content' : content,
+          bulletPoints: bullets,
+          keyTerms: defs.map((d) => d.term).toList(),
+        ));
+
+        if (secSentences.isNotEmpty) {
+          keyTakeawaysAccumulator.add(secSentences.first);
+        }
       }
     } else {
-      sb.writeln('- **$title**: Primary study topic for $topic review.');
+      final sentences = _extractSentences(text);
+      sectionSummaries.add(SectionSummary(
+        title: title,
+        sourcePage: 1,
+        content: sentences.isNotEmpty ? sentences.first : 'Comprehensive review of $topic.',
+        bulletPoints: sentences.skip(1).take(4).toList(),
+        keyTerms: const [],
+      ));
     }
-    sb.writeln();
 
-    sb.writeln('## 🔑 Key Takeaways & Summary Points');
-    if (sentences.isNotEmpty) {
-      for (final s in sentences.take(5)) {
-        sb.writeln('- $s');
+    // Document-wide definition and formula sweep to capture any unattached terms in full text
+    final allDocSentences = _extractSentences(text);
+    final globalDefs = _extractDefinitions(allDocSentences);
+    for (final d in globalDefs) {
+      if (!allDefinitions.containsKey(d.term.toLowerCase())) {
+        allDefinitions[d.term.toLowerCase()] = DefinitionItem(
+          term: d.term,
+          definition: d.explanation,
+          page: 1,
+        );
+        glossary[d.term] = d.explanation;
       }
-    } else {
-      sb.writeln('- Comprehensive review points captured from $title.');
     }
-    sb.writeln();
+    final globalFormulas = _extractFormulasAndRules(allDocSentences, 1);
+    for (final f in globalFormulas) {
+      if (!allFormulas.containsKey(f.name.toLowerCase())) {
+        allFormulas[f.name.toLowerCase()] = f;
+      }
+    }
 
-    sb.writeln('## 💡 Exam & Revision Tips');
-    sb.writeln('- Review the detailed breakdown for each topic above, focusing on problem statements, findings, and trade-offs.');
-    sb.writeln('- Practice the automatically generated questions in the **Practice** tab to test recall on every individual topic.');
-    sb.writeln('- Check the Coverage Report to verify 100% topic and page preparation.');
+    final allSentences = _extractSentences(text);
 
-    return sb.toString();
+    String tldr;
+    if (tone == 'simple') {
+      tldr = 'In a nutshell: $topic ("$title") focuses on explaining how ${sectionSummaries.take(3).map((s) => s.title).join(', ')} operate together.';
+    } else {
+      tldr = 'This document provides a rigorous, ground-up examination of $topic ("$title"), covering essential theoretical models, practical trade-offs, and core architectural components.';
+    }
+
+    final keyPoints = <String>[];
+    final targetCount = length == 'concise' ? 3 : 5;
+    if (keyTakeawaysAccumulator.isNotEmpty) {
+      for (final pt in keyTakeawaysAccumulator) {
+        if (keyPoints.length < targetCount && !keyPoints.contains(pt)) {
+          keyPoints.add(pt);
+        }
+      }
+    }
+    for (final s in allSentences) {
+      if (keyPoints.length >= targetCount) break;
+      if (!keyPoints.contains(s)) {
+        keyPoints.add(s);
+      }
+    }
+    if (keyPoints.isEmpty) {
+      keyPoints.add('Comprehensive grounding in $topic fundamentals and methodologies.');
+      keyPoints.add('Detailed comparative analysis across covered architectural approaches.');
+      keyPoints.add('Evaluation of real-world implementation constraints and performance parameters.');
+      keyPoints.add('Key algorithmic and structural mechanics across each individual topic.');
+      keyPoints.add('High-yield preparation points tailored for exam mastery.');
+    }
+
+    final tips = <String>[
+      'Ensure mastery of the relationship between ${sectionSummaries.isNotEmpty ? sectionSummaries.first.title : topic} and surrounding concepts.',
+      'Pay close attention to key state transitions, performance bottlenecks, and trade-offs.',
+      'Practice the verified MCQ and conceptual questions generated in the Practice tab for self-testing.',
+      'Review the definitions in the glossary before taking timed practice tests.',
+    ];
+
+    final cheatSheet = ExamCheatSheet(
+      definitions: allDefinitions.values.toList(),
+      formulasOrRules: allFormulas.values.toList(),
+      highYieldTips: tips,
+    );
+
+    final mindMapSb = StringBuffer();
+    mindMapSb.writeln('graph TD');
+    mindMapSb.writeln('  Root["$topic: $title"]');
+    for (int i = 0; i < sectionSummaries.length && i < 12; i++) {
+      final s = sectionSummaries[i];
+      final nodeId = 'N$i';
+      final pageLabel = s.sourcePage != null ? ' (p. ${s.sourcePage})' : '';
+      final cleanTitle = s.title.replaceAll('"', "'");
+      mindMapSb.writeln('  Root --> $nodeId["$cleanTitle$pageLabel"]');
+      for (int j = 0; j < s.bulletPoints.length && j < 2; j++) {
+        final rawBullet = s.bulletPoints[j].replaceAll('"', "'");
+        final cleanBullet = rawBullet.length > 40 ? '${rawBullet.substring(0, 40)}...' : rawBullet;
+        mindMapSb.writeln('  $nodeId --> Sub_${i}_$j["$cleanBullet"]');
+      }
+    }
+
+    return MultiLevelSummary(
+      documentTitle: title,
+      topic: topic,
+      tldr: tldr,
+      keyPoints: keyPoints,
+      sections: sectionSummaries,
+      cheatSheet: cheatSheet,
+      glossary: glossary,
+      mindMapMermaid: mindMapSb.toString(),
+      tone: tone,
+      length: length,
+      language: language,
+    );
+  }
+
+  List<FormulaItem> _extractFormulasAndRules(List<String> sentences, int? page) {
+    final list = <FormulaItem>[];
+    final ruleRegex = RegExp(
+      r'\b(O\([n1\s\w\^\*log\+\-]+\)|FIFO|LRU|Round Robin|SJF|LIFO|TCP|UDP|HTTP|DNS|F = [^.;]+|E = [^.;]+|[A-Z][a-zA-Z\s]{2,25} Rule|[A-Z][a-zA-Z\s]{2,25} Law|[A-Z][a-zA-Z\s]{2,25} Principle)\b',
+      caseSensitive: false,
+    );
+
+    for (final s in sentences) {
+      final match = ruleRegex.firstMatch(s);
+      if (match != null) {
+        final ruleName = match.group(1)?.trim() ?? '';
+        if (ruleName.isNotEmpty && ruleName.length <= 35) {
+          list.add(FormulaItem(
+            name: ruleName,
+            formulaOrRule: s.length > 80 ? '${s.substring(0, 80)}...' : s,
+            description: s,
+            page: page,
+          ));
+        }
+      }
+    }
+    return list;
   }
 
   String _sanitizeSectionTitle(String rawTitle, String defaultTopic) {
@@ -1412,7 +1587,7 @@ Return JSON with:
   List<({String term, String explanation, String originalSentence})> _extractDefinitions(List<String> sentences) {
     final results = <({String term, String explanation, String originalSentence})>[];
     final defRegex = RegExp(
-      r'^(?:A |An |The )?([A-Z][a-zA-Z0-9\s_-]{2,30}?)\s+(?:is defined as|is a|is an|refers to|means|is the process of|represents|is used to)\s+(.+)$',
+      r'^(?:A |An |The )?([A-Z][a-zA-Z0-9\s_\-\(\)]{2,40}?)\s+(?:is defined as|is a|is an|refers to|means|is the process of|represents|is used to|occurs when|is characterized by)\s+(.+)$',
       caseSensitive: false,
     );
 
@@ -1421,7 +1596,7 @@ Return JSON with:
       if (match != null) {
         final term = match.group(1)?.trim() ?? '';
         final exp = match.group(2)?.trim() ?? '';
-        if (term.isNotEmpty && exp.isNotEmpty && term.split(' ').length <= 4) {
+        if (term.isNotEmpty && exp.isNotEmpty && term.split(' ').length <= 6) {
           results.add((term: term, explanation: exp, originalSentence: s));
         }
       }

@@ -14,6 +14,7 @@ import 'package:studymate_classroom/widgets/botanical_decoration.dart';
 import 'package:studymate_classroom/widgets/custom_dialog.dart';
 import 'package:studymate_classroom/widgets/custom_text_field.dart';
 import 'package:studymate_classroom/widgets/empty_state.dart';
+import 'package:studymate_classroom/widgets/smart_summary_viewer.dart';
 
 /// Tab allowing students to manage personal notes, search, pin/unpin, and inspect sample questions per topic.
 class StudentNotesTab extends StatefulWidget {
@@ -579,49 +580,33 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
                 ),
               ),
 
-              // Practice Action Banner
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE8F2EA),
-                  border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.eco_rounded, size: 18, color: AppTheme.primaryColor),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Practice questions generated for "${note.topic}"',
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        elevation: 1,
-                      ),
-                      icon: const Icon(Icons.quiz_outlined, size: 14),
-                      label: const Text('Practice Topic', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showSampleQuestions(note.topic);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              // Note Content Body
+              // Phase 4 Smart Multi-Level Summary Viewer with one-click actions & source toggle
               Expanded(
                 child: ListView(
                   controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                  padding: EdgeInsets.zero,
                   children: [
-                    _BotanicalNoteContentView(content: note.content),
+                    SmartSummaryViewer(
+                      note: note,
+                      onOpenFlashcards: () {
+                        Navigator.pop(ctx);
+                        _showSampleQuestions(note.topic);
+                      },
+                      onOpenQuiz: () {
+                        Navigator.pop(ctx);
+                        _showSampleQuestions(note.topic);
+                      },
+                      onContentUpdated: (newMarkdown) {
+                        FirestoreService.instance.updateNote(
+                          userId: widget.currentUser.id,
+                          noteId: note.id,
+                          title: note.title,
+                          topic: note.topic,
+                          content: newMarkdown,
+                          isPinned: note.isPinned,
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -875,118 +860,7 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
   }
 }
 
-/// Formatted slide-style presentation view for note content.
-class _BotanicalNoteContentView extends StatelessWidget {
-  final String content;
 
-  const _BotanicalNoteContentView({required this.content});
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = content.split('\n');
-    final widgets = <Widget>[];
-
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) {
-        widgets.add(const SizedBox(height: 6));
-      } else if (trimmed.startsWith('## ')) {
-        // Main Section Header
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(top: 14, bottom: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.eco_rounded, size: 18, color: AppTheme.primaryColor),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    trimmed.substring(3),
-                    style: const TextStyle(
-                      fontFamily: 'serif',
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else if (trimmed.startsWith('### ')) {
-        // Slide / Subsection Header Card
-        widgets.add(
-          Container(
-            margin: const EdgeInsets.only(top: 10, bottom: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryLight.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Text(
-              trimmed.substring(4),
-              style: const TextStyle(
-                fontFamily: 'serif',
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-          ),
-        );
-      } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ')) {
-        // Bullet Point
-        final bulletText = trimmed.substring(2);
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(left: 8, bottom: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 4, right: 8),
-                  child: Icon(Icons.circle, size: 6, color: AppTheme.secondaryColor),
-                ),
-                Expanded(
-                  child: Text(
-                    bulletText,
-                    style: const TextStyle(fontSize: 13.5, color: AppTheme.textPrimary, height: 1.45),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        // Regular Text
-        widgets.add(
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              trimmed,
-              style: const TextStyle(fontSize: 13.5, color: AppTheme.textPrimary, height: 1.5),
-            ),
-          ),
-        );
-      }
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: widgets,
-      ),
-    );
-  }
-}
 
 /// Botanical card representing an individual note in the list.
 class _NoteCard extends StatelessWidget {
