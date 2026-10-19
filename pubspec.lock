@@ -121,6 +121,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
+  convert:
+    dependency: transitive
+    description:
+      name: convert
+      sha256: b30acd5944035672bc15c6b7a8b47d773e41e2f17de064350988c5d02adb1c68
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.2"
   cross_file:
     dependency: transitive
     description:
@@ -312,6 +320,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  google_generative_ai:
+    dependency: "direct main"
+    description:
+      name: google_generative_ai
+      sha256: "71f613d0247968992ad87a0eb21650a566869757442ba55a31a81be6746e0d1f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.7"
   hooks:
     dependency: transitive
     description:
@@ -336,6 +352,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  intl:
+    dependency: transitive
+    description:
+      name: intl
+      sha256: "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.20.3"
   jni:
     dependency: transitive
     description:
@@ -621,6 +645,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  syncfusion_flutter_core:
+    dependency: transitive
+    description:
+      name: syncfusion_flutter_core
+      sha256: "77b8bba92bc4eb33332fe66495eeab5f7a2eb3d7569f9accf4a554847c90e521"
+      url: "https://pub.dev"
+    source: hosted
+    version: "35.1.40+1"
+  syncfusion_flutter_pdf:
+    dependency: "direct main"
+    description:
+      name: syncfusion_flutter_pdf
+      sha256: c016c8017283913dbf77bbb2ae7d7607f929cfdfceca45262623c61afd6f4f08
+      url: "https://pub.dev"
+    source: hosted
+    version: "35.1.40+1"
   term_glyph:
     dependency: transitive
     description:

@@ -67,16 +67,33 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
+        backgroundColor: AppTheme.primaryColor,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'StudyMate Student',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.park_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'StudyMate Student',
+                  style: TextStyle(
+                    fontFamily: 'serif',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              widget.currentUser.name,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.white70),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Text(
+                widget.currentUser.name,
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w400, color: Color(0xFFD7EADB)),
+              ),
             ),
           ],
         ),
@@ -94,12 +111,19 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           children: tabs,
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppTheme.primaryColor,
-        unselectedItemColor: Colors.grey.shade600,
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.borderColor)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: AppTheme.primaryColor,
+          unselectedItemColor: AppTheme.textMuted,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontSize: 12),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.note_alt_outlined),
@@ -122,6 +146,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
             label: 'Classrooms',
           ),
         ],
+        ),
       ),
     );
   }

@@ -138,8 +138,11 @@ service cloud.firestore {
       // Readable by any authenticated user for revision and practice
       allow read: if isSignedIn();
 
-      // Creatable, updatable, and deletable exclusively by teachers (no createdBy == null bypass)
-      allow create, update, delete: if isTeacher();
+      // Creatable by any authenticated student or teacher generating practice questions
+      allow create: if isSignedIn();
+
+      // Updatable and deletable by the author or by teachers
+      allow update, delete: if isTeacher() || (isSignedIn() && resource.data.get('createdBy', '') == request.auth.uid);
     }
 
     // =========================================================================

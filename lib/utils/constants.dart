@@ -11,6 +11,7 @@ class AppConstants {
     'Physics',
     'Design & Analysis of Algorithms',
     'Object Oriented Programming',
+    'Software Engineering',
     'Web Programming',
     'Computer Organization & Architecture',
     'Microprocessors & Microcontrollers',

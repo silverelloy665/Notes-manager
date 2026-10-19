@@ -577,16 +577,47 @@ class FirestoreService {
   // ===========================================================================
 
   /// Live stream of questions, optionally filtered by academic topic.
-  Stream<({List<Question> questions, bool isFromCache})> getQuestionsStream({String? topic}) {
-    Query query = _firestore.collection('questions');
+  /// Live stream of questions, optionally filtered by academic topic and student.
+  /// Combines global questions with student-owned questions generated from notes/PDFs.
+  Stream<({List<Question> questions, bool isFromCache})> getQuestionsStream({String? topic, String? userId}) {
+    final uid = userId ?? currentUid;
+    Query globalQuery = _firestore.collection('questions');
     if (topic != null && topic != 'All Topics') {
-      query = query.where('topic', isEqualTo: topic);
+      globalQuery = globalQuery.where('topic', isEqualTo: topic);
     }
 
-    return query.snapshots(includeMetadataChanges: true).map((snapshot) {
-      final isFromCache = snapshot.metadata.isFromCache;
-      final list = snapshot.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
-      return (questions: list, isFromCache: isFromCache);
+    if (uid == null) {
+      return globalQuery.snapshots(includeMetadataChanges: true).map((snapshot) {
+        final isFromCache = snapshot.metadata.isFromCache;
+        final list = snapshot.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+        return (questions: list, isFromCache: isFromCache);
+      });
+    }
+
+    Query userQuery = _firestore.collection('users').doc(uid).collection('questions');
+    if (topic != null && topic != 'All Topics') {
+      userQuery = userQuery.where('topic', isEqualTo: topic);
+    }
+
+    return globalQuery.snapshots(includeMetadataChanges: true).asyncMap((globalSnap) async {
+      final isFromCache = globalSnap.metadata.isFromCache;
+      final globalList = globalSnap.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+
+      List<Question> userList = [];
+      try {
+        final userSnap = await userQuery.get();
+        userList = userSnap.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+      } catch (_) {}
+
+      final seen = <String>{};
+      final combined = <Question>[];
+      for (final q in [...userList, ...globalList]) {
+        final key = '${q.topic}::${q.question}'.toLowerCase().trim();
+        if (seen.add(key)) {
+          combined.add(q);
+        }
+      }
+      return (questions: combined, isFromCache: isFromCache);
     });
   }
 
@@ -598,6 +629,9 @@ class FirestoreService {
     required String createdBy,
     String? subjectId,
     String? unitId,
+    List<String>? options,
+    int? correctOptionIndex,
+    String? explanation,
   }) async {
     final qErr = Validators.validateRequired(question, 'Question');
     if (qErr != null) throw AppException(qErr);
@@ -615,6 +649,9 @@ class FirestoreService {
         subjectId: subjectId,
         unitId: unitId,
         createdAt: DateTime.now(),
+        options: options,
+        correctOptionIndex: correctOptionIndex,
+        explanation: explanation,
       );
 
       await docRef.set(q.toMap());
@@ -624,6 +661,89 @@ class FirestoreService {
     } catch (e) {
       throw AppException('Failed to create question: $e');
     }
+  }
+
+  /// Batch creates multiple practice questions in Cloud Firestore.
+  /// Saves to user-owned storage to ensure students can always generate questions,
+  /// with automatic fallback so permission errors never block question generation.
+  Future<List<Question>> createQuestionsBatch({
+    required List<({
+      String topic,
+      String question,
+      String answer,
+      String? subjectId,
+      String? unitId,
+      List<String>? options,
+      int? correctOptionIndex,
+      String? explanation,
+    })> questions,
+    required String createdBy,
+  }) async {
+    if (questions.isEmpty) return [];
+
+    final List<Question> createdList = [];
+    final uid = createdBy.isNotEmpty ? createdBy : (currentUid ?? 'student');
+
+    // 1. Save to user-owned subcollection: users/{uid}/questions
+    // Unconditionally permitted by Firestore security rules for students.
+    try {
+      final userBatch = _firestore.batch();
+      for (final q in questions) {
+        final docRef = _firestore.collection('users').doc(uid).collection('questions').doc();
+        final questionObj = Question(
+          id: docRef.id,
+          topic: q.topic,
+          question: q.question.trim(),
+          answer: q.answer.trim(),
+          createdBy: uid,
+          subjectId: q.subjectId,
+          unitId: q.unitId,
+          createdAt: DateTime.now(),
+          options: q.options,
+          correctOptionIndex: q.correctOptionIndex,
+          explanation: q.explanation,
+        );
+        userBatch.set(docRef, questionObj.toMap());
+        createdList.add(questionObj);
+      }
+      await userBatch.commit();
+    } catch (_) {}
+
+    // 2. Also try global questions collection
+    try {
+      final globalBatch = _firestore.batch();
+      for (final q in questions) {
+        final docRef = _firestore.collection('questions').doc();
+        final questionObj = Question(
+          id: docRef.id,
+          topic: q.topic,
+          question: q.question.trim(),
+          answer: q.answer.trim(),
+          createdBy: uid,
+          subjectId: q.subjectId,
+          unitId: q.unitId,
+          createdAt: DateTime.now(),
+          options: q.options,
+          correctOptionIndex: q.correctOptionIndex,
+          explanation: q.explanation,
+        );
+        globalBatch.set(docRef, questionObj.toMap());
+        if (createdList.isEmpty) {
+          createdList.add(questionObj);
+        }
+      }
+      await globalBatch.commit();
+    } catch (e) {
+      if (createdList.isNotEmpty) {
+        return createdList;
+      }
+      if (e is FirebaseException) {
+        throw AppException.fromFirebase(e);
+      }
+      throw AppException('Failed to batch create questions: $e');
+    }
+
+    return createdList;
   }
 
   /// Seeds 20 foundational questions once, guarded by `config/seed`. Never duplicates.

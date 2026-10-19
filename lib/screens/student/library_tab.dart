@@ -6,7 +6,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:studymate_classroom/models/subject_model.dart';
 import 'package:studymate_classroom/screens/student/subject_units_screen.dart';
 import 'package:studymate_classroom/screens/student/zip_preview_screen.dart';
+import 'package:studymate_classroom/services/document_processing_service.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/services/notes_ai_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/utils/validators.dart';
 import 'package:studymate_classroom/widgets/custom_dialog.dart';
@@ -120,6 +122,110 @@ class _LibraryTabState extends State<LibraryTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('File selection failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickAndImportPdf() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result.isEmpty) return;
+
+      final pickedFile = result.first;
+      final fileName = pickedFile.name;
+      final sizeInBytes = (pickedFile.lengthSync() ?? await pickedFile.length()) ?? 0;
+      final bytes = await pickedFile.readAsBytes();
+
+      if (bytes.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not read PDF file data.'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Expanded(child: Text('Extracting PDF & generating practice questions...')),
+            ],
+          ),
+        ),
+      );
+
+      final doc = await DocumentProcessingService.instance.processBytes(
+        bytes: bytes,
+        fileName: fileName,
+      );
+
+      final aiResult = await NotesAiService.instance.processDocument(doc);
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Dismiss loading
+      }
+
+      final parsedQuestions = aiResult.practiceQuestions
+          .map((q) => ParsedQuestion(question: q.question, answer: q.answer))
+          .toList();
+
+      final parsedFile = ParsedFile(
+        name: fileName,
+        type: 'note',
+        fileType: 'pdf',
+        relativePath: '${aiResult.topic}/Unit 1 - ${aiResult.title}/notes/$fileName',
+        bytes: bytes,
+        sizeBytes: sizeInBytes,
+      );
+
+      final parsedUnit = ParsedUnit(
+        number: 1,
+        title: aiResult.title,
+        notes: [parsedFile],
+        practicals: [],
+        questions: parsedQuestions,
+      );
+
+      final parsedSubject = ParsedSubject(
+        name: aiResult.topic,
+        units: [parsedUnit],
+      );
+
+      final parseResult = ZipParseResult(
+        subjects: [parsedSubject],
+        skippedFiles: [],
+        errors: [],
+      );
+
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ZipPreviewScreen(
+            userId: widget.userId,
+            fileName: fileName,
+            fileSizeBytes: sizeInBytes,
+            zipBytes: const [],
+            preParsedResult: parseResult,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF Import failed: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -424,10 +530,24 @@ class _LibraryTabState extends State<LibraryTab> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.unarchive_outlined),
-        label: const Text('Import ZIP'),
-        onPressed: _pickAndImportZip,
+      floatingActionButton: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'library_pdf_import',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('Import PDF'),
+            backgroundColor: AppTheme.secondaryColor,
+            onPressed: _pickAndImportPdf,
+          ),
+          const SizedBox(width: 12),
+          FloatingActionButton.extended(
+            heroTag: 'library_zip_import',
+            icon: const Icon(Icons.unarchive_outlined),
+            label: const Text('Import ZIP'),
+            onPressed: _pickAndImportZip,
+          ),
+        ],
       ),
     );
   }

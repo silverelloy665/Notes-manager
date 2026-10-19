@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:studymate_classroom/models/subject_model.dart';
+import 'package:studymate_classroom/services/document_processing_service.dart';
+import 'package:studymate_classroom/services/notes_ai_service.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
 import 'package:studymate_classroom/services/zip_import_parser.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
@@ -9,13 +11,14 @@ import 'package:studymate_classroom/widgets/custom_dialog.dart';
 import 'package:studymate_classroom/widgets/custom_text_field.dart';
 import 'package:studymate_classroom/widgets/primary_button.dart';
 
-/// Screen displaying a pre-commit preview tree of detected subjects and units from a ZIP.
+/// Screen displaying a pre-commit preview tree of detected subjects and units from a ZIP or PDF.
 /// No disk writes or Firestore writes happen until the student confirms.
 class ZipPreviewScreen extends StatefulWidget {
   final String userId;
   final String fileName;
   final int fileSizeBytes;
   final List<int> zipBytes;
+  final ZipParseResult? preParsedResult;
 
   const ZipPreviewScreen({
     super.key,
@@ -23,6 +26,7 @@ class ZipPreviewScreen extends StatefulWidget {
     required this.fileName,
     required this.fileSizeBytes,
     required this.zipBytes,
+    this.preParsedResult,
   });
 
   @override
@@ -40,7 +44,12 @@ class _ZipPreviewScreenState extends State<ZipPreviewScreen> {
   @override
   void initState() {
     super.initState();
-    _runParse();
+    if (widget.preParsedResult != null) {
+      _parseResult = widget.preParsedResult;
+      _isParsing = false;
+    } else {
+      _runParse();
+    }
   }
 
   Future<void> _runParse() async {
@@ -51,14 +60,15 @@ class _ZipPreviewScreenState extends State<ZipPreviewScreen> {
 
     try {
       // Execute pure parser in background isolate
-      final result = await compute(_parseInIsolate, widget.zipBytes);
+      final baseResult = await compute(_parseInIsolate, widget.zipBytes);
+      final enrichedResult = await _enrichWithQuestions(baseResult);
       if (mounted) {
         setState(() {
-          _parseResult = result;
+          _parseResult = enrichedResult;
           _isParsing = false;
         });
 
-        if (result.requiresSubjectNamePrompt) {
+        if (enrichedResult.requiresSubjectNamePrompt) {
           _promptSubjectName();
         }
       }
@@ -70,6 +80,51 @@ class _ZipPreviewScreenState extends State<ZipPreviewScreen> {
         });
       }
     }
+  }
+
+  Future<ZipParseResult> _enrichWithQuestions(ZipParseResult base) async {
+    final updatedSubjects = <ParsedSubject>[];
+
+    for (final subject in base.subjects) {
+      final updatedUnits = <ParsedUnit>[];
+      for (final unit in subject.units) {
+        if (unit.questions.isNotEmpty) {
+          updatedUnits.add(unit);
+          continue;
+        }
+
+        final questions = <ParsedQuestion>[];
+        for (final note in unit.notes) {
+          try {
+            final doc = await DocumentProcessingService.instance.processBytes(
+              bytes: note.bytes,
+              fileName: note.name,
+            );
+            final generated = await NotesAiService.instance.generatePracticeQuestions(
+              text: doc.fullText,
+              title: unit.title,
+              topic: subject.name,
+              sections: doc.sections,
+              count: 3,
+            );
+            for (final g in generated) {
+              questions.add(ParsedQuestion(question: g.question, answer: g.answer));
+            }
+          } catch (_) {
+            // Keep going if one file has an issue
+          }
+        }
+
+        if (questions.isNotEmpty) {
+          updatedUnits.add(unit.copyWith(questions: questions));
+        } else {
+          updatedUnits.add(unit);
+        }
+      }
+      updatedSubjects.add(subject.copyWith(units: updatedUnits));
+    }
+
+    return base.copyWith(subjects: updatedSubjects);
   }
 
   static ZipParseResult _parseInIsolate(List<int> bytes) {

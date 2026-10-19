@@ -4,41 +4,43 @@ import 'package:flutter/material.dart';
 class AppTheme {
   AppTheme._();
 
-  // Primary palette
-  static const Color primaryColor = Color(0xFF3F51B5); // Indigo
-  static const Color primaryDark = Color(0xFF303F9F);
-  static const Color primaryLight = Color(0xFFC5CAE9);
-  static const Color secondaryColor = Color(0xFF5C6BC0);
+  // Primary botanical palette (matching the PDF presentation slides)
+  static const Color primaryColor = Color(0xFF234A35); // Deep Botanical Pine/Forest Green
+  static const Color primaryDark = Color(0xFF163424);
+  static const Color primaryLight = Color(0xFFD7EADB); // Soft Watercolor Sage Wash
+  static const Color secondaryColor = Color(0xFF4C7B5D); // Eucalyptus Green
+  static const Color accentColor = Color(0xFF72A183); // Leaf Accent
 
   // Surface and background
-  static const Color backgroundColor = Color(0xFFF8F9FA); // Off-white
+  static const Color backgroundColor = Color(0xFFF1F6F2); // Soft Botanical Sage Mist Background
   static const Color surfaceColor = Colors.white;
-  static const Color cardColor = Colors.white;
+  static const Color cardColor = Color(0xFFFCFEFC); // Clean Botanical Card White
 
   // Neutral tones
-  static const Color textPrimary = Color(0xFF212121);
-  static const Color textSecondary = Color(0xFF616161);
-  static const Color textMuted = Color(0xFF9E9E9E);
-  static const Color dividerColor = Color(0xFFE0E0E0);
-  static const Color borderColor = Color(0xFFD6D6D6);
+  static const Color textPrimary = Color(0xFF1B3325); // Deep Forest Slate
+  static const Color textSecondary = Color(0xFF456151); // Muted Leaf Slate
+  static const Color textMuted = Color(0xFF7D9789); // Pale Sage Grey
+  static const Color dividerColor = Color(0xFFE0ECE3);
+  static const Color borderColor = Color(0xFFCFE1D4); // Subtle Botanical Green Border
 
   // Status accents
   static const Color successColor = Color(0xFF2E7D32);
-  static const Color warningColor = Color(0xFFED6C02);
-  static const Color errorColor = Color(0xFFD32F2F);
+  static const Color warningColor = Color(0xFFD97706);
+  static const Color errorColor = Color(0xFFC53030);
 
   // Standard metrics
   static const double spacingSm = 8.0;
   static const double spacing = 16.0;
   static const double spacingLg = 24.0;
-  static const double borderRadius = 12.0;
+  static const double borderRadius = 14.0;
   static const double maxFormWidth = 480.0;
 
-  /// Global shared ThemeData (Light theme only, Material 3).
+  /// Global shared ThemeData (Light theme with botanical aesthetic).
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: primaryColor,
       primary: primaryColor,
+      secondary: secondaryColor,
       surface: surfaceColor,
       error: errorColor,
       brightness: Brightness.light,
@@ -49,7 +51,6 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: backgroundColor,
       primaryColor: primaryColor,
-      fontFamily: 'Roboto',
       appBarTheme: const AppBarTheme(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
@@ -58,18 +59,18 @@ class AppTheme {
         titleTextStyle: TextStyle(
           color: Colors.white,
           fontSize: 20,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.15,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
         ),
         iconTheme: IconThemeData(color: Colors.white),
       ),
       cardTheme: CardThemeData(
         color: cardColor,
-        elevation: 1.5,
+        elevation: 1.0,
         margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          side: const BorderSide(color: Color(0xFFEAEAEA), width: 1),
+          side: const BorderSide(color: borderColor, width: 1.2),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

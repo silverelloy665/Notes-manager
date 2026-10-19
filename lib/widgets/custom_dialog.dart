@@ -37,9 +37,12 @@ class CustomDialog extends StatelessWidget {
       elevation: 4,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: BoxConstraints(
+          maxWidth: 540,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spacingLg),
+          padding: const EdgeInsets.all(AppTheme.spacing),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

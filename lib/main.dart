@@ -1,7 +1,9 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'firebase_options.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/common/firebase_not_configured_screen.dart';
+import 'services/firestore_service.dart';
 import 'utils/app_theme.dart';
 
 void main() async {
@@ -11,11 +13,12 @@ void main() async {
   String? firebaseError;
 
   try {
-    // Attempt Firebase initialization.
-    // When flutterfire configure is executed, native platform config
-    // (google-services.json / GoogleService-Info.plist) is loaded.
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     isFirebaseReady = true;
+    // Ensure foundational practice questions are seeded in Cloud Firestore
+    FirestoreService.instance.seedInitialQuestions().ignore();
   } catch (e) {
     isFirebaseReady = false;
     firebaseError = e.toString();
@@ -55,7 +58,9 @@ class _StudyMateAppState extends State<StudyMateApp> {
 
   Future<void> _retryInitialization() async {
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
       setState(() {
         _isReady = true;
         _error = null;
