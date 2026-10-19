@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../models/topic_map_model.dart';
@@ -137,6 +138,7 @@ class DocumentProcessingService {
       detectedTopic = preferredTopic;
     }
 
+    final fileHash = sha256.convert(bytes).toString();
     final docId = '${p.basenameWithoutExtension(fileName).replaceAll(RegExp(r'\s+'), '_')}_${DateTime.now().millisecondsSinceEpoch}';
     final topicMap = _buildHierarchicalTopicMap(
       documentId: docId,
@@ -145,6 +147,7 @@ class DocumentProcessingService {
       domainTopic: detectedTopic,
       sections: sections,
       pageCount: pageCount,
+      fileHash: fileHash,
     );
 
     final chunks = _generateSemanticChunks(
@@ -246,6 +249,7 @@ class DocumentProcessingService {
       detectedTopic = preferredTopic;
     }
 
+    final fileHash = sha256.convert(bytes).toString();
     final docId = '${p.basenameWithoutExtension(fileName).replaceAll(RegExp(r'\s+'), '_')}_${DateTime.now().millisecondsSinceEpoch}';
     final topicMap = _buildHierarchicalTopicMap(
       documentId: docId,
@@ -254,6 +258,7 @@ class DocumentProcessingService {
       domainTopic: detectedTopic,
       sections: sections,
       pageCount: max(1, sections.length),
+      fileHash: fileHash,
     );
 
     final chunks = _generateSemanticChunks(
@@ -295,6 +300,7 @@ class DocumentProcessingService {
       detectedTopic = preferredTopic;
     }
 
+    final fileHash = sha256.convert(bytes).toString();
     final docId = '${p.basenameWithoutExtension(fileName).replaceAll(RegExp(r'\s+'), '_')}_${DateTime.now().millisecondsSinceEpoch}';
     final topicMap = _buildHierarchicalTopicMap(
       documentId: docId,
@@ -303,6 +309,7 @@ class DocumentProcessingService {
       domainTopic: detectedTopic,
       sections: sections,
       pageCount: max(1, sections.length),
+      fileHash: fileHash,
     );
 
     final chunks = _generateSemanticChunks(
@@ -484,6 +491,7 @@ class DocumentProcessingService {
     required String domainTopic,
     required List<DocumentSection> sections,
     required int pageCount,
+    String? fileHash,
   }) {
     final topicNodes = <TopicNode>[];
     int totalWords = 0;
@@ -553,6 +561,7 @@ class DocumentProcessingService {
       totalWordCount: totalWords,
       topics: topicNodes,
       chunks: const [],
+      fileHash: fileHash,
       createdAt: DateTime.now(),
     );
   }

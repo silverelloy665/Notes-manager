@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:path/path.dart' as p;
 import 'package:studymate_classroom/models/classroom_model.dart';
+import 'package:studymate_classroom/models/coverage_report_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
@@ -854,6 +855,89 @@ class FirestoreService {
       try {
         await _firestore.collection('questions').doc(questionId).update(updateData);
       } catch (_) {}
+    } catch (_) {}
+  }
+
+  /// Saves a verified CoverageReport for a document under users/{uid}/coverage_reports.
+  Future<void> saveCoverageReport(String userId, CoverageReport report) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('coverage_reports')
+          .doc(report.documentId)
+          .set(report.toMap());
+    } catch (_) {}
+  }
+
+  /// Retrieves a saved CoverageReport for a specific document.
+  Future<CoverageReport?> getCoverageReport(String userId, String documentId) async {
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('coverage_reports')
+          .doc(documentId)
+          .get();
+      if (!doc.exists || doc.data() == null) return null;
+      return CoverageReport.fromMap(doc.data()!);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Searches for an existing TopicMap by its file SHA-256 hash to prevent duplicate parsing on re-upload.
+  Future<TopicMap?> findTopicMapByHash(String userId, String fileHash) async {
+    try {
+      final snap = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('topic_maps')
+          .where('fileHash', isEqualTo: fileHash)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isEmpty) return null;
+      final doc = snap.docs.first;
+      return TopicMap.fromMap(doc.data(), doc.id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Removes previously generated questions for a document to enable clean regeneration.
+  Future<void> deleteQuestionsByDocumentId(String userId, String documentId) async {
+    try {
+      final snap = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('questions')
+          .where('documentId', isEqualTo: documentId)
+          .get();
+
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (_) {}
+  }
+
+  /// Submits student feedback or flags a low-quality question.
+  Future<void> reportQuestion({
+    required String questionId,
+    required String reason,
+    required String reportedBy,
+    String? notes,
+  }) async {
+    try {
+      await _firestore.collection('question_reports').add({
+        'questionId': questionId,
+        'reason': reason,
+        'reportedBy': reportedBy,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+        'reportedAt': FieldValue.serverTimestamp(),
+      });
     } catch (_) {}
   }
 

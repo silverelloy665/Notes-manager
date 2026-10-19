@@ -182,6 +182,7 @@ class TopicMap {
   final int totalWordCount;
   final List<TopicNode> topics;
   final List<SemanticChunk> chunks;
+  final String? fileHash;
   final DateTime createdAt;
 
   const TopicMap({
@@ -194,6 +195,7 @@ class TopicMap {
     required this.totalWordCount,
     required this.topics,
     required this.chunks,
+    this.fileHash,
     required this.createdAt,
   });
 
@@ -226,6 +228,7 @@ class TopicMap {
       'totalWordCount': totalWordCount,
       'topics': topics.map((t) => t.toMap()).toList(),
       'chunks': chunks.map((c) => c.toMap()).toList(),
+      if (fileHash != null) 'fileHash': fileHash,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -252,6 +255,7 @@ class TopicMap {
       totalWordCount: (map['totalWordCount'] ?? 0) as int,
       topics: rawTopics.map((t) => TopicNode.fromMap(Map<String, dynamic>.from(t as Map))).toList(),
       chunks: rawChunks.map((c) => SemanticChunk.fromMap(Map<String, dynamic>.from(c as Map))).toList(),
+      fileHash: map['fileHash'] as String?,
       createdAt: parsedCreatedAt,
     );
   }
