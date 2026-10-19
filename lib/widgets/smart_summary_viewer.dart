@@ -4,18 +4,20 @@ import 'package:studymate_classroom/models/summary_model.dart';
 import 'package:studymate_classroom/models/topic_map_model.dart';
 import 'package:studymate_classroom/services/notes_ai_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
+import 'package:studymate_classroom/widgets/explain_simply_dialog.dart';
 
-/// Full interactive viewer for Phase 4 Smart Multi-Level Summaries.
-/// Includes:
+/// Full interactive viewer for Smarter Summarization (Workstream A).
+/// Includes 7 distinct study formats:
 /// - (a) One-line TL;DR
-/// - (b) 5-bullet key points
+/// - (b) 5-8 bullet Key Points
 /// - (c) Detailed section-by-section breakdown
-/// - (d) Exam cheat sheet
+/// - (d) Exam cheat sheet (definitions, formulas, key terms, must remember, common mistakes)
 /// - (e) Glossary of terms
-/// - Visual Mind Map
+/// - (f) Q&A Summary (5 teacher questions)
+/// - (g) Visual Mind Map
 /// - "Show Source" toggle ([p. X] references)
-/// - One-click actions: Summary -> Flashcards, Summary -> Quiz/Exam, Summary -> Mind Map
-/// - Regeneration options modal (length, tone, language)
+/// - Controls: "Make shorter", "Add more detail", "Focus on topic"
+/// - One-click actions: Summary -> Flashcards, Summary -> Practice Questions/MCQs
 class SmartSummaryViewer extends StatefulWidget {
   final Note note;
   final MultiLevelSummary? initialSummary;
@@ -38,10 +40,10 @@ class SmartSummaryViewer extends StatefulWidget {
   State<SmartSummaryViewer> createState() => _SmartSummaryViewerState();
 }
 
-enum _SummaryTab { overview, sections, cheatSheet, glossary, mindMap }
+enum _SummaryTab { tldr, keyPoints, sections, cheatSheet, glossary, qaSummary, mindMap }
 
 class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
-  _SummaryTab _currentTab = _SummaryTab.overview;
+  _SummaryTab _currentTab = _SummaryTab.tldr;
   bool _showSources = true;
   bool _isRegenerating = false;
   late MultiLevelSummary _summary;
@@ -387,19 +389,23 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
           ),
         ),
 
-        // Multi-Level Tab Bar
+        // Multi-Level Tab Bar (7 formats)
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
-              _buildTabPill('⚡ TL;DR & Key Points', _SummaryTab.overview),
+              _buildTabPill('⚡ TL;DR', _SummaryTab.tldr),
+              const SizedBox(width: 6),
+              _buildTabPill('🔑 Key Points (${_summary.keyPoints.length})', _SummaryTab.keyPoints),
               const SizedBox(width: 6),
               _buildTabPill('📖 Section Deep Dive (${_summary.sections.length})', _SummaryTab.sections),
               const SizedBox(width: 6),
               _buildTabPill('📝 Exam Cheat Sheet', _SummaryTab.cheatSheet),
               const SizedBox(width: 6),
               _buildTabPill('📚 Glossary (${_summary.glossary.length})', _SummaryTab.glossary),
+              const SizedBox(width: 6),
+              _buildTabPill('❓ Teacher Q&A (${_summary.qaSummary.length})', _SummaryTab.qaSummary),
               const SizedBox(width: 6),
               _buildTabPill('🗺️ Mind Map', _SummaryTab.mindMap),
             ],
@@ -441,28 +447,31 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
 
   Widget _buildCurrentTabContent() {
     switch (_currentTab) {
-      case _SummaryTab.overview:
-        return _buildOverviewTab();
+      case _SummaryTab.tldr:
+        return _buildTldrTab();
+      case _SummaryTab.keyPoints:
+        return _buildKeyPointsTab();
       case _SummaryTab.sections:
         return _buildSectionsTab();
       case _SummaryTab.cheatSheet:
         return _buildCheatSheetTab();
       case _SummaryTab.glossary:
         return _buildGlossaryTab();
+      case _SummaryTab.qaSummary:
+        return _buildQaSummaryTab();
       case _SummaryTab.mindMap:
         return _buildMindMapTab();
     }
   }
 
-  // (a) One-line TL;DR & (b) 5-Bullet Key Points
-  Widget _buildOverviewTab() {
+  // (a) One-line TL;DR
+  Widget _buildTldrTab() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // One-Line TL;DR Card
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: const Color(0xFFF4F9F5),
             borderRadius: BorderRadius.circular(12),
@@ -473,42 +482,66 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.bolt_rounded, size: 18, color: AppTheme.primaryColor),
-                  SizedBox(width: 6),
+                  Icon(Icons.bolt_rounded, size: 20, color: AppTheme.primaryColor),
+                  SizedBox(width: 8),
                   Text(
                     '⚡ One-Line TL;DR Synthesis',
                     style: TextStyle(
                       fontFamily: 'serif',
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryColor,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 _summary.tldr,
                 style: const TextStyle(
                   fontFamily: 'serif',
-                  fontSize: 13.5,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textPrimary,
-                  height: 1.45,
+                  height: 1.5,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryColor,
+            side: const BorderSide(color: AppTheme.primaryColor),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: const Icon(Icons.psychology_outlined, size: 16),
+          label: Text('💡 Explain "${widget.note.topic}" Simply (Analogy + Steps)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          onPressed: () {
+            ExplainSimplyDialog.show(
+              context: context,
+              topic: widget.note.topic,
+              sourceContext: '${_summary.tldr}\n${_summary.keyPoints.join("\n")}',
+            );
+          },
+        ),
+      ],
+    );
+  }
 
-        // 5-Bullet Key Points
+  // (b) 5-8 Bullet Key Points
+  Widget _buildKeyPointsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         const Row(
           children: [
             Icon(Icons.key_rounded, size: 18, color: AppTheme.secondaryColor),
             SizedBox(width: 6),
             Text(
-              '🔑 5 High-Yield Key Points',
+              '🔑 High-Yield Key Points',
               style: TextStyle(
                 fontFamily: 'serif',
                 fontSize: 15,
@@ -532,8 +565,8 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 22,
-                  height: 22,
+                  width: 24,
+                  height: 24,
                   alignment: Alignment.center,
                   decoration: const BoxDecoration(
                     color: AppTheme.primaryLight,
@@ -553,6 +586,44 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
                 ),
               ],
             ),
+          );
+        }),
+      ],
+    );
+  }
+
+  // (f) Teacher Q&A Summary
+  Widget _buildQaSummaryTab() {
+    if (_summary.qaSummary.isEmpty) {
+      return const Text('No teacher Q&A summary available.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.school_rounded, size: 18, color: AppTheme.primaryColor),
+            SizedBox(width: 6),
+            Text(
+              '❓ 5 Questions a Teacher Would Most Likely Ask',
+              style: TextStyle(
+                fontFamily: 'serif',
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ..._summary.qaSummary.asMap().entries.map((e) {
+          final idx = e.key;
+          final qa = e.value;
+          return _TeacherQuestionTile(
+            index: idx + 1,
+            teacherQuestion: qa,
+            showSources: _showSources,
           );
         }),
       ],
@@ -631,6 +702,29 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
                     ),
                   )),
                 ],
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      side: const BorderSide(color: AppTheme.borderColor),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
+                    label: const Text('Explain Simply', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      ExplainSimplyDialog.show(
+                        context: context,
+                        topic: widget.note.topic,
+                        subtopic: sec.title,
+                        sourceContext: '${sec.title}\n${sec.content}\n${sec.bulletPoints.join("\n")}',
+                        sourcePage: sec.sourcePage,
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           );
@@ -939,6 +1033,117 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TeacherQuestionTile extends StatefulWidget {
+  final int index;
+  final TeacherQuestion teacherQuestion;
+  final bool showSources;
+
+  const _TeacherQuestionTile({
+    required this.index,
+    required this.teacherQuestion,
+    required this.showSources,
+  });
+
+  @override
+  State<_TeacherQuestionTile> createState() => _TeacherQuestionTileState();
+}
+
+class _TeacherQuestionTileState extends State<_TeacherQuestionTile> {
+  bool _revealed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tq = widget.teacherQuestion;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                child: Text('Q${widget.index}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tq.question,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary, height: 1.35),
+                ),
+              ),
+              if (widget.showSources && tq.sourcePage != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text('p. ${tq.sourcePage}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (tq.expectedKeyPoints.isNotEmpty) ...[
+            const Text('Expected Points to Cover:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor)),
+            const SizedBox(height: 4),
+            Text(tq.expectedKeyPoints, style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary)),
+          ],
+          const SizedBox(height: 8),
+          if (_revealed) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F8F4),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFA5D6A7)),
+              ),
+              child: Text(
+                tq.answer,
+                style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.35),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => setState(() => _revealed = false),
+                child: const Text('Hide Answer', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+          ] else ...[
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                side: const BorderSide(color: AppTheme.borderColor),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              icon: const Icon(Icons.visibility_outlined, size: 14),
+              label: const Text('Reveal Model Answer', style: TextStyle(fontSize: 11)),
+              onPressed: () => setState(() => _revealed = true),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

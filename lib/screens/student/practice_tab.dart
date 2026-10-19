@@ -18,6 +18,7 @@ import 'package:studymate_classroom/widgets/mastery_dashboard_view.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/utils/constants.dart';
 import 'package:studymate_classroom/widgets/botanical_decoration.dart';
+import 'package:studymate_classroom/widgets/explain_simply_dialog.dart';
 
 /// Tab enabling students to select academic topics, practice with tap-to-reveal question cards,
 /// upload PDFs directly, and generate practice questions directly from their summarized notes.
@@ -2855,6 +2856,30 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
+                      icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
+                      label: const Text("I don't get this → Explain", style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        final wrongOptText = (hasAnswered && chosenOption != null && chosenOption >= 0 && chosenOption != q.correctOptionIndex && q.options != null && chosenOption < q.options!.length)
+                            ? q.options![chosenOption]
+                            : null;
+                        ExplainSimplyDialog.show(
+                          context: context,
+                          topic: q.topic,
+                          subtopic: q.subtopic,
+                          sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
+                          sourcePage: q.sourcePage,
+                          wrongOptionChosen: wrongOptText,
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                       icon: const Icon(Icons.flip_rounded, size: 14),
                       label: const Text('Question', style: TextStyle(fontSize: 11)),
                       onPressed: _toggleFlip,
@@ -2948,6 +2973,35 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                 }),
                               ],
                             ),
+                          ),
+                        ],
+                        if (chosenOption != null && chosenOption != q.correctOptionIndex) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFC2185B),
+                              side: const BorderSide(color: Color(0xFFE91E63)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.psychology_rounded, size: 16),
+                            label: Text(
+                              '💡 Explain Simply: Why Option ${chosenOption >= 0 && q.options != null && chosenOption < q.options!.length ? String.fromCharCode(65 + chosenOption) : ""} is a common trap',
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () {
+                              final wrongOptText = (chosenOption >= 0 && q.options != null && chosenOption < q.options!.length)
+                                  ? q.options![chosenOption]
+                                  : null;
+                              ExplainSimplyDialog.show(
+                                context: context,
+                                topic: q.topic,
+                                subtopic: q.subtopic,
+                                sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
+                                sourcePage: q.sourcePage,
+                                wrongOptionChosen: wrongOptText,
+                              );
+                            },
                           ),
                         ],
                       ],
@@ -3581,6 +3635,30 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.borderColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
+                  label: const Text("I don't get this → Explain", style: TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    final wrongOptText = (_selectedOption != null && _selectedOption != q.correctOptionIndex && q.options != null && _selectedOption! < q.options!.length)
+                        ? q.options![_selectedOption!]
+                        : null;
+                    ExplainSimplyDialog.show(
+                      context: context,
+                      topic: q.topic,
+                      subtopic: q.subtopic,
+                      sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
+                      sourcePage: q.sourcePage,
+                      wrongOptionChosen: wrongOptText,
+                    );
+                  },
+                ),
+                const SizedBox(width: 6),
                 IconButton(
                   tooltip: widget.isBookmarked ? 'Remove Bookmark' : 'Bookmark Question',
                   icon: Icon(
@@ -3831,6 +3909,35 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                           style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
                         ),
                       ],
+                      if (_selectedOption != null && _selectedOption != q.correctOptionIndex) ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFC2185B),
+                            side: const BorderSide(color: Color(0xFFE91E63)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.psychology_rounded, size: 15),
+                          label: Text(
+                            '💡 Explain Simply: Why Option ${String.fromCharCode(65 + _selectedOption!)} is a common trap',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () {
+                            final wrongOptText = (q.options != null && _selectedOption! < q.options!.length)
+                                ? q.options![_selectedOption!]
+                                : null;
+                            ExplainSimplyDialog.show(
+                              context: context,
+                              topic: q.topic,
+                              subtopic: q.subtopic,
+                              sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
+                              sourcePage: q.sourcePage,
+                              wrongOptionChosen: wrongOptText,
+                            );
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -4041,6 +4148,26 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                           style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
                         ),
                       ],
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: AppTheme.borderColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.lightbulb_outline_rounded, size: 15),
+                        label: const Text('💡 Explain this concept simply (Analogy + Steps)', style: TextStyle(fontSize: 11.5)),
+                        onPressed: () {
+                          ExplainSimplyDialog.show(
+                            context: context,
+                            topic: q.topic,
+                            subtopic: q.subtopic,
+                            sourceContext: '${q.question}\n${q.answer}',
+                            sourcePage: q.sourcePage,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),

@@ -12,6 +12,7 @@ import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/widgets/custom_dialog.dart';
 import 'package:studymate_classroom/widgets/custom_text_field.dart';
 import 'package:studymate_classroom/widgets/empty_state.dart';
+import 'package:studymate_classroom/widgets/explain_simply_dialog.dart';
 
 /// Detailed view of a unit showing Notes, Practicals, and Questions.
 class UnitDetailScreen extends StatefulWidget {
@@ -459,24 +460,63 @@ class _UnitQuestionCardState extends State<_UnitQuestionCard> {
                 ),
               ),
               const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  icon: const Icon(Icons.visibility_off_outlined, size: 16),
-                  label: const Text('Hide Answer', style: TextStyle(fontSize: 12)),
-                  onPressed: () => setState(() => _isAnswerRevealed = false),
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
+                    label: const Text("Explain Simply", style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      side: const BorderSide(color: AppTheme.borderColor),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      ExplainSimplyDialog.show(
+                        context: context,
+                        topic: widget.question.topic,
+                        subtopic: widget.question.subtopic,
+                        sourceContext: '${widget.question.question}\n${widget.question.answer}',
+                        sourcePage: widget.question.sourcePage,
+                      );
+                    },
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.visibility_off_outlined, size: 16),
+                    label: const Text('Hide Answer', style: TextStyle(fontSize: 12)),
+                    onPressed: () => setState(() => _isAnswerRevealed = false),
+                  ),
+                ],
               ),
             ] else ...[
-              OutlinedButton.icon(
-                icon: const Icon(Icons.visibility_outlined, size: 16),
-                label: const Text('Tap to reveal answer'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryColor,
-                  side: const BorderSide(color: AppTheme.primaryColor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () => setState(() => _isAnswerRevealed = true),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('Tap to reveal answer'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      side: const BorderSide(color: AppTheme.primaryColor),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => setState(() => _isAnswerRevealed = true),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.lightbulb_outline_rounded, size: 18, color: AppTheme.primaryColor),
+                    tooltip: 'Explain Simply',
+                    onPressed: () {
+                      ExplainSimplyDialog.show(
+                        context: context,
+                        topic: widget.question.topic,
+                        subtopic: widget.question.subtopic,
+                        sourceContext: '${widget.question.question}\n${widget.question.answer}',
+                        sourcePage: widget.question.sourcePage,
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ],

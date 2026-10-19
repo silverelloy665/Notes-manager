@@ -6,6 +6,7 @@ import '../models/question_model.dart';
 import '../models/summary_model.dart';
 import '../models/topic_map_model.dart';
 import 'document_processing_service.dart';
+import 'smart_summarization_service.dart';
 
 /// Represents processing stages for non-blocking UI background jobs.
 enum DocumentProcessingStage {
@@ -1286,6 +1287,42 @@ Return JSON with:
   /// (e) Glossary of terms
   /// Plus visual Mind Map in Mermaid syntax.
   Future<MultiLevelSummary> generateSmartMultiLevelSummary({
+    required String title,
+    required String topic,
+    required String text,
+    List<DocumentSection> sections = const [],
+    TopicMap? topicMap,
+    String tone = 'academic',
+    String length = 'detailed',
+    String language = 'en',
+    String? focusTopic,
+  }) async {
+    GenerativeModel? model;
+    if (hasApiKey) {
+      try {
+        model = GenerativeModel(
+          model: 'gemini-1.5-flash',
+          apiKey: _geminiApiKey!,
+        );
+      } catch (_) {}
+    }
+
+    return SmartSummarizationService.instance.generateSummary(
+      title: title,
+      topic: topic,
+      text: text,
+      sections: sections,
+      topicMap: topicMap,
+      tone: tone,
+      length: length,
+      language: language,
+      focusTopic: focusTopic,
+      model: model,
+    );
+  }
+
+  /// Fallback heuristic summarizer for offline operation when no LLM or topic map is available.
+  Future<MultiLevelSummary> generateSummaryFallback({
     required String title,
     required String topic,
     required String text,

@@ -8,10 +8,14 @@ class MultiLevelSummary {
   final List<SectionSummary> sections; // (c) Detailed section-by-section breakdown
   final ExamCheatSheet cheatSheet; // (d) "Exam cheat sheet" (definitions, formulas, key terms)
   final Map<String, String> glossary; // (e) Glossary of terms
+  final List<TeacherQuestion> qaSummary; // (f) Q&A Summary (5 teacher questions)
   final String mindMapMermaid; // Visual Mind Map in Mermaid syntax
   final String tone; // 'academic', 'simple'
   final String length; // 'concise', 'detailed', 'comprehensive'
-  final String language; // 'en', etc.
+  final String language; // 'en', 'hi', etc.
+  final String contentHash; // SHA-256 cache key
+  final bool isVerified; // Validation pass verified
+  final List<String> validationNotes; // Verification audit logs
 
   const MultiLevelSummary({
     required this.documentTitle,
@@ -21,10 +25,14 @@ class MultiLevelSummary {
     required this.sections,
     required this.cheatSheet,
     required this.glossary,
+    this.qaSummary = const [],
     required this.mindMapMermaid,
     this.tone = 'academic',
     this.length = 'detailed',
     this.language = 'en',
+    this.contentHash = '',
+    this.isVerified = true,
+    this.validationNotes = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -36,10 +44,14 @@ class MultiLevelSummary {
       'sections': sections.map((s) => s.toMap()).toList(),
       'cheatSheet': cheatSheet.toMap(),
       'glossary': glossary,
+      'qaSummary': qaSummary.map((q) => q.toMap()).toList(),
       'mindMapMermaid': mindMapMermaid,
       'tone': tone,
       'length': length,
       'language': language,
+      'contentHash': contentHash,
+      'isVerified': isVerified,
+      'validationNotes': validationNotes,
     };
   }
 
@@ -54,10 +66,16 @@ class MultiLevelSummary {
           .toList(),
       cheatSheet: ExamCheatSheet.fromMap(map['cheatSheet'] as Map<String, dynamic>? ?? {}),
       glossary: Map<String, String>.from(map['glossary'] ?? {}),
+      qaSummary: (map['qaSummary'] as List<dynamic>? ?? [])
+          .map((q) => TeacherQuestion.fromMap(q as Map<String, dynamic>))
+          .toList(),
       mindMapMermaid: (map['mindMapMermaid'] ?? '') as String,
       tone: (map['tone'] ?? 'academic') as String,
       length: (map['length'] ?? 'detailed') as String,
       language: (map['language'] ?? 'en') as String,
+      contentHash: (map['contentHash'] ?? '') as String,
+      isVerified: (map['isVerified'] ?? true) as bool,
+      validationNotes: List<String>.from(map['validationNotes'] ?? []),
     );
   }
 
@@ -76,7 +94,8 @@ class MultiLevelSummary {
     // (b) 5-Bullet Key Points
     sb.writeln('## 🔑 5 High-Yield Key Points');
     for (final kp in keyPoints) {
-      sb.writeln('- $kp');
+      final text = includeSources ? kp : kp.replaceAll(RegExp(r'\s*\[p\.\s*\d+\]'), '');
+      sb.writeln('- $text');
     }
     sb.writeln();
 
@@ -85,12 +104,14 @@ class MultiLevelSummary {
     for (int i = 0; i < sections.length; i++) {
       final s = sections[i];
       final srcTag = (includeSources && s.sourcePage != null) ? ' [p. ${s.sourcePage}]' : '';
+      final content = includeSources ? s.content : s.content.replaceAll(RegExp(r'\s*\[p\.\s*\d+\]'), '');
       sb.writeln('### ${i + 1}. ${s.title}$srcTag');
-      sb.writeln(s.content);
+      sb.writeln(content);
       if (s.bulletPoints.isNotEmpty) {
         sb.writeln();
         for (final b in s.bulletPoints) {
-          sb.writeln('- $b');
+          final bullet = includeSources ? b : b.replaceAll(RegExp(r'\s*\[p\.\s*\d+\]'), '');
+          sb.writeln('- $bullet');
         }
       }
       sb.writeln();
@@ -190,16 +211,20 @@ class SectionSummary {
   }
 }
 
-/// Exam cheat sheet containing definitions, formulas, and high-yield facts.
+/// Exam cheat sheet containing definitions, formulas, key terms, must-remember list, and common mistakes.
 class ExamCheatSheet {
   final List<DefinitionItem> definitions;
   final List<FormulaItem> formulasOrRules;
   final List<String> highYieldTips;
+  final List<String> mustRemember;
+  final List<String> commonMistakes;
 
   const ExamCheatSheet({
     this.definitions = const [],
     this.formulasOrRules = const [],
     this.highYieldTips = const [],
+    this.mustRemember = const [],
+    this.commonMistakes = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -207,6 +232,8 @@ class ExamCheatSheet {
       'definitions': definitions.map((d) => d.toMap()).toList(),
       'formulasOrRules': formulasOrRules.map((f) => f.toMap()).toList(),
       'highYieldTips': highYieldTips,
+      'mustRemember': mustRemember,
+      'commonMistakes': commonMistakes,
     };
   }
 
@@ -219,8 +246,39 @@ class ExamCheatSheet {
           .map((f) => FormulaItem.fromMap(f as Map<String, dynamic>))
           .toList(),
       highYieldTips: List<String>.from(map['highYieldTips'] ?? []),
+      mustRemember: List<String>.from(map['mustRemember'] ?? []),
+      commonMistakes: List<String>.from(map['commonMistakes'] ?? []),
     );
   }
+}
+
+/// Represents one of the 5 questions a teacher would most likely ask on a topic.
+class TeacherQuestion {
+  final String question;
+  final String answer;
+  final String expectedKeyPoints;
+  final int? sourcePage;
+
+  const TeacherQuestion({
+    required this.question,
+    required this.answer,
+    required this.expectedKeyPoints,
+    this.sourcePage,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'question': question,
+    'answer': answer,
+    'expectedKeyPoints': expectedKeyPoints,
+    'sourcePage': sourcePage,
+  };
+
+  factory TeacherQuestion.fromMap(Map<String, dynamic> map) => TeacherQuestion(
+    question: (map['question'] ?? '') as String,
+    answer: (map['answer'] ?? '') as String,
+    expectedKeyPoints: (map['expectedKeyPoints'] ?? '') as String,
+    sourcePage: map['sourcePage'] as int?,
+  );
 }
 
 class DefinitionItem {
@@ -266,3 +324,4 @@ class FormulaItem {
         page: map['page'] as int?,
       );
 }
+
