@@ -8,6 +8,7 @@ import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/services/document_processing_service.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
 import 'package:studymate_classroom/services/notes_ai_service.dart';
+import 'package:studymate_classroom/screens/student/exam_simulation_view.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/utils/constants.dart';
 import 'package:studymate_classroom/widgets/botanical_decoration.dart';
@@ -31,8 +32,8 @@ class _PracticeTabState extends State<PracticeTab> {
   bool _isProcessingPdf = false;
   bool _hasSeeded = false;
 
-  // Flashcard Deck & Question Type Filter state
-  bool _isFlashcardMode = false;
+  // Flashcard Deck, Question Bank & Exam Simulator view mode
+  String _currentViewMode = 'bank'; // 'bank', 'deck', 'exam'
   String _questionTypeFilter = 'all'; // 'all', 'mcq', 'qa'
   String _searchQuery = '';
   String _selectedDifficulty = 'all'; // 'all', 'Easy', 'Medium', 'Hard'
@@ -1402,7 +1403,7 @@ class _PracticeTabState extends State<PracticeTab> {
                   children: [
                     Row(
                       children: [
-                        // Mode Switcher: Flashcards vs Question Bank
+                        // Mode Switcher: Flashcards vs Question Bank vs Exam Simulator
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -1413,14 +1414,19 @@ class _PracticeTabState extends State<PracticeTab> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _buildModeButton(
-                                label: '🎴 Flashcard Deck',
-                                isSelected: _isFlashcardMode,
-                                onTap: () => setState(() => _isFlashcardMode = true),
+                                label: '📋 Question Bank',
+                                isSelected: _currentViewMode == 'bank',
+                                onTap: () => setState(() => _currentViewMode = 'bank'),
                               ),
                               _buildModeButton(
-                                label: '📋 Question Bank',
-                                isSelected: !_isFlashcardMode,
-                                onTap: () => setState(() => _isFlashcardMode = false),
+                                label: '🎴 Flashcard Deck',
+                                isSelected: _currentViewMode == 'deck',
+                                onTap: () => setState(() => _currentViewMode = 'deck'),
+                              ),
+                              _buildModeButton(
+                                label: '🎓 Exam Simulator',
+                                isSelected: _currentViewMode == 'exam',
+                                onTap: () => setState(() => _currentViewMode = 'exam'),
                               ),
                             ],
                           ),
@@ -1626,13 +1632,19 @@ class _PracticeTabState extends State<PracticeTab> {
                               ),
                             ),
                           )
-                        : _isFlashcardMode
-                            ? _FlashcardDeckView(
-                                questions: filtered,
-                                topic: _selectedTopic,
-                                onExitFlashcards: () => setState(() => _isFlashcardMode = false),
+                        : _currentViewMode == 'exam'
+                            ? ExamSimulationView(
+                                availableQuestions: filtered.isNotEmpty ? filtered : _allQuestions,
+                                initialTopic: _selectedTopic,
+                                onExit: () => setState(() => _currentViewMode = 'bank'),
                               )
-                            : ListView.separated(
+                            : _currentViewMode == 'deck'
+                                ? _FlashcardDeckView(
+                                    questions: filtered,
+                                    topic: _selectedTopic,
+                                    onExitFlashcards: () => setState(() => _currentViewMode = 'bank'),
+                                  )
+                                : ListView.separated(
                                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                                 itemCount: filtered.length,
                                 separatorBuilder: (_, _) => const SizedBox(height: 14),
@@ -1743,14 +1755,71 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
   int _currentIndex = 0;
   final Map<int, int> _userAnswers = {}; // questionIndex -> selectedOptionIndex
   final Set<int> _understoodQa = {}; // questionIndex -> marked as understood
+  final Map<int, double> _confidenceLevels = {}; // questionIndex -> 0.25 (Guessing), 0.50 (50/50), 1.0 (100% Sure)
+  double _currentConfidence = 1.0;
   int _score = 0;
   bool _isDeckFinished = false;
 
+  // Timed Mode (30 seconds per card)
+  bool _isTimedMode = false;
+  Timer? _cardTimer;
+  int _secondsLeft = 30;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _cardTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimerIfNeeded() {
+    _cardTimer?.cancel();
+    if (_isTimedMode && !_userAnswers.containsKey(_currentIndex) && !_isDeckFinished) {
+      _secondsLeft = 30;
+      _cardTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) return;
+        if (_secondsLeft > 1) {
+          setState(() => _secondsLeft--);
+        } else {
+          _cardTimer?.cancel();
+          _onTimeExpired();
+        }
+      });
+    }
+  }
+
+  void _onTimeExpired() {
+    final q = widget.questions[_currentIndex];
+    if (q.isMcq && !_userAnswers.containsKey(_currentIndex)) {
+      setState(() {
+        _userAnswers[_currentIndex] = -1; // timed out
+        _confidenceLevels[_currentIndex] = _currentConfidence;
+      });
+    }
+  }
+
+  void _toggleTimedMode() {
+    setState(() {
+      _isTimedMode = !_isTimedMode;
+      if (_isTimedMode) {
+        _startTimerIfNeeded();
+      } else {
+        _cardTimer?.cancel();
+      }
+    });
+  }
+
   void _selectOption(int optionIndex, Question question) {
     if (_userAnswers.containsKey(_currentIndex)) return; // Lock after answering
+    _cardTimer?.cancel();
 
     setState(() {
       _userAnswers[_currentIndex] = optionIndex;
+      _confidenceLevels[_currentIndex] = _currentConfidence;
       if (optionIndex == question.correctOptionIndex) {
         _score++;
       }
@@ -1761,32 +1830,164 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
     if (_understoodQa.contains(_currentIndex)) return;
     setState(() {
       _understoodQa.add(_currentIndex);
+      _confidenceLevels[_currentIndex] = _currentConfidence;
       _score++;
     });
   }
 
   void _nextCard() {
+    _cardTimer?.cancel();
     if (_currentIndex < widget.questions.length - 1) {
-      setState(() => _currentIndex++);
+      setState(() {
+        _currentIndex++;
+        _currentConfidence = 1.0;
+      });
+      _startTimerIfNeeded();
     } else {
       setState(() => _isDeckFinished = true);
     }
   }
 
   void _prevCard() {
+    _cardTimer?.cancel();
     if (_currentIndex > 0) {
-      setState(() => _currentIndex--);
+      setState(() {
+        _currentIndex--;
+        _currentConfidence = _confidenceLevels[_currentIndex] ?? 1.0;
+      });
+      _startTimerIfNeeded();
     }
   }
 
   void _restartDeck() {
+    _cardTimer?.cancel();
     setState(() {
       _currentIndex = 0;
       _userAnswers.clear();
       _understoodQa.clear();
+      _confidenceLevels.clear();
+      _currentConfidence = 1.0;
       _score = 0;
       _isDeckFinished = false;
     });
+    _startTimerIfNeeded();
+  }
+
+  int get _highConfidenceErrorsCount {
+    int count = 0;
+    for (int i = 0; i < widget.questions.length; i++) {
+      final q = widget.questions[i];
+      if (q.isMcq && _userAnswers.containsKey(i)) {
+        final answer = _userAnswers[i];
+        final conf = _confidenceLevels[i] ?? 1.0;
+        if (answer != q.correctOptionIndex && conf >= 0.8) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  Widget _buildHypercorrectionBanner(Question q, int chosenOption) {
+    final recordedConfidence = _confidenceLevels[_currentIndex] ?? 1.0;
+    final isCorrect = chosenOption == q.correctOptionIndex;
+
+    Color bannerBg;
+    Color bannerBorder;
+    Color textColor;
+    IconData icon;
+    String title;
+    String subtitle;
+
+    if (isCorrect && recordedConfidence >= 0.8) {
+      bannerBg = const Color(0xFFE8F5E9);
+      bannerBorder = const Color(0xFF81C784);
+      textColor = const Color(0xFF2E7D32);
+      icon = Icons.verified_rounded;
+      title = '🎯 Mastered (High Confidence Success)';
+      subtitle = 'Excellent retention! Your conceptual grounding is solid for this topic.';
+    } else if (isCorrect && recordedConfidence < 0.8) {
+      bannerBg = const Color(0xFFFFF8E1);
+      bannerBorder = const Color(0xFFFFD54F);
+      textColor = const Color(0xFFF57F17);
+      icon = Icons.casino_outlined;
+      title = '🍀 Lucky Guess (Low Confidence)';
+      subtitle = 'You selected the right option, but with low certainty. Review the concept to solidify understanding.';
+    } else if (!isCorrect && recordedConfidence >= 0.8) {
+      bannerBg = const Color(0xFFFCE4EC);
+      bannerBorder = const Color(0xFFF48FB1);
+      textColor = const Color(0xFFC2185B);
+      icon = Icons.psychology_alt_rounded;
+      title = '⚠️ High-Confidence Error (Hypercorrection Alert)';
+      subtitle = 'Learning Science Note: High-confidence errors provide the greatest learning gains when addressed immediately. Take extra time to study why this distractor misled you.';
+    } else {
+      bannerBg = const Color(0xFFFFEBEE);
+      bannerBorder = const Color(0xFFEF9A9A);
+      textColor = const Color(0xFFC62828);
+      icon = Icons.school_outlined;
+      title = '📚 Learning Opportunity (Low Confidence Error)';
+      subtitle = 'Study the explanation and distractor analysis below to close this knowledge gap.';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bannerBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: bannerBorder, width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: textColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: textColor),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 11.5, color: textColor.withValues(alpha: 0.9), height: 1.35),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfidenceChip(double val, String label) {
+    final isSelected = (_currentConfidence - val).abs() < 0.05;
+    return InkWell(
+      onTap: () => setState(() => _currentConfidence = val),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryLight : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+            width: isSelected ? 1.4 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1798,6 +1999,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
     if (_isDeckFinished || _currentIndex >= questions.length) {
       final total = questions.length;
       final percentage = total > 0 ? ((_score / total) * 100).round() : 0;
+      final hyperErrors = _highConfidenceErrorsCount;
 
       String badgeText;
       String feedback;
@@ -1817,9 +2019,9 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
           padding: const EdgeInsets.all(24),
           child: Container(
             padding: const EdgeInsets.all(32),
-            constraints: const BoxConstraints(maxWidth: 500),
+            constraints: const BoxConstraints(maxWidth: 520),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.95),
+              color: Colors.white.withValues(alpha: 0.96),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppTheme.borderColor, width: 1.5),
               boxShadow: [
@@ -1835,7 +2037,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppTheme.primaryLight,
                     shape: BoxShape.circle,
                   ),
@@ -1880,7 +2082,42 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary, height: 1.45),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 16),
+                // Learning Science Diagnostics
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7FBF9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(
+                        children: [
+                          Text('$_score', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                          const Text('Mastered', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                      Container(height: 28, width: 1, color: AppTheme.borderColor),
+                      Column(
+                        children: [
+                          Text('${total - _score}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.errorColor)),
+                          const Text('Review Due', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                      Container(height: 28, width: 1, color: AppTheme.borderColor),
+                      Column(
+                        children: [
+                          Text('$hyperErrors', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFC2185B))),
+                          const Text('Hyper-Errors', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Row(
                   children: [
                     Expanded(
@@ -1931,7 +2168,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 640),
+          constraints: const BoxConstraints(maxWidth: 680),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(18),
@@ -1963,7 +2200,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Badge Row: Card Index, Topic Pill, Score Badge, Restart Button
+                    // Badge Row: Card Index, Topic Pill, Timed Mode Toggle, Score Badge, Restart Button
                     Row(
                       children: [
                         Container(
@@ -1994,6 +2231,33 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                           ),
                         ),
                         const Spacer(),
+                        // Timed Mode Toggle
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
+                            side: BorderSide(
+                              color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.borderColor,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            backgroundColor: _isTimedMode ? const Color(0xFFFCE4EC) : Colors.transparent,
+                          ),
+                          icon: Icon(
+                            _isTimedMode ? Icons.timer_rounded : Icons.timer_outlined,
+                            size: 14,
+                            color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
+                          ),
+                          label: Text(
+                            _isTimedMode ? '$_secondsLeft s' : '30s Timer',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
+                            ),
+                          ),
+                          onPressed: _toggleTimedMode,
+                        ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                           decoration: BoxDecoration(
@@ -2050,7 +2314,26 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
+
+                    // Confidence Selector (Active before answering)
+                    if (!hasAnswered) ...[
+                      Row(
+                        children: [
+                          const Text(
+                            'Confidence:',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildConfidenceChip(0.25, '💭 Guessing (25%)'),
+                          const SizedBox(width: 6),
+                          _buildConfidenceChip(0.50, '🤔 50/50 (50%)'),
+                          const SizedBox(width: 6),
+                          _buildConfidenceChip(1.0, '🎯 100% Sure'),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     // MCQ 4-Option Interactive Tiles
                     if (isMcq) ...[
@@ -2145,6 +2428,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                       // Educational Explanation Box (Revealed after answering)
                       if (hasAnswered) ...[
                         const SizedBox(height: 12),
+                        // Hypercorrection Feedback Alert Banner
+                        _buildHypercorrectionBanner(q, chosenOption ?? -1),
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
@@ -2178,7 +2463,9 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                                   Text(
                                     chosenOption == q.correctOptionIndex
                                         ? '✓ Correct Answer!'
-                                        : '✗ Incorrect. Correct: Option ${String.fromCharCode(65 + q.correctOptionIndex!)}',
+                                        : chosenOption == -1
+                                            ? '⏱️ Time Expired! Correct: Option ${String.fromCharCode(65 + (q.correctOptionIndex ?? 0))}'
+                                            : '✗ Incorrect. Correct: Option ${String.fromCharCode(65 + (q.correctOptionIndex ?? 0))}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12.5,
@@ -2200,6 +2487,74 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                                   height: 1.45,
                                 ),
                               ),
+                              // Distractor Analysis Breakdown
+                              if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.borderColor),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Row(
+                                        children: [
+                                          Icon(Icons.rule_rounded, size: 14, color: AppTheme.secondaryColor),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            'Distractor Analysis (Why others are wrong):',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 11.5,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ...q.distractorReasoning!.entries.map((e) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.primaryLight,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  e.key,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 10.5,
+                                                    color: AppTheme.primaryColor,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  e.value,
+                                                  style: const TextStyle(
+                                                    fontSize: 11.5,
+                                                    color: AppTheme.textPrimary,
+                                                    height: 1.35,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -2207,7 +2562,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
                     ] else ...[
                       // Non-MCQ Detailed Conceptual Question
                       _ConceptualFlashcardContent(
-                        answer: q.answer,
+                        question: q,
                         isUnderstood: isQaUnderstood,
                         onMarkUnderstood: _markQaUnderstood,
                       ),
@@ -2263,14 +2618,14 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
   }
 }
 
-/// Helper sub-widget for conceptual non-MCQ flashcards.
+/// Helper sub-widget for conceptual non-MCQ flashcards with model answer & rubric breakdown.
 class _ConceptualFlashcardContent extends StatefulWidget {
-  final String answer;
+  final Question question;
   final bool isUnderstood;
   final VoidCallback onMarkUnderstood;
 
   const _ConceptualFlashcardContent({
-    required this.answer,
+    required this.question,
     required this.isUnderstood,
     required this.onMarkUnderstood,
   });
@@ -2284,6 +2639,8 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
 
   @override
   Widget build(BuildContext context) {
+    final q = widget.question;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2299,11 +2656,11 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.check_circle_outline_rounded, size: 16, color: AppTheme.primaryColor),
-                    SizedBox(width: 6),
-                    Text(
+                    const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppTheme.primaryColor),
+                    const SizedBox(width: 6),
+                    const Text(
                       '🌿 Verified Academic Answer:',
                       style: TextStyle(
                         fontFamily: 'serif',
@@ -2312,11 +2669,24 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                         color: AppTheme.primaryColor,
                       ),
                     ),
+                    const Spacer(),
+                    if (q.sourcePage != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'p. ${q.sourcePage}',
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  widget.answer,
+                  q.answer,
                   style: const TextStyle(
                     fontFamily: 'serif',
                     fontSize: 13,
@@ -2324,6 +2694,41 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                     height: 1.5,
                   ),
                 ),
+                // Rubric / Key points if available
+                if (q.keyPointsRubric != null && q.keyPointsRubric!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Grading Rubric & Key Points:',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
+                        ),
+                        const SizedBox(height: 6),
+                        ...q.keyPointsRubric!.map((point) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                              Expanded(
+                                child: Text(point, style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimary)),
+                              ),
+                            ],
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
