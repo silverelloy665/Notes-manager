@@ -429,3 +429,4 @@ class SmartSummarizationService {
     return input.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
   }
 }
+

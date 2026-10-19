@@ -202,3 +202,4 @@ class _GrowingVinePainter extends CustomPainter {
   bool shouldRepaint(covariant _GrowingVinePainter oldDelegate) =>
       oldDelegate.progress != progress || oldDelegate.isDark != isDark;
 }
+

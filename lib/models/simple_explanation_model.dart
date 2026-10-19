@@ -101,3 +101,4 @@ class MiniCheckQuestion {
     answer: (map['answer'] ?? '') as String,
   );
 }
+
