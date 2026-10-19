@@ -1,32 +1,57 @@
 import 'package:flutter/material.dart';
 
-/// Application design system and shared Material 3 light theme.
+/// Application design system and shared Material 3 theme.
+/// Recreates the botanical watercolor presentation reference:
+/// - Palette: Ink Forest (#0F4A22), Sage Blob (#A9BC9B), Mint Wash (#C5DCC6),
+///   Teal Wash (#9CBFA7), Warm Cream Paper (#FAF6EE), Accent Peach (#E8A598).
+/// - Typography: Cardo for editorial serif headings, Zilla Slab for body & UI.
+/// - Calm Mode: Distraction-free toggle stripping decorative line art and floating elements.
+/// - Dark Mode: Charcoal botanical variant.
 class AppTheme {
   AppTheme._();
 
-  // Primary botanical palette (matching the PDF presentation slides)
-  static const Color primaryColor = Color(0xFF234A35); // Deep Botanical Pine/Forest Green
-  static const Color primaryDark = Color(0xFF163424);
-  static const Color primaryLight = Color(0xFFD7EADB); // Soft Watercolor Sage Wash
-  static const Color secondaryColor = Color(0xFF4C7B5D); // Eucalyptus Green
-  static const Color accentColor = Color(0xFF72A183); // Leaf Accent
+  // Canonical Botanical Watercolor Palette Tokens (Workstream C)
+  static const Color inkForest = Color(0xFF0F4A22); // Titles, emphasis, primary buttons
+  static const Color sageBlob = Color(0xFFA9BC9B); // Organic card backgrounds & soft washes
+  static const Color mintWash = Color(0xFFC5DCC6); // Accents, active indicators, light washes
+  static const Color tealWash = Color(0xFF9CBFA7); // Secondary organic blobs
+  static const Color creamPaper = Color(0xFFFAF6EE); // Warm cream paper page base
+  static const Color accentPeach = Color(0xFFE8A598); // Splatter dots, due badges, gotchas
+  static const Color charcoalSlate = Color(0xFF1A3022); // Deep green-charcoal neutral text
+
+  // Dark mode botanical tokens ("Charcoal Botanical")
+  static const Color darkSlateBase = Color(0xFF141E18);
+  static const Color darkSageCard = Color(0xFF1C2E23);
+  static const Color darkMintText = Color(0xFFC5DCC6);
+  static const Color darkBronzeBorder = Color(0xFF334F3C);
+
+  // Backward-compatible aliases
+  static const Color primaryColor = inkForest;
+  static const Color primaryDark = Color(0xFF0A3317);
+  static const Color primaryLight = mintWash;
+  static const Color secondaryColor = tealWash;
+  static const Color accentColor = accentPeach;
 
   // Surface and background
-  static const Color backgroundColor = Color(0xFFF1F6F2); // Soft Botanical Sage Mist Background
+  static const Color backgroundColor = creamPaper;
   static const Color surfaceColor = Colors.white;
-  static const Color cardColor = Color(0xFFFCFEFC); // Clean Botanical Card White
+  static const Color cardColor = Colors.white;
 
   // Neutral tones
-  static const Color textPrimary = Color(0xFF1B3325); // Deep Forest Slate
-  static const Color textSecondary = Color(0xFF456151); // Muted Leaf Slate
-  static const Color textMuted = Color(0xFF7D9789); // Pale Sage Grey
-  static const Color dividerColor = Color(0xFFE0ECE3);
-  static const Color borderColor = Color(0xFFCFE1D4); // Subtle Botanical Green Border
+  static const Color textPrimary = charcoalSlate;
+  static const Color textSecondary = Color(0xFF355843);
+  static const Color textMuted = Color(0xFF6B8B77);
+  static const Color dividerColor = Color(0xFFDCE8DF);
+  static const Color borderColor = Color(0xFFCFE1D4);
 
   // Status accents
   static const Color successColor = Color(0xFF2E7D32);
   static const Color warningColor = Color(0xFFD97706);
   static const Color errorColor = Color(0xFFC53030);
+
+  // Font Family Tokens
+  static const String fontCardo = 'Cardo';
+  static const String fontZilla = 'Zilla Slab';
 
   // Standard metrics
   static const double spacingSm = 8.0;
@@ -35,11 +60,21 @@ class AppTheme {
   static const double borderRadius = 14.0;
   static const double maxFormWidth = 480.0;
 
-  /// Global shared ThemeData (Light theme with botanical aesthetic).
+  // Interactive Theme & Calm Mode State Notifiers
+  static final ValueNotifier<bool> calmModeNotifier = ValueNotifier<bool>(false);
+  static final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.light);
+
+  static bool get isCalmMode => calmModeNotifier.value;
+  static void toggleCalmMode() => calmModeNotifier.value = !calmModeNotifier.value;
+  static void toggleThemeMode() {
+    themeModeNotifier.value = themeModeNotifier.value == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+  }
+
+  /// Global shared ThemeData (Light theme with botanical watercolor aesthetic).
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: primaryColor,
-      primary: primaryColor,
+      seedColor: inkForest,
+      primary: inkForest,
       secondary: secondaryColor,
       surface: surfaceColor,
       error: errorColor,
@@ -49,20 +84,37 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: backgroundColor,
-      primaryColor: primaryColor,
+      scaffoldBackgroundColor: creamPaper,
+      primaryColor: inkForest,
+      fontFamily: fontZilla,
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: inkForest),
+        displayMedium: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: inkForest),
+        displaySmall: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: inkForest),
+        headlineLarge: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: inkForest),
+        headlineMedium: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: inkForest),
+        headlineSmall: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: inkForest),
+        titleLarge: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.w700, color: inkForest),
+        titleMedium: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.w600, color: inkForest),
+        titleSmall: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.w600, color: inkForest),
+        bodyLarge: TextStyle(fontFamily: fontZilla, color: charcoalSlate, fontSize: 15),
+        bodyMedium: TextStyle(fontFamily: fontZilla, color: charcoalSlate, fontSize: 13.5),
+        bodySmall: TextStyle(fontFamily: fontZilla, color: textSecondary, fontSize: 12),
+        labelLarge: TextStyle(fontFamily: fontZilla, fontWeight: FontWeight.w600, fontSize: 13),
+      ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
+        backgroundColor: creamPaper,
+        foregroundColor: inkForest,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
-          color: Colors.white,
+          fontFamily: fontCardo,
+          color: inkForest,
           fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
         ),
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: inkForest),
       ),
       cardTheme: CardThemeData(
         color: cardColor,
@@ -97,7 +149,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: const BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: inkForest, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
@@ -111,81 +163,134 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
+          backgroundColor: inkForest,
           foregroundColor: Colors.white,
           elevation: 1,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
+            borderRadius: BorderRadius.circular(24), // Botanical rounded pill buttons
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
           textStyle: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+            fontFamily: fontZilla,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
-          side: const BorderSide(color: primaryColor),
+          foregroundColor: inkForest,
+          side: const BorderSide(color: inkForest, width: 1.2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
+            borderRadius: BorderRadius.circular(24),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
           textStyle: const TextStyle(
-            fontSize: 14,
+            fontFamily: fontZilla,
+            fontSize: 13.5,
             fontWeight: FontWeight.w600,
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryColor,
+          foregroundColor: inkForest,
           textStyle: const TextStyle(
+            fontFamily: fontZilla,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: creamPaper,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(borderRadius),
-        ),
-        titleTextStyle: const TextStyle(
-          color: textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: primaryColor,
-        unselectedItemColor: textMuted,
-        showUnselectedLabels: true,
-        type: BottomNavigationBarType.fixed,
-        elevation: 8,
-        selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
-      ),
-      chipTheme: ChipThemeData(
-        backgroundColor: const Color(0xFFF0F2F5),
-        selectedColor: primaryLight,
-        labelStyle: const TextStyle(fontSize: 13, color: textPrimary),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        side: BorderSide.none,
+        titleTextStyle: const TextStyle(
+          fontFamily: fontCardo,
+          color: inkForest,
+          fontSize: 19,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: creamPaper,
+        selectedItemColor: inkForest,
+        unselectedItemColor: textMuted,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        elevation: 6,
+        selectedLabelStyle: TextStyle(fontFamily: fontZilla, fontWeight: FontWeight.bold, fontSize: 12),
+        unselectedLabelStyle: TextStyle(fontFamily: fontZilla, fontWeight: FontWeight.w500, fontSize: 12),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: creamPaper,
+        selectedColor: mintWash,
+        labelStyle: const TextStyle(fontFamily: fontZilla, fontSize: 12.5, color: charcoalSlate),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        side: const BorderSide(color: borderColor),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(10.0),
         ),
-        backgroundColor: const Color(0xFF323232),
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        backgroundColor: charcoalSlate,
+        contentTextStyle: const TextStyle(fontFamily: fontZilla, color: Colors.white, fontSize: 13.5),
+      ),
+    );
+  }
+
+  /// Charcoal Botanical Dark Theme variant.
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: darkSlateBase,
+      primaryColor: const Color(0xFF81C784),
+      fontFamily: fontZilla,
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: darkMintText),
+        displayMedium: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: darkMintText),
+        displaySmall: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: darkMintText),
+        headlineLarge: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: darkMintText),
+        headlineMedium: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: darkMintText),
+        headlineSmall: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: darkMintText),
+        titleLarge: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.w700, color: darkMintText),
+        titleMedium: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.w600, color: darkMintText),
+        titleSmall: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.w600, color: darkMintText),
+        bodyLarge: TextStyle(fontFamily: fontZilla, color: Color(0xFFE8F5E9), fontSize: 15),
+        bodyMedium: TextStyle(fontFamily: fontZilla, color: Color(0xFFD7EADB), fontSize: 13.5),
+        bodySmall: TextStyle(fontFamily: fontZilla, color: Color(0xFFA5D6A7), fontSize: 12),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: darkSlateBase,
+        foregroundColor: darkMintText,
+        elevation: 0,
+        titleTextStyle: TextStyle(fontFamily: fontCardo, color: darkMintText, fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+      cardTheme: CardThemeData(
+        color: darkSageCard,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(borderRadius),
+          side: const BorderSide(color: darkBronzeBorder, width: 1.2),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: darkSageCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titleTextStyle: const TextStyle(fontFamily: fontCardo, color: darkMintText, fontSize: 19, fontWeight: FontWeight.bold),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: darkSageCard,
+        selectedItemColor: Color(0xFF81C784),
+        unselectedItemColor: Color(0xFF7D9789),
       ),
     );
   }

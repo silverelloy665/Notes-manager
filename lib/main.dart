@@ -63,11 +63,16 @@ class _StudyMateAppState extends State<StudyMateApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'StudyMate Classroom',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: _isLoading
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppTheme.themeModeNotifier,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'StudyMate Classroom',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: currentMode,
+          home: _isLoading
           ? Scaffold(
               backgroundColor: AppTheme.backgroundColor,
               body: Center(
@@ -124,6 +129,8 @@ class _StudyMateAppState extends State<StudyMateApp> {
                   errorMessage: _error,
                   onRetry: _initFirebase,
                 )),
+        );
+      },
     );
   }
 }

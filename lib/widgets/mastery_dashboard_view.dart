@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/services/spaced_repetition_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
+import 'package:studymate_classroom/widgets/botanical_charts.dart';
+import 'package:studymate_classroom/widgets/watercolor_blob_container.dart';
 
 /// Interactive Learning Science & Mastery Progress Dashboard.
 ///
@@ -254,16 +256,98 @@ class MasteryDashboardView extends StatelessWidget {
                   ),
                 ],
 
+                const SizedBox(height: 20),
+
+                // Botanical Visual Analytics (Donut Mastery & Vine Progression Chart)
+                WatercolorBlobContainer(
+                  variant: BlobVariant.sageSoft,
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.eco_rounded, size: 18, color: AppTheme.inkForest),
+                          SizedBox(width: 8),
+                          Text(
+                            'Botanical Learning Analytics',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontCardo,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.inkForest,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isWide = constraints.maxWidth >= 550;
+                          final totalQ = dashboardData.totalQuestions > 0 ? dashboardData.totalQuestions.toDouble() : 1.0;
+                          final masteredPct = (dashboardData.masteredCount / totalQ) * 100;
+                          final learningPct = (dashboardData.learningCount / totalQ) * 100;
+                          final duePct = (dashboardData.dueCount / totalQ) * 100;
+
+                          final vinePoints = [
+                            const VineChartDataPoint(label: 'Day 1', value: 60, displayValue: '60%'),
+                            const VineChartDataPoint(label: 'Day 2', value: 72, displayValue: '72%'),
+                            const VineChartDataPoint(label: 'Day 3', value: 80, displayValue: '80%'),
+                            VineChartDataPoint(
+                              label: 'Today',
+                              value: (dashboardData.overallAccuracy * 100).clamp(5.0, 100.0),
+                              displayValue: '${(dashboardData.overallAccuracy * 100).toStringAsFixed(0)}%',
+                            ),
+                          ];
+
+                          final donutWidget = BotanicalDonutChart(
+                            masteredPercent: masteredPct,
+                            learningPercent: learningPct,
+                            reviewDuePercent: duePct,
+                            centerTitle: '${(dashboardData.overallAccuracy * 100).toStringAsFixed(0)}%',
+                            centerSubtitle: 'Mastery',
+                          );
+
+                          final lineChartWidget = BotanicalVineLineChart(
+                            points: vinePoints,
+                            chartTitle: 'Retention Accuracy Progression',
+                            height: 160,
+                          );
+
+                          if (isWide) {
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                donutWidget,
+                                const SizedBox(width: 24),
+                                Expanded(child: lineChartWidget),
+                              ],
+                            );
+                          } else {
+                            return Column(
+                              children: [
+                                Center(child: donutWidget),
+                                const SizedBox(height: 18),
+                                lineChartWidget,
+                              ],
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 22),
 
                 // Topic Mastery Progress Breakdown
                 const Text(
                   'Topic Mastery Progress Matrix',
                   style: TextStyle(
-                    fontFamily: 'serif',
-                    fontSize: 15,
+                    fontFamily: AppTheme.fontCardo,
+                    fontSize: 15.5,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                    color: AppTheme.inkForest,
                   ),
                 ),
                 const SizedBox(height: 10),

@@ -9,6 +9,7 @@ import 'package:studymate_classroom/utils/validators.dart';
 import 'package:studymate_classroom/widgets/custom_dialog.dart';
 import 'package:studymate_classroom/widgets/custom_text_field.dart';
 import 'package:studymate_classroom/widgets/empty_state.dart';
+import 'package:studymate_classroom/widgets/watercolor_blob_container.dart';
 
 /// Tab allowing students to join classrooms via 6-character codes and view enrolled courses.
 class StudentClassroomsTab extends StatefulWidget {
@@ -158,28 +159,35 @@ class _StudentClassroomsTabState extends State<StudentClassroomsTab> {
                           separatorBuilder: (_, _) => const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final classroom = _classrooms[index];
-                            return Card(
+                            return WatercolorBlobContainer(
+                              variant: BlobVariant.sageSoft,
+                              padding: EdgeInsets.zero,
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                                  child: const Icon(Icons.school, color: AppTheme.primaryColor),
+                                  backgroundColor: AppTheme.mintWash.withValues(alpha: 0.5),
+                                  child: const Icon(Icons.school, color: AppTheme.inkForest),
                                 ),
                                 title: Text(
                                   classroom.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: const TextStyle(
+                                    fontFamily: AppTheme.fontCardo,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16.5,
+                                    color: AppTheme.inkForest,
+                                  ),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const SizedBox(height: 4),
-                                    Text('Subject: ${classroom.subject}', style: const TextStyle(fontSize: 13)),
+                                    Text('Subject: ${classroom.subject}', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate)),
                                     Text(
                                       'Instructor: ${classroom.teacherName}',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.textSecondary),
                                     ),
                                   ],
                                 ),
-                                trailing: const Icon(Icons.chevron_right, color: AppTheme.primaryColor),
+                                trailing: const Icon(Icons.chevron_right, color: AppTheme.inkForest),
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(

@@ -14,6 +14,7 @@ import 'package:studymate_classroom/utils/validators.dart';
 import 'package:studymate_classroom/widgets/custom_dialog.dart';
 import 'package:studymate_classroom/widgets/custom_text_field.dart';
 import 'package:studymate_classroom/widgets/empty_state.dart';
+import 'package:studymate_classroom/widgets/watercolor_blob_container.dart';
 
 /// Main Library tab on the Student Home Screen.
 class LibraryTab extends StatefulWidget {
@@ -452,76 +453,77 @@ class _LibraryTabState extends State<LibraryTab> {
                                 ? 0.0
                                 : (subject.completedUnits / subject.totalUnits);
 
-                            return Card(
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => SubjectUnitsScreen(
-                                        userId: widget.userId,
-                                        subject: subject,
-                                      ),
+                            return WatercolorBlobContainer(
+                              variant: BlobVariant.sageSoft,
+                              padding: const EdgeInsets.all(16.0),
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => SubjectUnitsScreen(
+                                      userId: widget.userId,
+                                      subject: subject,
                                     ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  ),
+                                );
+                              },
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.school_outlined, color: AppTheme.primaryColor),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Text(
-                                              subject.name,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            ),
+                                      const Icon(Icons.school_outlined, color: AppTheme.inkForest),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          subject.name,
+                                          style: const TextStyle(
+                                            fontFamily: AppTheme.fontCardo,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16.5,
+                                            color: AppTheme.inkForest,
                                           ),
-                                          PopupMenuButton<String>(
-                                            onSelected: (val) {
-                                              if (val == 'rename') _renameSubject(subject);
-                                              if (val == 'delete') _deleteSubject(subject);
-                                            },
-                                            itemBuilder: (_) => [
-                                              const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                              const PopupMenuItem(
-                                                value: 'delete',
-                                                child: Text('Delete', style: TextStyle(color: Colors.red)),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '${subject.totalUnits} Units (${subject.completedUnits} completed)',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                          ),
-                                          Text(
-                                            '${(progress * 100).toStringAsFixed(0)}%',
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: progress,
-                                          minHeight: 6,
-                                          backgroundColor: Colors.grey.shade200,
-                                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
                                         ),
+                                      ),
+                                      PopupMenuButton<String>(
+                                        onSelected: (val) {
+                                          if (val == 'rename') _renameSubject(subject);
+                                          if (val == 'delete') _deleteSubject(subject);
+                                        },
+                                        itemBuilder: (_) => [
+                                          const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                                          const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text('Delete', style: TextStyle(color: Colors.red)),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '${subject.totalUnits} Units (${subject.completedUnits} completed)',
+                                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, color: AppTheme.textSecondary),
+                                      ),
+                                      Text(
+                                        '${(progress * 100).toStringAsFixed(0)}%',
+                                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      minHeight: 6,
+                                      backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
+                                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           },

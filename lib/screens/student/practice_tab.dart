@@ -19,6 +19,8 @@ import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/utils/constants.dart';
 import 'package:studymate_classroom/widgets/botanical_decoration.dart';
 import 'package:studymate_classroom/widgets/explain_simply_dialog.dart';
+import 'package:studymate_classroom/widgets/growing_vine_progress.dart';
+import 'package:studymate_classroom/widgets/watercolor_blob_container.dart';
 
 /// Tab enabling students to select academic topics, practice with tap-to-reveal question cards,
 /// upload PDFs directly, and generate practice questions directly from their summarized notes.
@@ -251,49 +253,34 @@ class _PracticeTabState extends State<PracticeTab> {
                   side: const BorderSide(color: AppTheme.borderColor),
                 ),
                 content: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: CircularProgressIndicator(
-                          color: AppTheme.primaryColor,
-                          strokeWidth: 3,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        currentStageText,
-                        style: const TextStyle(
-                          fontFamily: 'serif',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15.5,
-                          color: AppTheme.primaryColor,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currentStageDetail,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
-                        textAlign: TextAlign.center,
+                      GrowingVineProgress(
+                        height: 90,
+                        message: currentStageText,
+                        subMessage: currentStageDetail,
                       ),
                       const SizedBox(height: 14),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: LinearProgressIndicator(
                           value: currentProgress,
-                          backgroundColor: AppTheme.primaryLight,
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                          backgroundColor: AppTheme.mintWash.withValues(alpha: 0.3),
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
                           minHeight: 6,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${(currentProgress * 100).toInt()}%',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                        '${(currentProgress * 100).toInt()}% Complete',
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontZilla,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.inkForest,
+                        ),
                       ),
                     ],
                   ),
@@ -682,31 +669,14 @@ class _PracticeTabState extends State<PracticeTab> {
             side: const BorderSide(color: AppTheme.borderColor),
           ),
           content: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 3),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Generating Questions for "${note.title}"',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: 'serif',
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '🍃 Formulating conceptual and analytical questions for every topic in this note...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                GrowingVineProgress(
+                  height: 90,
+                  message: 'Generating Questions for "${note.title}"',
+                  subMessage: '🍃 Formulating conceptual and analytical questions for every topic in this note...',
                 ),
               ],
             ),
@@ -2520,32 +2490,23 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildFrontSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
-    return Container(
+    return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 680),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.borderColor, width: 1.4),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: LinearProgressIndicator(
-              value: (_currentIndex + 1) / widget.questions.length,
-              minHeight: 5,
-              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.5),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+      child: WatercolorBlobContainer(
+        variant: BlobVariant.creamPaper,
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: LinearProgressIndicator(
+                value: (_currentIndex + 1) / widget.questions.length,
+                minHeight: 5,
+                backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
@@ -2635,10 +2596,10 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                       child: Text(
                         q.question,
                         style: const TextStyle(
-                          fontFamily: 'serif',
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
+                          fontFamily: AppTheme.fontCardo,
+                          fontSize: 17.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.inkForest,
                           height: 1.4,
                         ),
                       ),
@@ -2784,36 +2745,28 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildBackSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
-    return Container(
+    return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 680),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF81C784), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: LinearProgressIndicator(
-              value: (_currentIndex + 1) / widget.questions.length,
-              minHeight: 5,
-              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.5),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+      child: WatercolorBlobContainer(
+        variant: BlobVariant.creamPaper,
+        padding: EdgeInsets.zero,
+        borderColor: AppTheme.sageBlob,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: LinearProgressIndicator(
+                value: (_currentIndex + 1) / widget.questions.length,
+                minHeight: 5,
+                backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
@@ -3023,7 +2976,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildNavigationRow() {
@@ -3032,26 +2985,26 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
       children: [
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.primaryColor,
-            side: const BorderSide(color: AppTheme.borderColor),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            foregroundColor: AppTheme.inkForest,
+            side: const BorderSide(color: AppTheme.inkForest, width: 1.2),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           ),
           icon: const Icon(Icons.arrow_back_rounded, size: 16),
-          label: const Text('Previous [←]', style: TextStyle(fontSize: 12)),
+          label: const Text('Previous [←]', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold)),
           onPressed: _currentIndex > 0 ? _prevCard : null,
         ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            elevation: 1,
+            backgroundColor: AppTheme.inkForest,
+            foregroundColor: AppTheme.creamPaper,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            elevation: 2,
           ),
           label: Text(
             _currentIndex < widget.questions.length - 1 ? 'Next Card [→]' : 'Finish Deck',
-            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, fontWeight: FontWeight.bold),
           ),
           icon: Icon(
             _currentIndex < widget.questions.length - 1 ? Icons.arrow_forward_rounded : Icons.check_circle_rounded,
@@ -3197,8 +3150,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
 
     switch (level) {
       case MasteryLevel.reviewDue:
-        textColor = const Color(0xFFD32F2F);
-        bgColor = const Color(0xFFFFEBEE);
+        textColor = const Color(0xFF8B2B1B);
+        bgColor = AppTheme.accentPeach.withValues(alpha: 0.45);
         text = '⏰ Due Review';
         icon = Icons.alarm_rounded;
         break;
@@ -3533,16 +3486,10 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
     final q = widget.question;
     final isMcq = q.isMcq;
 
-    return Card(
-      color: Colors.white.withValues(alpha: 0.94),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppTheme.borderColor, width: 1.2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Column(
+    return WatercolorBlobContainer(
+      variant: BlobVariant.creamPaper,
+      padding: const EdgeInsets.all(18.0),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Top Badge Row: Question Index, Type Badge, Topic Tag, Difficulty, Bloom, Page
@@ -3739,10 +3686,10 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
             Text(
               widget.question.question,
               style: const TextStyle(
-                fontFamily: 'serif',
-                fontSize: 15.5,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
+                fontFamily: AppTheme.fontCardo,
+                fontSize: 16.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.inkForest,
                 height: 1.4,
               ),
             ),
@@ -4175,7 +4122,6 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
             ],
           ],
         ),
-      ),
-    );
+      );
   }
 }

@@ -15,6 +15,7 @@ import 'package:studymate_classroom/widgets/custom_dialog.dart';
 import 'package:studymate_classroom/widgets/custom_text_field.dart';
 import 'package:studymate_classroom/widgets/empty_state.dart';
 import 'package:studymate_classroom/widgets/smart_summary_viewer.dart';
+import 'package:studymate_classroom/widgets/watercolor_blob_container.dart';
 
 /// Tab allowing students to manage personal notes, search, pin/unpin, and inspect sample questions per topic.
 class StudentNotesTab extends StatefulWidget {
@@ -882,22 +883,11 @@ class _NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: note.isPinned ? 2.5 : 1,
-      color: AppTheme.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: note.isPinned ? AppTheme.primaryColor : AppTheme.borderColor,
-          width: note.isPinned ? 1.5 : 1.0,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
+    return WatercolorBlobContainer(
+      variant: note.isPinned ? BlobVariant.sageSoft : BlobVariant.creamPaper,
+      padding: const EdgeInsets.all(16.0),
+      onTap: onTap,
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -972,10 +962,10 @@ class _NoteCard extends StatelessWidget {
               Text(
                 note.title,
                 style: const TextStyle(
-                  fontFamily: 'serif',
-                  fontSize: 16.5,
+                  fontFamily: AppTheme.fontCardo,
+                  fontSize: 17,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
+                  color: AppTheme.inkForest,
                 ),
               ),
               const SizedBox(height: 6),
@@ -983,7 +973,7 @@ class _NoteCard extends StatelessWidget {
                 note.content,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate, height: 1.4),
               ),
               const SizedBox(height: 12),
               InkWell(
@@ -994,11 +984,11 @@ class _NoteCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.eco_rounded, size: 16, color: AppTheme.primaryColor),
+                      const Icon(Icons.eco_rounded, size: 16, color: AppTheme.inkForest),
                       const SizedBox(width: 6),
                       Text(
                         'Practice questions for ${note.topic}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
                       ),
                     ],
                   ),
@@ -1006,9 +996,7 @@ class _NoteCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
+        );
   }
 }
 

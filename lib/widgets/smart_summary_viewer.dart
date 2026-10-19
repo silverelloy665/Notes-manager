@@ -5,6 +5,8 @@ import 'package:studymate_classroom/models/topic_map_model.dart';
 import 'package:studymate_classroom/services/notes_ai_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/widgets/explain_simply_dialog.dart';
+import 'package:studymate_classroom/widgets/numbered_three_column_layout.dart';
+import 'package:studymate_classroom/widgets/watercolor_blob_container.dart';
 
 /// Full interactive viewer for Smarter Summarization (Workstream A).
 /// Includes 7 distinct study formats:
@@ -469,28 +471,23 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF4F9F5),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFB8D7C2), width: 1.2),
-          ),
+        WatercolorBlobContainer(
+          variant: BlobVariant.creamPaper,
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Row(
                 children: [
-                  Icon(Icons.bolt_rounded, size: 20, color: AppTheme.primaryColor),
+                  Icon(Icons.bolt_rounded, size: 20, color: AppTheme.inkForest),
                   SizedBox(width: 8),
                   Text(
                     '⚡ One-Line TL;DR Synthesis',
                     style: TextStyle(
-                      fontFamily: 'serif',
-                      fontSize: 15,
+                      fontFamily: AppTheme.fontCardo,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                      color: AppTheme.inkForest,
                     ),
                   ),
                 ],
@@ -499,26 +496,64 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
               Text(
                 _summary.tldr,
                 style: const TextStyle(
-                  fontFamily: 'serif',
-                  fontSize: 14.5,
+                  fontFamily: AppTheme.fontZilla,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: AppTheme.charcoalSlate,
                   height: 1.5,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        if (_summary.keyPoints.length >= 3) ...[
+          const SizedBox(height: 16),
+          const Row(
+            children: [
+              Icon(Icons.auto_stories_rounded, size: 16, color: AppTheme.inkForest),
+              SizedBox(width: 6),
+              Text(
+                'Core Takeaways',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontCardo,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.inkForest,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          NumberedThreeColumnLayout(
+            items: [
+              NumberedColumnItem(
+                stepNumber: '1',
+                title: 'Core Idea',
+                description: _summary.keyPoints[0],
+              ),
+              NumberedColumnItem(
+                stepNumber: '2',
+                title: 'Mechanism',
+                description: _summary.keyPoints[1],
+              ),
+              NumberedColumnItem(
+                stepNumber: '3',
+                title: 'Outcome',
+                description: _summary.keyPoints[2],
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 14),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.primaryColor,
-            side: const BorderSide(color: AppTheme.primaryColor),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            foregroundColor: AppTheme.inkForest,
+            side: const BorderSide(color: AppTheme.inkForest, width: 1.2),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           ),
           icon: const Icon(Icons.psychology_outlined, size: 16),
-          label: Text('💡 Explain "${widget.note.topic}" Simply (Analogy + Steps)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: Text('💡 Explain "${widget.note.topic}" Simply (Analogy + Steps)', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold)),
           onPressed: () {
             ExplainSimplyDialog.show(
               context: context,
@@ -538,50 +573,57 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
       children: [
         const Row(
           children: [
-            Icon(Icons.key_rounded, size: 18, color: AppTheme.secondaryColor),
+            Icon(Icons.key_rounded, size: 18, color: AppTheme.inkForest),
             SizedBox(width: 6),
             Text(
               '🔑 High-Yield Key Points',
               style: TextStyle(
-                fontFamily: 'serif',
-                fontSize: 15,
+                fontFamily: AppTheme.fontCardo,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
+                color: AppTheme.inkForest,
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
         ..._summary.keyPoints.asMap().entries.map((e) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
+          return WatercolorBlobContainer(
+            variant: BlobVariant.creamPaper,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 24,
-                  height: 24,
+                  width: 26,
+                  height: 26,
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primaryLight,
+                  decoration: BoxDecoration(
+                    color: AppTheme.sageBlob.withValues(alpha: 0.35),
                     shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.inkForest.withValues(alpha: 0.2)),
                   ),
                   child: Text(
                     '${e.key + 1}',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontCardo,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.inkForest,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     e.value,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.4),
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontZilla,
+                      fontSize: 13.5,
+                      color: AppTheme.charcoalSlate,
+                      height: 1.45,
+                    ),
                   ),
                 ),
               ],
@@ -642,78 +684,75 @@ class _SmartSummaryViewerState extends State<SmartSummaryViewer> {
         ..._summary.sections.asMap().entries.map((e) {
           final idx = e.key;
           final sec = e.value;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
+          return WatercolorBlobContainer(
+            variant: BlobVariant.creamPaper,
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.menu_book_rounded, size: 16, color: AppTheme.primaryColor),
-                    const SizedBox(width: 6),
+                    const Icon(Icons.menu_book_rounded, size: 16, color: AppTheme.inkForest),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${idx + 1}. ${sec.title}',
                         style: const TextStyle(
-                          fontFamily: 'serif',
-                          fontSize: 14,
+                          fontFamily: AppTheme.fontCardo,
+                          fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+                          color: AppTheme.inkForest,
                         ),
                       ),
                     ),
                     if (_showSources && sec.sourcePage != null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryLight,
-                          borderRadius: BorderRadius.circular(4),
+                          color: AppTheme.sageBlob.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.inkForest.withValues(alpha: 0.2)),
                         ),
                         child: Text(
-                          'p. ${sec.sourcePage}',
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          '🍃 p. ${sec.sourcePage}',
+                          style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   sec.content,
-                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textPrimary, height: 1.45),
+                  style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13.5, color: AppTheme.charcoalSlate, height: 1.45),
                 ),
                 if (sec.bulletPoints.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   ...sec.bulletPoints.map((b) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.only(bottom: 5),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        const Text('🌱 ', style: TextStyle(fontSize: 11)),
                         Expanded(
-                          child: Text(b, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35)),
+                          child: Text(b, style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.textSecondary, height: 1.35)),
                         ),
                       ],
                     ),
                   )),
                 ],
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
-                      side: const BorderSide(color: AppTheme.borderColor),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      foregroundColor: AppTheme.inkForest,
+                      side: const BorderSide(color: AppTheme.inkForest, width: 1.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
                     icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
-                    label: const Text('Explain Simply', style: TextStyle(fontSize: 11)),
+                    label: const Text('Explain Simply', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, fontWeight: FontWeight.bold)),
                     onPressed: () {
                       ExplainSimplyDialog.show(
                         context: context,
@@ -1058,14 +1097,10 @@ class _TeacherQuestionTileState extends State<_TeacherQuestionTile> {
   @override
   Widget build(BuildContext context) {
     final tq = widget.teacherQuestion;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+    return WatercolorBlobContainer(
+      variant: BlobVariant.sageSoft,
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1073,30 +1108,40 @@ class _TeacherQuestionTileState extends State<_TeacherQuestionTile> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 22,
-                height: 22,
+                width: 24,
+                height: 24,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: AppTheme.primaryLight,
+                decoration: BoxDecoration(
+                  color: AppTheme.inkForest,
                   shape: BoxShape.circle,
                 ),
-                child: Text('Q${widget.index}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                child: Text('Q${widget.index}', style: const TextStyle(fontFamily: AppTheme.fontCardo, fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.creamPaper)),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   tq.question,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary, height: 1.35),
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontCardo,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.inkForest,
+                    height: 1.35,
+                  ),
                 ),
               ),
               if (widget.showSources && tq.sourcePage != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryLight,
-                    borderRadius: BorderRadius.circular(4),
+                    color: AppTheme.mintWash.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.inkForest.withValues(alpha: 0.2)),
                   ),
-                  child: Text('p. ${tq.sourcePage}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  child: Text(
+                    '🍃 p. ${tq.sourcePage}',
+                    style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+                  ),
                 ),
             ],
           ),
