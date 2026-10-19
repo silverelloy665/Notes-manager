@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:studymate_classroom/services/export_service.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
@@ -1158,6 +1162,50 @@ class _PracticeTabState extends State<PracticeTab> {
     }
   }
 
+  Future<void> _handleExportAction(String action, List<Question> questions) async {
+    if (questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No questions available to export.'), backgroundColor: AppTheme.errorColor),
+      );
+      return;
+    }
+
+    try {
+      if (action == 'anki') {
+        final csv = ExportService.instance.generateAnkiCsv(questions);
+        final cleanName = 'anki_${_selectedTopic.replaceAll(' ', '_')}.csv';
+        final path = await ExportService.instance.saveAndOpenFile(fileName: cleanName, bytes: utf8.encode(csv));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(path != null ? 'Anki deck exported to $path' : 'Anki deck exported successfully!'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
+        );
+      } else if (action == 'pdf_study') {
+        final bytes = await ExportService.instance.generateStudySheetPdf(
+          title: _selectedTopic,
+          topic: _selectedTopic,
+          questions: questions,
+        );
+        final cleanName = 'practice_sheet_${_selectedTopic.replaceAll(' ', '_')}.pdf';
+        final path = await ExportService.instance.saveAndOpenFile(fileName: cleanName, bytes: bytes);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(path != null ? 'Study Sheet PDF saved to $path' : 'PDF exported successfully!'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e'), backgroundColor: AppTheme.errorColor),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredQuestions;
@@ -1281,6 +1329,51 @@ class _PracticeTabState extends State<PracticeTab> {
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           onPressed: _isProcessingPdf ? null : _uploadAndGenerateQuestions,
+                        ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<String>(
+                          tooltip: 'Export Questions & Flashcards',
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          color: Colors.white,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.ios_share_rounded, size: 15, color: AppTheme.primaryColor),
+                                SizedBox(width: 5),
+                                Text('Export', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                              ],
+                            ),
+                          ),
+                          onSelected: (action) => _handleExportAction(action, filtered),
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'anki',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.style_rounded, size: 16, color: AppTheme.primaryColor),
+                                  SizedBox(width: 8),
+                                  Text('Export to Anki (.csv)', style: TextStyle(fontSize: 12.5)),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'pdf_study',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFC62828)),
+                                  SizedBox(width: 8),
+                                  Text('Printable Study Sheet (PDF)', style: TextStyle(fontSize: 12.5)),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1837,7 +1930,7 @@ class _FlashcardDeckView extends StatefulWidget {
   State<_FlashcardDeckView> createState() => _FlashcardDeckViewState();
 }
 
-class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
+class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   final Map<int, int> _userAnswers = {}; // questionIndex -> selectedOptionIndex
   final Set<int> _understoodQa = {}; // questionIndex -> marked as understood
@@ -1847,6 +1940,11 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
   int _score = 0;
   bool _isDeckFinished = false;
 
+  // 3D Flip Animation & Keyboard Shortcuts
+  late AnimationController _flipController;
+  late Animation<double> _flipAnimation;
+  final FocusNode _keyboardFocusNode = FocusNode();
+
   // Timed Mode (30 seconds per card)
   bool _isTimedMode = false;
   Timer? _cardTimer;
@@ -1855,12 +1953,32 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
   @override
   void initState() {
     super.initState();
+    _flipController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    _flipAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _flipController, curve: Curves.easeInOut),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   @override
   void dispose() {
+    _flipController.dispose();
+    _keyboardFocusNode.dispose();
     _cardTimer?.cancel();
     super.dispose();
+  }
+
+  void _toggleFlip() {
+    if (_flipController.isCompleted) {
+      _flipController.reverse();
+    } else {
+      _flipController.forward();
+    }
   }
 
   void _startTimerIfNeeded() {
@@ -1886,6 +2004,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
         _userAnswers[_currentIndex] = -1; // timed out
         _confidenceLevels[_currentIndex] = _currentConfidence;
       });
+      _flipController.forward();
     }
   }
 
@@ -1911,6 +2030,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
         _score++;
       }
     });
+    // Auto-flip to show explanation on back side
+    _flipController.forward();
   }
 
   void _markQaUnderstood() {
@@ -1920,6 +2041,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
       _confidenceLevels[_currentIndex] = _currentConfidence;
       _score++;
     });
+    // Auto-flip to show rubric on back side
+    _flipController.forward();
   }
 
   Future<void> _recordSrsRating(int grade, Question q, bool isCorrect) async {
@@ -1944,6 +2067,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
 
   void _nextCard() {
     _cardTimer?.cancel();
+    _flipController.reset();
+
     if (_currentIndex < widget.questions.length) {
       final q = widget.questions[_currentIndex];
       final hasAnswered = _userAnswers.containsKey(_currentIndex);
@@ -1980,6 +2105,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
 
   void _prevCard() {
     _cardTimer?.cancel();
+    _flipController.reset();
+
     if (_currentIndex > 0) {
       setState(() {
         _currentIndex--;
@@ -1991,6 +2118,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
 
   void _restartDeck() {
     _cardTimer?.cancel();
+    _flipController.reset();
+
     setState(() {
       _currentIndex = 0;
       _userAnswers.clear();
@@ -2289,462 +2418,95 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
     }
 
     // 2. Active Flashcard
-    final q = questions[_currentIndex];
+    final q = widget.questions[_currentIndex];
     final isMcq = q.isMcq;
     final hasAnswered = _userAnswers.containsKey(_currentIndex);
     final chosenOption = _userAnswers[_currentIndex];
     final isQaUnderstood = _understoodQa.contains(_currentIndex);
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 680),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppTheme.borderColor, width: 1.4),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                blurRadius: 18,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
+    return KeyboardListener(
+      focusNode: _keyboardFocusNode,
+      autofocus: true,
+      onKeyEvent: (KeyEvent event) {
+        if (event is! KeyDownEvent) return;
+        final key = event.logicalKey;
+
+        if (key == LogicalKeyboardKey.space) {
+          _toggleFlip();
+        } else if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.enter) {
+          _nextCard();
+        } else if (key == LogicalKeyboardKey.arrowLeft) {
+          _prevCard();
+        } else if (key == LogicalKeyboardKey.digit1 || key == LogicalKeyboardKey.numpad1) {
+          if (!hasAnswered && isMcq && q.options != null && q.options!.isNotEmpty) {
+            _selectOption(0, q);
+          } else if (hasAnswered || isQaUnderstood) {
+            _recordSrsRating(1, q, false);
+          }
+        } else if (key == LogicalKeyboardKey.digit2 || key == LogicalKeyboardKey.numpad2) {
+          if (!hasAnswered && isMcq && q.options != null && q.options!.length > 1) {
+            _selectOption(1, q);
+          } else if (hasAnswered || isQaUnderstood) {
+            _recordSrsRating(3, q, hasAnswered ? (chosenOption == q.correctOptionIndex) : isQaUnderstood);
+          }
+        } else if (key == LogicalKeyboardKey.digit3 || key == LogicalKeyboardKey.numpad3) {
+          if (!hasAnswered && isMcq && q.options != null && q.options!.length > 2) {
+            _selectOption(2, q);
+          } else if (hasAnswered || isQaUnderstood) {
+            _recordSrsRating(4, q, hasAnswered ? (chosenOption == q.correctOptionIndex) : isQaUnderstood);
+          }
+        } else if (key == LogicalKeyboardKey.digit4 || key == LogicalKeyboardKey.numpad4) {
+          if (!hasAnswered && isMcq && q.options != null && q.options!.length > 3) {
+            _selectOption(3, q);
+          } else if (hasAnswered || isQaUnderstood) {
+            _recordSrsRating(5, q, true);
+          }
+        }
+      },
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Deck Top Progress Bar
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: LinearProgressIndicator(
-                  value: (_currentIndex + 1) / questions.length,
-                  minHeight: 5,
-                  backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.5),
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                ),
+              // 3D Animated Flip Card
+              AnimatedBuilder(
+                animation: _flipAnimation,
+                builder: (context, child) {
+                  final angle = _flipAnimation.value * math.pi;
+                  final isBack = angle >= (math.pi / 2);
+
+                  return Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateY(angle),
+                    alignment: Alignment.center,
+                    child: isBack
+                        ? Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()..rotateY(math.pi),
+                            child: _buildBackSideCard(q, isMcq, hasAnswered, chosenOption, isQaUnderstood),
+                          )
+                        : _buildFrontSideCard(q, isMcq, hasAnswered, chosenOption, isQaUnderstood),
+                  );
+                },
               ),
-
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 12),
+              // Keyboard Shortcuts Hint Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Badge Row: Card Index, Topic Pill, Timed Mode Toggle, Score Badge, Restart Button
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'Card ${_currentIndex + 1} of ${questions.length}',
-                            style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryLight,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            q.topic,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildSrsBadge(q),
-                        const Spacer(),
-                        // Timed Mode Toggle
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
-                            side: BorderSide(
-                              color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.borderColor,
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            backgroundColor: _isTimedMode ? const Color(0xFFFCE4EC) : Colors.transparent,
-                          ),
-                          icon: Icon(
-                            _isTimedMode ? Icons.timer_rounded : Icons.timer_outlined,
-                            size: 14,
-                            color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
-                          ),
-                          label: Text(
-                            _isTimedMode ? '$_secondsLeft s' : '30s Timer',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
-                            ),
-                          ),
-                          onPressed: _toggleTimedMode,
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF81C784)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star_rounded, size: 14, color: Color(0xFF2E7D32)),
-                              const SizedBox(width: 3),
-                              Text(
-                                'Score: $_score',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2E7D32),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        IconButton(
-                          icon: const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.secondaryColor),
-                          tooltip: 'Restart Deck',
-                          onPressed: _restartDeck,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Question Typography
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(Icons.eco_rounded, size: 20, color: AppTheme.primaryColor),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            q.question,
-                            style: const TextStyle(
-                              fontFamily: 'serif',
-                              fontSize: 16.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimary,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Confidence Selector (Active before answering)
-                    if (!hasAnswered) ...[
-                      Row(
-                        children: [
-                          const Text(
-                            'Confidence:',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildConfidenceChip(0.25, '💭 Guessing (25%)'),
-                          const SizedBox(width: 6),
-                          _buildConfidenceChip(0.50, '🤔 50/50 (50%)'),
-                          const SizedBox(width: 6),
-                          _buildConfidenceChip(1.0, '🎯 100% Sure'),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // MCQ 4-Option Interactive Tiles
-                    if (isMcq) ...[
-                      const Text(
-                        'Select the correct answer:',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ...List.generate(q.options!.length, (optIdx) {
-                        final optText = q.options![optIdx];
-                        final isCorrectOpt = optIdx == q.correctOptionIndex;
-                        final isSelectedOpt = optIdx == chosenOption;
-
-                        Color bgColor = Colors.white;
-                        Color borderColor = AppTheme.borderColor;
-                        Widget trailingIcon = const SizedBox.shrink();
-
-                        if (hasAnswered) {
-                          if (isCorrectOpt) {
-                            bgColor = const Color(0xFFE8F5E9);
-                            borderColor = const Color(0xFF2E7D32);
-                            trailingIcon = const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 18);
-                          } else if (isSelectedOpt) {
-                            bgColor = const Color(0xFFFFEBEE);
-                            borderColor = AppTheme.errorColor;
-                            trailingIcon = const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 18);
-                          }
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 9),
-                          child: InkWell(
-                            onTap: hasAnswered ? null : () => _selectOption(optIdx, q),
-                            borderRadius: BorderRadius.circular(10),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: bgColor,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: borderColor, width: hasAnswered && (isCorrectOpt || isSelectedOpt) ? 1.6 : 1.1),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 26,
-                                    height: 26,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: hasAnswered && isCorrectOpt
-                                          ? const Color(0xFF2E7D32)
-                                          : hasAnswered && isSelectedOpt
-                                              ? AppTheme.errorColor
-                                              : AppTheme.primaryLight,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Text(
-                                      String.fromCharCode(65 + optIdx),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: hasAnswered && (isCorrectOpt || isSelectedOpt)
-                                            ? Colors.white
-                                            : AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      optText,
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: hasAnswered && isCorrectOpt ? FontWeight.bold : FontWeight.w500,
-                                        color: AppTheme.textPrimary,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ),
-                                  trailingIcon,
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-
-                      // Educational Explanation Box (Revealed after answering)
-                      if (hasAnswered) ...[
-                        const SizedBox(height: 12),
-                        // Hypercorrection Feedback Alert Banner
-                        _buildHypercorrectionBanner(q, chosenOption ?? -1),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: chosenOption == q.correctOptionIndex
-                                ? const Color(0xFFF1F8F4)
-                                : const Color(0xFFFFF7F7),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: chosenOption == q.correctOptionIndex
-                                  ? const Color(0xFFA5D6A7)
-                                  : const Color(0xFFFFCDD2),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    chosenOption == q.correctOptionIndex
-                                        ? Icons.check_circle_rounded
-                                        : Icons.info_outline_rounded,
-                                    size: 16,
-                                    color: chosenOption == q.correctOptionIndex
-                                        ? const Color(0xFF2E7D32)
-                                        : AppTheme.errorColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    chosenOption == q.correctOptionIndex
-                                        ? '✓ Correct Answer!'
-                                        : chosenOption == -1
-                                            ? '⏱️ Time Expired! Correct: Option ${String.fromCharCode(65 + (q.correctOptionIndex ?? 0))}'
-                                            : '✗ Incorrect. Correct: Option ${String.fromCharCode(65 + (q.correctOptionIndex ?? 0))}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12.5,
-                                      color: chosenOption == q.correctOptionIndex
-                                          ? const Color(0xFF2E7D32)
-                                          : AppTheme.errorColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                q.explanation != null && q.explanation!.isNotEmpty
-                                    ? q.explanation!
-                                    : q.answer,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  color: AppTheme.textPrimary,
-                                  height: 1.45,
-                                ),
-                              ),
-                              // Distractor Analysis Breakdown
-                              if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.borderColor),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Row(
-                                        children: [
-                                          Icon(Icons.rule_rounded, size: 14, color: AppTheme.secondaryColor),
-                                          SizedBox(width: 6),
-                                          Text(
-                                            'Distractor Analysis (Why others are wrong):',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 11.5,
-                                              color: AppTheme.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      ...q.distractorReasoning!.entries.map((e) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(bottom: 6),
-                                          child: Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.primaryLight,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  e.key,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 10.5,
-                                                    color: AppTheme.primaryColor,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  e.value,
-                                                  style: const TextStyle(
-                                                    fontSize: 11.5,
-                                                    color: AppTheme.textPrimary,
-                                                    height: 1.35,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ] else ...[
-                      // Non-MCQ Detailed Conceptual Question
-                      _ConceptualFlashcardContent(
-                        question: q,
-                        isUnderstood: isQaUnderstood,
-                        onMarkUnderstood: _markQaUnderstood,
-                      ),
-                    ],
-
-                    // Spaced Repetition (SM-2) Rating Bar (Visible once answered or understood)
-                    if (hasAnswered || isQaUnderstood) ...[
-                      const SizedBox(height: 14),
-                      _buildSm2RatingSection(q, hasAnswered ? (chosenOption == q.correctOptionIndex) : isQaUnderstood),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // Card Navigation Bottom Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor,
-                            side: const BorderSide(color: AppTheme.borderColor),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                          label: const Text('Previous', style: TextStyle(fontSize: 12)),
-                          onPressed: _currentIndex > 0 ? _prevCard : null,
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            elevation: 1,
-                          ),
-                          label: Text(
-                            _currentIndex < questions.length - 1 ? 'Next Card' : 'Finish Deck',
-                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                          ),
-                          icon: Icon(
-                            _currentIndex < questions.length - 1
-                                ? Icons.arrow_forward_rounded
-                                : Icons.check_circle_rounded,
-                            size: 16,
-                          ),
-                          onPressed: _nextCard,
-                        ),
-                      ],
+                    Icon(Icons.keyboard_rounded, size: 15, color: AppTheme.secondaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Shortcuts: [Space] Flip Card • [1-4] Option / Rate • [← / →] Prev / Next Card',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -2753,6 +2515,497 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFrontSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 680),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.borderColor, width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: LinearProgressIndicator(
+              value: (_currentIndex + 1) / widget.questions.length,
+              minHeight: 5,
+              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.5),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Card ${_currentIndex + 1} of ${widget.questions.length}',
+                        style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        q.topic,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildSrsBadge(q),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.flip_rounded, size: 20, color: AppTheme.primaryColor),
+                      tooltip: 'Flip Card (Space)',
+                      onPressed: _toggleFlip,
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
+                        side: BorderSide(color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        backgroundColor: _isTimedMode ? const Color(0xFFFCE4EC) : Colors.transparent,
+                      ),
+                      icon: Icon(_isTimedMode ? Icons.timer_rounded : Icons.timer_outlined, size: 14, color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor),
+                      label: Text(_isTimedMode ? '$_secondsLeft s' : '30s Timer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor)),
+                      onPressed: _toggleTimedMode,
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF81C784)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded, size: 14, color: Color(0xFF2E7D32)),
+                          const SizedBox(width: 3),
+                          Text('Score: $_score', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.secondaryColor),
+                      tooltip: 'Restart Deck',
+                      onPressed: _restartDeck,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.eco_rounded, size: 20, color: AppTheme.primaryColor),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        q.question,
+                        style: const TextStyle(
+                          fontFamily: 'serif',
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (!hasAnswered) ...[
+                  Row(
+                    children: [
+                      const Text('Confidence:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                      const SizedBox(width: 8),
+                      _buildConfidenceChip(0.25, '💭 Guessing (25%)'),
+                      const SizedBox(width: 6),
+                      _buildConfidenceChip(0.50, '🤔 50/50 (50%)'),
+                      const SizedBox(width: 6),
+                      _buildConfidenceChip(1.0, '🎯 100% Sure'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (isMcq) ...[
+                  const Text('Select the correct answer (or press 1-4):', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                  const SizedBox(height: 10),
+                  ...List.generate(q.options!.length, (optIdx) {
+                    final optText = q.options![optIdx];
+                    final isCorrectOpt = optIdx == q.correctOptionIndex;
+                    final isSelectedOpt = optIdx == chosenOption;
+                    Color bgColor = Colors.white;
+                    Color borderColor = AppTheme.borderColor;
+                    Widget trailingIcon = const SizedBox.shrink();
+
+                    if (hasAnswered) {
+                      if (isCorrectOpt) {
+                        bgColor = const Color(0xFFE8F5E9);
+                        borderColor = const Color(0xFF2E7D32);
+                        trailingIcon = const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 18);
+                      } else if (isSelectedOpt) {
+                        bgColor = const Color(0xFFFFEBEE);
+                        borderColor = AppTheme.errorColor;
+                        trailingIcon = const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 18);
+                      }
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 9),
+                      child: InkWell(
+                        onTap: hasAnswered ? null : () => _selectOption(optIdx, q),
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: bgColor,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: borderColor, width: hasAnswered && (isCorrectOpt || isSelectedOpt) ? 1.6 : 1.1),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 26,
+                                height: 26,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: hasAnswered && isCorrectOpt
+                                      ? const Color(0xFF2E7D32)
+                                      : hasAnswered && isSelectedOpt
+                                          ? AppTheme.errorColor
+                                          : AppTheme.primaryLight,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  String.fromCharCode(65 + optIdx),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: hasAnswered && (isCorrectOpt || isSelectedOpt) ? Colors.white : AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  optText,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: hasAnswered && isCorrectOpt ? FontWeight.bold : FontWeight.w500,
+                                    color: AppTheme.textPrimary,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                              trailingIcon,
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ] else ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FBF9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.touch_app_rounded, size: 36, color: AppTheme.secondaryColor),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Conceptual Retrieval Prompt',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Recall the explanation and rubric points in your mind, then tap below or press Space to verify.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        ),
+                        const SizedBox(height: 14),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.flip_rounded, size: 16),
+                          label: const Text('Flip to Reveal Answer [Space]', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          onPressed: _toggleFlip,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                _buildNavigationRow(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 680),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF81C784), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: LinearProgressIndicator(
+              value: (_currentIndex + 1) / widget.questions.length,
+              minHeight: 5,
+              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.5),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E7D32),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 13, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text('Answer & Rubric', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        q.topic,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                      ),
+                    ),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.flip_rounded, size: 14),
+                      label: const Text('Question', style: TextStyle(fontSize: 11)),
+                      onPressed: _toggleFlip,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (isMcq) ...[
+                  if (hasAnswered) _buildHypercorrectionBanner(q, chosenOption ?? -1),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: chosenOption == q.correctOptionIndex ? const Color(0xFFF1F8F4) : const Color(0xFFFFF7F7),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: chosenOption == q.correctOptionIndex ? const Color(0xFFA5D6A7) : const Color(0xFFFFCDD2),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              chosenOption == q.correctOptionIndex ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                              size: 16,
+                              color: chosenOption == q.correctOptionIndex ? const Color(0xFF2E7D32) : AppTheme.errorColor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              chosenOption == q.correctOptionIndex
+                                  ? '✓ Correct Answer: Option ${String.fromCharCode(65 + (q.correctOptionIndex ?? 0))}'
+                                  : 'Correct Answer: Option ${String.fromCharCode(65 + (q.correctOptionIndex ?? 0))}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: chosenOption == q.correctOptionIndex ? const Color(0xFF2E7D32) : AppTheme.errorColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          q.explanation != null && q.explanation!.isNotEmpty ? q.explanation! : q.answer,
+                          style: const TextStyle(fontSize: 12.5, color: AppTheme.textPrimary, height: 1.45),
+                        ),
+                        if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.rule_rounded, size: 14, color: AppTheme.secondaryColor),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Distractor Analysis (Why others are wrong):',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ...q.distractorReasoning!.entries.map((e) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryLight,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.primaryColor)),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(child: Text(e.value, style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimary, height: 1.35))),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  _ConceptualFlashcardContent(
+                    question: q,
+                    isUnderstood: isQaUnderstood,
+                    onMarkUnderstood: _markQaUnderstood,
+                  ),
+                ],
+                const SizedBox(height: 14),
+                _buildSm2RatingSection(q, hasAnswered ? (chosenOption == q.correctOptionIndex) : isQaUnderstood),
+                const SizedBox(height: 20),
+                _buildNavigationRow(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavigationRow() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.primaryColor,
+            side: const BorderSide(color: AppTheme.borderColor),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          icon: const Icon(Icons.arrow_back_rounded, size: 16),
+          label: const Text('Previous [←]', style: TextStyle(fontSize: 12)),
+          onPressed: _currentIndex > 0 ? _prevCard : null,
+        ),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            elevation: 1,
+          ),
+          label: Text(
+            _currentIndex < widget.questions.length - 1 ? 'Next Card [→]' : 'Finish Deck',
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+          ),
+          icon: Icon(
+            _currentIndex < widget.questions.length - 1 ? Icons.arrow_forward_rounded : Icons.check_circle_rounded,
+            size: 16,
+          ),
+          onPressed: _nextCard,
+        ),
+      ],
     );
   }
 
