@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:path/path.dart' as p;
 import 'package:studymate_classroom/models/announcement_model.dart';
+import 'package:studymate_classroom/models/assignment_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/classroom_note_model.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
@@ -1206,6 +1207,180 @@ class FirestoreService {
       throw AppException.fromFirebase(e);
     } catch (e) {
       throw AppException('Failed to release exam scores: $e');
+    }
+  }
+
+  // ===========================================================================
+  // 3D. CLASSROOM ASSIGNMENTS & PROJECTS (classrooms/{classId}/assignments/{id})
+  // ===========================================================================
+
+  /// Live stream of assignments in a classroom.
+  Stream<({List<Assignment> assignments, bool isFromCache})> getClassroomAssignmentsStream(String classroomId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('assignments')
+        .snapshots(includeMetadataChanges: true)
+        .map((snapshot) {
+      final isFromCache = snapshot.metadata.isFromCache;
+      final list = snapshot.docs
+          .map((doc) => Assignment.fromMap(doc.data(), doc.id, classroomId: classroomId))
+          .toList();
+      list.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      return (assignments: list, isFromCache: isFromCache);
+    });
+  }
+
+  /// Creates a classroom assignment.
+  Future<Assignment> createClassroomAssignment(String classroomId, Assignment assignment) async {
+    try {
+      final colRef = _firestore.collection('classrooms').doc(classroomId).collection('assignments');
+      final docRef = assignment.id.isNotEmpty && assignment.id != 'new' ? colRef.doc(assignment.id) : colRef.doc();
+      final populated = assignment.copyWith(
+        id: docRef.id,
+        classroomId: classroomId,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await docRef.set(populated.toMap());
+      return populated;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to create classroom assignment: $e');
+    }
+  }
+
+  /// Updates an assignment.
+  Future<void> updateClassroomAssignment(String classroomId, Assignment assignment) async {
+    try {
+      final docRef = _firestore.collection('classrooms').doc(classroomId).collection('assignments').doc(assignment.id);
+      await docRef.update(assignment.toMap());
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to update classroom assignment: $e');
+    }
+  }
+
+  /// Deletes an assignment.
+  Future<void> deleteClassroomAssignment(String classroomId, String assignmentId) async {
+    try {
+      final assignRef = _firestore.collection('classrooms').doc(classroomId).collection('assignments').doc(assignmentId);
+      final subs = await assignRef.collection('submissions').get();
+      final batch = _firestore.batch();
+      for (final doc in subs.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(assignRef);
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to delete classroom assignment: $e');
+    }
+  }
+
+  /// Live stream of submissions for an assignment.
+  Stream<List<AssignmentSubmission>> getAssignmentSubmissionsStream(String classroomId, String assignmentId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('assignments')
+        .doc(assignmentId)
+        .collection('submissions')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => AssignmentSubmission.fromMap(doc.data(), doc.id, classroomId: classroomId, assignmentId: assignmentId))
+          .toList();
+    });
+  }
+
+  /// Gets single submission of a student.
+  Future<AssignmentSubmission?> getStudentAssignmentSubmission(String classroomId, String assignmentId, String studentId) async {
+    try {
+      final doc = await _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('assignments')
+          .doc(assignmentId)
+          .collection('submissions')
+          .doc(studentId)
+          .get();
+      if (!doc.exists || doc.data() == null) return null;
+      return AssignmentSubmission.fromMap(doc.data()!, doc.id, classroomId: classroomId, assignmentId: assignmentId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Submits student work for an assignment.
+  Future<void> submitAssignment(String classroomId, String assignmentId, AssignmentSubmission submission) async {
+    try {
+      final docRef = _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('assignments')
+          .doc(assignmentId)
+          .collection('submissions')
+          .doc(submission.studentId);
+      await docRef.set(submission.toMap(), SetOptions(merge: true));
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to submit assignment: $e');
+    }
+  }
+
+  /// Unsubmits student work so they can revise before grading.
+  Future<void> unsubmitAssignment(String classroomId, String assignmentId, String studentId) async {
+    try {
+      final docRef = _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('assignments')
+          .doc(assignmentId)
+          .collection('submissions')
+          .doc(studentId);
+      await docRef.update({'status': 'assigned', 'submittedAt': null});
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to unsubmit assignment: $e');
+    }
+  }
+
+  /// Grades a student submission with rubric points and feedback.
+  Future<void> gradeAssignmentSubmission(
+    String classroomId,
+    String assignmentId,
+    String submissionId, {
+    required double points,
+    required Map<String, double> rubricScores,
+    required String feedback,
+    String? gradedBy,
+  }) async {
+    try {
+      final docRef = _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('assignments')
+          .doc(assignmentId)
+          .collection('submissions')
+          .doc(submissionId);
+      await docRef.update({
+        'pointsAwarded': points,
+        'rubricScores': rubricScores,
+        'feedback': feedback,
+        'status': 'graded',
+        'gradedAt': FieldValue.serverTimestamp(),
+        if (gradedBy != null) 'gradedBy': gradedBy,
+      });
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to grade assignment: $e');
     }
   }
 

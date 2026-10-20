@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:studymate_classroom/models/assignment_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
@@ -469,6 +470,33 @@ class ExportService {
       );
     }
     return questions;
+  }
+
+  /// Generates a CSV report of student submissions and grades for an assignment.
+  String generateAssignmentGradesCsv(Assignment assignment, List<AssignmentSubmission> submissions) {
+    final buffer = StringBuffer();
+    buffer.writeln('Assignment Title,${_escapeCsv(assignment.title)}');
+    buffer.writeln('Total Points,${assignment.totalPoints}');
+    buffer.writeln('Due Date,${assignment.dueDate.toIso8601String()}');
+    buffer.writeln('Submissions,${submissions.length}');
+    buffer.writeln('');
+    buffer.writeln('Student ID,Student Name,Email,Status,Turned In At,Late,Points Awarded,Max Points,Percentage,Feedback');
+    for (final s in submissions) {
+      final pct = (s.pointsAwarded != null && s.maxPoints > 0) ? (s.pointsAwarded! / s.maxPoints) * 100 : 0.0;
+      buffer.writeln([
+        _escapeCsv(s.studentId),
+        _escapeCsv(s.studentName),
+        _escapeCsv(s.studentEmail),
+        _escapeCsv(s.status),
+        s.submittedAt?.toIso8601String() ?? '',
+        s.isLate ? 'YES' : 'NO',
+        s.pointsAwarded?.toStringAsFixed(1) ?? 'Not Graded',
+        s.maxPoints.toStringAsFixed(1),
+        '${pct.toStringAsFixed(1)}%',
+        _escapeCsv(s.feedback ?? ''),
+      ].join(','));
+    }
+    return buffer.toString();
   }
 
   static List<String> _splitCsvLines(String text) {
