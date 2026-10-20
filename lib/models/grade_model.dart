@@ -93,5 +93,8 @@ class StudentGradeSummary {
     return (totalObtained / totalMax) * 100.0;
   }
 
+  /// Convenience alias for overall percentage.
+  double get percentage => overallPercentage;
+
   String get overallPercentageString => '${overallPercentage.toStringAsFixed(1)}%';
 }

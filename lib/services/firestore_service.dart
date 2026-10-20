@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:path/path.dart' as p;
+import 'package:studymate_classroom/models/announcement_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
@@ -422,10 +423,27 @@ class FirestoreService {
         }
 
         final data = classSnapshot.data()!;
-        final currentStudents = List<String>.from(data['studentIds'] ?? []);
+        final isJoiningEnabled = (data['isJoiningEnabled'] ?? true) as bool;
+        if (!isJoiningEnabled) {
+          throw const AppException('Joining this classroom is currently disabled by the instructor.');
+        }
 
+        final currentStudents = List<String>.from(data['studentIds'] ?? []);
         if (currentStudents.contains(studentId)) {
           throw const AppException('You are already enrolled in this classroom.');
+        }
+
+        final requireApproval = (data['requireApproval'] ?? false) as bool;
+        final pendingStudents = List<String>.from(data['pendingStudentIds'] ?? []);
+
+        if (requireApproval) {
+          if (pendingStudents.contains(studentId)) {
+            throw const AppException('Your join request is already pending instructor approval.');
+          }
+          pendingStudents.add(studentId);
+          transaction.update(classDocRef, {'pendingStudentIds': pendingStudents});
+          data['pendingStudentIds'] = pendingStudents;
+          return Classroom.fromMap(data, classSnapshot.id);
         }
 
         currentStudents.add(studentId);
@@ -439,6 +457,317 @@ class FirestoreService {
     } catch (e) {
       if (e is AppException) rethrow;
       throw AppException('Failed to join classroom: $e');
+    }
+  }
+
+  /// Updates classroom settings (name, subject, description, join toggle, approval mode, archive).
+  Future<void> updateClassroomSettings(
+    String classroomId, {
+    String? name,
+    String? subject,
+    String? description,
+    bool? isJoiningEnabled,
+    bool? requireApproval,
+    bool? isArchived,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (name != null && name.trim().isNotEmpty) updates['name'] = name.trim();
+      if (subject != null && subject.trim().isNotEmpty) updates['subject'] = subject.trim();
+      if (description != null) updates['description'] = description.trim();
+      if (isJoiningEnabled != null) updates['isJoiningEnabled'] = isJoiningEnabled;
+      if (requireApproval != null) updates['requireApproval'] = requireApproval;
+      if (isArchived != null) updates['isArchived'] = isArchived;
+
+      if (updates.isNotEmpty) {
+        await _firestore.collection('classrooms').doc(classroomId).update(updates);
+      }
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to update classroom settings: $e');
+    }
+  }
+
+  /// Regenerates a classroom's 6-character code atomically, freeing the old code doc.
+  Future<String> regenerateClassroomCode({
+    required String classroomId,
+    required String oldCode,
+    required String teacherId,
+  }) async {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random.secure();
+
+    for (int attempt = 0; attempt < 10; attempt++) {
+      final newCode = List.generate(6, (_) => chars[random.nextInt(chars.length)]).join();
+      final newCodeDocRef = _firestore.collection('codes').doc(newCode);
+      final oldCodeDocRef = _firestore.collection('codes').doc(oldCode);
+      final classDocRef = _firestore.collection('classrooms').doc(classroomId);
+
+      try {
+        final success = await _firestore.runTransaction<bool>((transaction) async {
+          final snapshot = await transaction.get(newCodeDocRef);
+          if (snapshot.exists) return false;
+
+          transaction.delete(oldCodeDocRef);
+          transaction.set(newCodeDocRef, {
+            'classroomId': classroomId,
+            'teacherId': teacherId,
+            'code': newCode,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          transaction.update(classDocRef, {'code': newCode});
+          return true;
+        });
+
+        if (success) return newCode;
+      } catch (e) {
+        // Retry loop
+      }
+    }
+    throw const AppException('Failed to regenerate a unique classroom code. Please try again.');
+  }
+
+  /// Removes a student from a classroom roster.
+  Future<void> removeStudentFromClassroom({
+    required String classroomId,
+    required String studentId,
+  }) async {
+    try {
+      await _firestore.collection('classrooms').doc(classroomId).update({
+        'studentIds': FieldValue.arrayRemove([studentId]),
+      });
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to remove student: $e');
+    }
+  }
+
+  /// Approves a student from pending requests into the enrolled students roster.
+  Future<void> approveStudent({
+    required String classroomId,
+    required String studentId,
+  }) async {
+    try {
+      await _firestore.collection('classrooms').doc(classroomId).update({
+        'pendingStudentIds': FieldValue.arrayRemove([studentId]),
+        'studentIds': FieldValue.arrayUnion([studentId]),
+      });
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to approve student: $e');
+    }
+  }
+
+  /// Rejects a pending join request.
+  Future<void> rejectPendingStudent({
+    required String classroomId,
+    required String studentId,
+  }) async {
+    try {
+      await _firestore.collection('classrooms').doc(classroomId).update({
+        'pendingStudentIds': FieldValue.arrayRemove([studentId]),
+      });
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to reject student request: $e');
+    }
+  }
+
+  /// Deletes a classroom and releases its reserved join code.
+  Future<void> deleteClassroom({
+    required String classroomId,
+    required String code,
+  }) async {
+    try {
+      final batch = _firestore.batch();
+      batch.delete(_firestore.collection('classrooms').doc(classroomId));
+      batch.delete(_firestore.collection('codes').doc(code));
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to delete classroom: $e');
+    }
+  }
+
+  /// Live stream of announcements posted in a classroom stream.
+  Stream<List<Announcement>> getAnnouncementsStream(String classroomId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('announcements')
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs.map((doc) => Announcement.fromMap(doc.data(), doc.id)).toList();
+      // Pinned announcements first, then descending by createdAt
+      list.sort((a, b) {
+        if (a.pinned != b.pinned) {
+          return a.pinned ? -1 : 1;
+        }
+        final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        return bTime.compareTo(aTime);
+      });
+      return list;
+    });
+  }
+
+  /// Posts a new announcement to the classroom stream.
+  Future<Announcement> postAnnouncement({
+    required String classroomId,
+    required String authorId,
+    required String authorName,
+    required String authorRole,
+    required String content,
+    List<AnnouncementAttachment> attachments = const [],
+    bool pinned = false,
+  }) async {
+    if (content.trim().isEmpty && attachments.isEmpty) {
+      throw const AppException('Announcement cannot be completely empty.');
+    }
+
+    try {
+      final docRef = _firestore.collection('classrooms').doc(classroomId).collection('announcements').doc();
+      final announcement = Announcement(
+        id: docRef.id,
+        classroomId: classroomId,
+        authorId: authorId,
+        authorName: authorName,
+        authorRole: authorRole,
+        content: content.trim(),
+        attachments: attachments,
+        pinned: pinned,
+        commentCount: 0,
+        createdAt: DateTime.now(),
+      );
+
+      await docRef.set(announcement.toMap());
+      return announcement;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to post announcement: $e');
+    }
+  }
+
+  /// Deletes an announcement from the classroom stream.
+  Future<void> deleteAnnouncement(String classroomId, String announcementId) async {
+    try {
+      await _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('announcements')
+          .doc(announcementId)
+          .delete();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to delete announcement: $e');
+    }
+  }
+
+  /// Toggles pinned status for an announcement.
+  Future<void> togglePinAnnouncement(String classroomId, String announcementId, bool currentPinned) async {
+    try {
+      await _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('announcements')
+          .doc(announcementId)
+          .update({'pinned': !currentPinned});
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to update announcement: $e');
+    }
+  }
+
+  /// Live stream of comments on an announcement.
+  Stream<List<AnnouncementComment>> getCommentsStream(String classroomId, String announcementId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('announcements')
+        .doc(announcementId)
+        .collection('comments')
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs.map((doc) => AnnouncementComment.fromMap(doc.data(), doc.id)).toList();
+      list.sort((a, b) {
+        final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        return aTime.compareTo(bTime);
+      });
+      return list;
+    });
+  }
+
+  /// Adds a comment to an announcement and increments commentCount.
+  Future<AnnouncementComment> addComment({
+    required String classroomId,
+    required String announcementId,
+    required String authorId,
+    required String authorName,
+    required String authorRole,
+    required String content,
+  }) async {
+    if (content.trim().isEmpty) {
+      throw const AppException('Comment cannot be empty.');
+    }
+
+    try {
+      final annDocRef = _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('announcements')
+          .doc(announcementId);
+
+      final commentDocRef = annDocRef.collection('comments').doc();
+
+      final comment = AnnouncementComment(
+        id: commentDocRef.id,
+        announcementId: announcementId,
+        authorId: authorId,
+        authorName: authorName,
+        authorRole: authorRole,
+        content: content.trim(),
+        createdAt: DateTime.now(),
+      );
+
+      final batch = _firestore.batch();
+      batch.set(commentDocRef, comment.toMap());
+      batch.update(annDocRef, {'commentCount': FieldValue.increment(1)});
+      await batch.commit();
+
+      return comment;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to add comment: $e');
+    }
+  }
+
+  /// Deletes a comment from an announcement and decrements commentCount.
+  Future<void> deleteComment(String classroomId, String announcementId, String commentId) async {
+    try {
+      final annDocRef = _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('announcements')
+          .doc(announcementId);
+
+      final batch = _firestore.batch();
+      batch.delete(annDocRef.collection('comments').doc(commentId));
+      batch.update(annDocRef, {'commentCount': FieldValue.increment(-1)});
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to delete comment: $e');
     }
   }
 

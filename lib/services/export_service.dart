@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'package:studymate_classroom/models/classroom_model.dart';
+import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/models/summary_model.dart';
 
@@ -323,6 +325,37 @@ class ExportService {
     } catch (e) {
       return null;
     }
+  }
+
+  /// Generates a CSV export of the enrolled student roster with performance summaries.
+  String generateRosterCsv(Classroom classroom, List<StudentGradeSummary> students) {
+    final buffer = StringBuffer();
+    buffer.writeln('Classroom Name,${_escapeCsv(classroom.name)}');
+    buffer.writeln('Subject,${_escapeCsv(classroom.subject)}');
+    buffer.writeln('Join Code,${classroom.code}');
+    buffer.writeln('Total Students,${students.length}');
+    buffer.writeln('');
+    buffer.writeln('Student ID,Student Name,Email,Phone,Assessments Taken,Total Marks Obtained,Max Marks,Overall Percentage');
+    for (final s in students) {
+      buffer.writeln(
+        '${_escapeCsv(s.studentId)},'
+        '${_escapeCsv(s.studentName)},'
+        '${_escapeCsv(s.studentEmail)},'
+        '${_escapeCsv(s.studentPhone)},'
+        '${s.assessmentsCount},'
+        '${s.totalObtained.toStringAsFixed(1)},'
+        '${s.totalMax.toStringAsFixed(1)},'
+        '${s.percentage.toStringAsFixed(1)}%',
+      );
+    }
+    return buffer.toString();
+  }
+
+  static String _escapeCsv(String text) {
+    if (text.contains(',') || text.contains('"') || text.contains('\n')) {
+      return '"${text.replaceAll('"', '""')}"';
+    }
+    return text;
   }
 
   static String _escapeHtml(String text) {

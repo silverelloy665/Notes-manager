@@ -113,6 +113,78 @@ service cloud.firestore {
         // Writable exclusively by the classroom's owner teacher
         allow write: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
       }
+
+      // Classroom stream announcements
+      match /announcements/{announcementId} {
+        // Readable by enrolled students and teacher
+        allow read: if isSignedIn();
+        // Writable by the classroom teacher
+        allow create, update, delete: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
+
+        // Announcement comments
+        match /comments/{commentId} {
+          allow read: if isSignedIn();
+          // Any enrolled user or teacher can comment
+          allow create: if isSignedIn();
+          // Author or teacher can delete
+          allow delete: if isSignedIn() && (
+            resource.data.authorId == request.auth.uid ||
+            classroomTeacherId(classId) == request.auth.uid
+          );
+        }
+      }
+
+      // Classroom notes & units
+      match /notes/{noteId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
+      }
+
+      // Classroom question bank
+      match /questions/{questionId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
+      }
+
+      // Classroom exams & submissions
+      match /exams/{examId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
+
+        match /submissions/{studentId} {
+          allow read: if isSignedIn() && (
+            classroomTeacherId(classId) == request.auth.uid ||
+            request.auth.uid == studentId
+          );
+          allow write: if isSignedIn() && (
+            classroomTeacherId(classId) == request.auth.uid ||
+            request.auth.uid == studentId
+          );
+        }
+      }
+
+      // Classroom assignments & submissions
+      match /assignments/{assignmentId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
+
+        match /submissions/{studentId} {
+          allow read: if isSignedIn() && (
+            classroomTeacherId(classId) == request.auth.uid ||
+            request.auth.uid == studentId
+          );
+          allow write: if isSignedIn() && (
+            classroomTeacherId(classId) == request.auth.uid ||
+            request.auth.uid == studentId
+          );
+        }
+      }
+
+      // Classroom live classes
+      match /live_classes/{liveId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && classroomTeacherId(classId) == request.auth.uid;
+      }
     }
 
     // =========================================================================

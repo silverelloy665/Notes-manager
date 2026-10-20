@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/user_model.dart';
-import 'package:studymate_classroom/screens/student/student_grades_screen.dart';
+import 'package:studymate_classroom/screens/teacher/classroom_detail_screen.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/utils/validators.dart';
@@ -191,10 +191,9 @@ class _StudentClassroomsTabState extends State<StudentClassroomsTab> {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) => StudentGradesScreen(
+                                      builder: (_) => ClassroomDetailScreen(
                                         classroom: classroom,
-                                        studentId: widget.currentUser.id,
-                                        studentName: widget.currentUser.name,
+                                        currentUser: widget.currentUser,
                                       ),
                                     ),
                                   );

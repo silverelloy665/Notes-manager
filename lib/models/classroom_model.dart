@@ -11,6 +11,14 @@ class Classroom {
   final List<String> studentIds;
   final DateTime? createdAt;
 
+  // Additional settings and permissions
+  final String? description;
+  final bool isJoiningEnabled;
+  final bool requireApproval;
+  final List<String> pendingStudentIds;
+  final List<String> coTeacherIds;
+  final bool isArchived;
+
   // Joined presentation fields
   final double? studentOverallPercentage;
 
@@ -23,10 +31,17 @@ class Classroom {
     required this.code,
     this.studentIds = const [],
     this.createdAt,
+    this.description,
+    this.isJoiningEnabled = true,
+    this.requireApproval = false,
+    this.pendingStudentIds = const [],
+    this.coTeacherIds = const [],
+    this.isArchived = false,
     this.studentOverallPercentage,
   });
 
   int get studentCount => studentIds.length;
+  int get pendingCount => pendingStudentIds.length;
 
   Map<String, dynamic> toMap() {
     return {
@@ -36,6 +51,12 @@ class Classroom {
       'teacherName': teacherName,
       'code': code,
       'studentIds': studentIds,
+      'description': description ?? '',
+      'isJoiningEnabled': isJoiningEnabled,
+      'requireApproval': requireApproval,
+      'pendingStudentIds': pendingStudentIds,
+      'coTeacherIds': coTeacherIds,
+      'isArchived': isArchived,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
   }
@@ -57,6 +78,22 @@ class Classroom {
       }
     }
 
+    final rawPendingIds = map['pendingStudentIds'] ?? map['pending_student_ids'];
+    final List<String> parsedPendingIds = [];
+    if (rawPendingIds is List) {
+      for (final item in rawPendingIds) {
+        parsedPendingIds.add(item.toString());
+      }
+    }
+
+    final rawCoTeacherIds = map['coTeacherIds'] ?? map['co_teacher_ids'];
+    final List<String> parsedCoTeacherIds = [];
+    if (rawCoTeacherIds is List) {
+      for (final item in rawCoTeacherIds) {
+        parsedCoTeacherIds.add(item.toString());
+      }
+    }
+
     return Classroom(
       id: docId,
       teacherId: (map['teacherId'] ?? map['teacher_id'] ?? '').toString(),
@@ -66,6 +103,12 @@ class Classroom {
       code: (map['code'] ?? '') as String,
       studentIds: parsedStudentIds,
       createdAt: parsedCreatedAt,
+      description: map['description'] as String?,
+      isJoiningEnabled: (map['isJoiningEnabled'] ?? true) as bool,
+      requireApproval: (map['requireApproval'] ?? false) as bool,
+      pendingStudentIds: parsedPendingIds,
+      coTeacherIds: parsedCoTeacherIds,
+      isArchived: (map['isArchived'] ?? false) as bool,
       studentOverallPercentage: overallPercentage ?? (map['overall_percentage'] as num?)?.toDouble(),
     );
   }
@@ -79,6 +122,12 @@ class Classroom {
     String? code,
     List<String>? studentIds,
     DateTime? createdAt,
+    String? description,
+    bool? isJoiningEnabled,
+    bool? requireApproval,
+    List<String>? pendingStudentIds,
+    List<String>? coTeacherIds,
+    bool? isArchived,
     double? studentOverallPercentage,
   }) {
     return Classroom(
@@ -90,6 +139,12 @@ class Classroom {
       code: code ?? this.code,
       studentIds: studentIds ?? this.studentIds,
       createdAt: createdAt ?? this.createdAt,
+      description: description ?? this.description,
+      isJoiningEnabled: isJoiningEnabled ?? this.isJoiningEnabled,
+      requireApproval: requireApproval ?? this.requireApproval,
+      pendingStudentIds: pendingStudentIds ?? this.pendingStudentIds,
+      coTeacherIds: coTeacherIds ?? this.coTeacherIds,
+      isArchived: isArchived ?? this.isArchived,
       studentOverallPercentage: studentOverallPercentage ?? this.studentOverallPercentage,
     );
   }
