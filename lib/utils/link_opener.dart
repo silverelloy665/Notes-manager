@@ -1,0 +1,6 @@
+import 'link_opener_stub.dart'
+    if (dart.library.html) 'link_opener_web.dart';
+
+void openUrlInBrowser(String url) {
+  openBrowserLink(url);
+}

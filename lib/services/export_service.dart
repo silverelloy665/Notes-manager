@@ -7,6 +7,7 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:studymate_classroom/models/assignment_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
+import 'package:studymate_classroom/models/live_class_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/models/summary_model.dart';
 
@@ -495,6 +496,23 @@ class ExportService {
         '${pct.toStringAsFixed(1)}%',
         _escapeCsv(s.feedback ?? ''),
       ].join(','));
+    }
+    return buffer.toString();
+  }
+
+  /// Generates a CSV export of student attendance for a live class session.
+  String generateAttendanceCsv({
+    required LiveClassSession session,
+    required List<StudentGradeSummary> enrolledStudents,
+  }) {
+    final buffer = StringBuffer();
+    buffer.writeln('Student ID,Student Name,Student Email,Status,Joined At,Duration (Minutes)');
+    for (final s in enrolledStudents) {
+      final rec = session.attendanceRecords[s.studentId];
+      final status = rec != null ? 'Present' : 'Absent';
+      final joinedAt = rec?.joinedAt.toIso8601String() ?? '-';
+      final durationMins = rec != null ? (rec.durationSeconds / 60).round() : 0;
+      buffer.writeln('${_escapeCsv(s.studentId)},${_escapeCsv(s.studentName)},${_escapeCsv(s.studentEmail)},$status,$joinedAt,$durationMins');
     }
     return buffer.toString();
   }

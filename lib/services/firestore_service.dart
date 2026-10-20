@@ -10,6 +10,7 @@ import 'package:studymate_classroom/models/classroom_note_model.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
 import 'package:studymate_classroom/models/exam_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
+import 'package:studymate_classroom/models/live_class_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/models/subject_model.dart';
@@ -1381,6 +1382,115 @@ class FirestoreService {
       throw AppException.fromFirebase(e);
     } catch (e) {
       throw AppException('Failed to grade assignment: $e');
+    }
+  }
+
+  // ===========================================================================
+  // 3E. LIVE CLASSES & MEETINGS (classrooms/{classId}/live_classes/{id})
+  // ===========================================================================
+
+  /// Live stream of live classes in a classroom.
+  Stream<({List<LiveClassSession> sessions, bool isFromCache})> getLiveClassesStream(String classroomId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('live_classes')
+        .snapshots(includeMetadataChanges: true)
+        .map((snapshot) {
+      final isFromCache = snapshot.metadata.isFromCache;
+      final list = snapshot.docs
+          .map((doc) => LiveClassSession.fromMap(doc.data(), doc.id, classroomId: classroomId))
+          .toList();
+      list.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      return (sessions: list, isFromCache: isFromCache);
+    });
+  }
+
+  /// Starts a live class session and auto-posts an announcement to the classroom stream.
+  Future<LiveClassSession> startLiveClassSession(
+    String classroomId,
+    LiveClassSession session, {
+    bool autoPostAnnouncement = true,
+  }) async {
+    try {
+      final colRef = _firestore.collection('classrooms').doc(classroomId).collection('live_classes');
+      final docRef = session.id.isNotEmpty && session.id != 'new' ? colRef.doc(session.id) : colRef.doc();
+      final populated = session.copyWith(
+        id: docRef.id,
+        classroomId: classroomId,
+        startedAt: DateTime.now(),
+        isOngoing: true,
+      );
+      await docRef.set(populated.toMap());
+
+      if (autoPostAnnouncement) {
+        await postAnnouncement(
+          classroomId: classroomId,
+          authorId: session.hostTeacherId,
+          authorName: session.hostTeacherName,
+          authorRole: 'Teacher',
+          content: '🔴 Live Class Started: "${session.title}". Tap below to join the meeting room.',
+          pinned: true,
+          attachments: [
+            AnnouncementAttachment(
+              name: 'Join Live Class Room',
+              url: session.meetUrl,
+              type: 'link',
+            ),
+          ],
+        );
+      }
+
+      return populated;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to start live class: $e');
+    }
+  }
+
+  /// Ends a live class session.
+  Future<void> endLiveClassSession(String classroomId, String sessionId, {String? notes}) async {
+    try {
+      final updates = <String, dynamic>{
+        'isOngoing': false,
+        'endedAt': FieldValue.serverTimestamp(),
+      };
+      if (notes != null && notes.isNotEmpty) {
+        updates['notes'] = notes;
+      }
+      await _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('live_classes')
+          .doc(sessionId)
+          .update(updates);
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to end live class: $e');
+    }
+  }
+
+  /// Records student attendance for a live class session.
+  Future<void> recordLiveClassAttendance(
+    String classroomId,
+    String sessionId,
+    StudentAttendanceRecord record,
+  ) async {
+    try {
+      final docRef = _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('live_classes')
+          .doc(sessionId);
+      await docRef.update({
+        'attendanceRecords.${record.studentId}': record.toMap(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      // Non-blocking for silent attendance logging
     }
   }
 

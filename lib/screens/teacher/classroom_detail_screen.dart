@@ -8,6 +8,8 @@ import 'package:studymate_classroom/models/announcement_model.dart';
 import 'package:studymate_classroom/models/assignment_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/classroom_note_model.dart';
+import 'package:studymate_classroom/models/live_class_model.dart';
+import 'package:studymate_classroom/utils/link_opener.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
 import 'package:studymate_classroom/models/exam_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
@@ -7532,107 +7534,1105 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
   }
 
   // ===========================================================================
-  // TAB 6: LIVE CLASS (Phase 6 Shell)
+  // TAB 6: LIVE CLASS (Phase 6 Complete)
   // ===========================================================================
   Widget _buildLiveClassTab() {
-    final jitsiRoomName = 'StudyMate_${_classroom.code}_${_classroom.id.substring(0, _classroom.id.length.clamp(0, 8))}';
+    return StreamBuilder<({List<LiveClassSession> sessions, bool isFromCache})>(
+      stream: FirestoreService.instance.getLiveClassesStream(_classroom.id),
+      builder: (context, snapshot) {
+        final sessions = snapshot.data?.sessions ?? [];
+        final ongoingSessions = sessions.where((s) => s.isOngoing).toList();
+        final pastSessions = sessions.where((s) => !s.isOngoing).toList();
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        WatercolorBlobContainer(
-          variant: BlobVariant.sageSoft,
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Top Live Class Intro Banner
+            WatercolorBlobContainer(
+              variant: BlobVariant.sageSoft,
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppTheme.inkForest.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.videocam, color: AppTheme.inkForest, size: 26),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Interactive Live Classrooms',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontCardo,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppTheme.inkForest,
+                              ),
+                            ),
+                            Text(
+                              'Powered by Jitsi Meet • Room Prefix: ${_classroom.code}',
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontZilla,
+                                fontSize: 12,
+                                color: AppTheme.charcoalSlate,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.inkForest.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.inkForest.withValues(alpha: 0.2)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.shield_outlined, size: 13, color: AppTheme.inkForest),
+                            SizedBox(width: 4),
+                            Text(
+                              'Jitsi / Google Meet',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontZilla,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.inkForest,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'High-definition video, audio, screen sharing, and interactive chat. Join instantly from mobile or desktop browsers without installing apps.',
+                    style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_isTeacher)
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        PrimaryButton(
+                          text: 'Start Live Class Now',
+                          icon: Icons.video_call,
+                          onPressed: _showStartLiveClassDialog,
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.calendar_month, size: 16),
+                          label: const Text('Schedule Live Session'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.inkForest,
+                            side: const BorderSide(color: AppTheme.inkForest),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: _showScheduleLiveClassDialog,
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ONGOING LIVE SESSION
+            if (ongoingSessions.isNotEmpty) ...[
               Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.inkForest.withValues(alpha: 0.1),
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.videocam, color: AppTheme.inkForest, size: 26),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'LIVE NOW',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontCardo,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.redAccent,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ...ongoingSessions.map((session) => _buildOngoingSessionCard(session)),
+              const SizedBox(height: 24),
+            ] else if (!_isTeacher) ...[
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.creamPaper,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.tv_off_outlined, size: 36, color: Colors.grey.shade400),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No live class in progress',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontCardo,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: AppTheme.inkForest,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'When your faculty starts a live class, a join banner and stream announcement will appear here immediately.',
+                            style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.charcoalSlate),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // SESSION HISTORY & ATTENDANCE ARCHIVE
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Lecture History & Attendance',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontCardo,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    color: AppTheme.inkForest,
+                  ),
+                ),
+                Text(
+                  '${pastSessions.length} past sessions',
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontZilla,
+                    fontSize: 12,
+                    color: AppTheme.charcoalSlate,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (pastSessions.isEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.creamPaper,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.history_edu, size: 40, color: Colors.grey.shade400),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'No past live lectures recorded yet.',
+                        style: TextStyle(fontFamily: AppTheme.fontZilla, color: AppTheme.charcoalSlate, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ...pastSessions.map((session) => _buildPastSessionCard(session)),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Card displaying an active ongoing live session.
+  Widget _buildOngoingSessionCard(LiveClassSession session) {
+    final attendeesCount = session.attendanceRecords.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.mintWash.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.inkForest, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.inkForest.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'LIVE',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (session.unitNumber != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.inkForest.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Unit ${session.unitNumber}',
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontZilla,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      color: AppTheme.inkForest,
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              Text(
+                'Started ${session.durationMinutes}m ago',
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontZilla,
+                  fontSize: 12,
+                  color: AppTheme.charcoalSlate,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            session.title,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontCardo,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: AppTheme.inkForest,
+            ),
+          ),
+          if (session.unitTitle != null && session.unitTitle!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              session.unitTitle!,
+              style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.person_outline, size: 14, color: AppTheme.charcoalSlate),
+              const SizedBox(width: 4),
+              Text(
+                'Host: ${session.hostTeacherName}',
+                style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, color: AppTheme.charcoalSlate),
+              ),
+              const SizedBox(width: 14),
+              const Icon(Icons.people_outline, size: 14, color: AppTheme.inkForest),
+              const SizedBox(width: 4),
+              Text(
+                '$attendeesCount joined',
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontZilla,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12.5,
+                  color: AppTheme.inkForest,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              PrimaryButton(
+                text: _isTeacher ? 'Join as Host' : 'Join Live Class',
+                icon: Icons.videocam,
+                onPressed: () => _joinLiveClass(session),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.copy, size: 15),
+                label: const Text('Copy Link'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.inkForest,
+                  side: const BorderSide(color: AppTheme.borderColor),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12),
+                ),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: session.meetUrl));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Room URL copied: ${session.meetUrl}'),
+                      backgroundColor: AppTheme.inkForest,
+                    ),
+                  );
+                },
+              ),
+              if (_isTeacher) ...[
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.how_to_reg, size: 15),
+                  label: Text('Attendance ($attendeesCount)'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.inkForest,
+                    side: const BorderSide(color: AppTheme.inkForest),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _showAttendanceModal(session),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.call_end, size: 15, color: Colors.redAccent),
+                  label: const Text('End Class', style: TextStyle(color: Colors.redAccent)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _showEndLiveClassDialog(session),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Card displaying a past completed live session.
+  Widget _buildPastSessionCard(LiveClassSession session) {
+    final attendeesCount = session.attendanceRecords.length;
+    final totalStudents = _students.length;
+    final attendancePct = totalStudents == 0 ? 0 : (attendeesCount / totalStudents * 100).round();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.creamPaper,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'COMPLETED',
+                  style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (session.unitNumber != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.mintWash,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Unit ${session.unitNumber}',
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontZilla,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                      color: AppTheme.inkForest,
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              Text(
+                '${session.startedAt.year}-${session.startedAt.month.toString().padLeft(2, '0')}-${session.startedAt.day.toString().padLeft(2, '0')} • ${session.durationMinutes}m',
+                style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.charcoalSlate),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            session.title,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontCardo,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppTheme.inkForest,
+            ),
+          ),
+          if (session.unitTitle != null && session.unitTitle!.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              session.unitTitle!,
+              style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, color: AppTheme.charcoalSlate),
+            ),
+          ],
+          if (session.notes != null && session.notes!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.6)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.sticky_note_2_outlined, size: 14, color: AppTheme.inkForest),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      session.notes!,
+                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.inkForest),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.inkForest.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Attendance: $attendeesCount/$totalStudents ($attendancePct%)',
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontZilla,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                    color: AppTheme.inkForest,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                icon: const Icon(Icons.people_outline, size: 14),
+                label: const Text('View Attendance'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.inkForest,
+                  textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                onPressed: () => _showAttendanceModal(session),
+              ),
+              if (_isTeacher)
+                IconButton(
+                  icon: const Icon(Icons.edit_note, size: 18, color: AppTheme.inkForest),
+                  tooltip: 'Edit notes & recording link',
+                  onPressed: () => _showEditSessionNotesDialog(session),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Joins a live class session and logs student attendance.
+  void _joinLiveClass(LiveClassSession session) {
+    openUrlInBrowser(session.meetUrl);
+
+    if (!_isTeacher) {
+      unawaited(
+        FirestoreService.instance.recordLiveClassAttendance(
+          _classroom.id,
+          session.id,
+          StudentAttendanceRecord(
+            studentId: widget.currentUser.id,
+            studentName: widget.currentUser.name,
+            studentEmail: widget.currentUser.email,
+            joinedAt: DateTime.now(),
+          ),
+        ),
+      );
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isTeacher ? 'Connecting to live room...' : 'Joined live class room. Attendance recorded!'),
+        backgroundColor: AppTheme.inkForest,
+      ),
+    );
+  }
+
+  /// Dialog to start an instant live class session.
+  Future<void> _showStartLiveClassDialog() async {
+    final titleCtrl = TextEditingController(text: 'Live Lecture: ${_classroom.subject}');
+    final unitCtrl = TextEditingController();
+    final topicCtrl = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.video_call, color: AppTheme.inkForest),
+            SizedBox(width: 8),
+            Text('Start Live Class', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CustomTextField(
+                controller: titleCtrl,
+                label: 'Session Title',
+                hintText: 'e.g. Unit 3: Process Synchronization',
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: CustomTextField(
+                      controller: unitCtrl,
+                      label: 'Unit #',
+                      hintText: '3',
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: CustomTextField(
+                      controller: topicCtrl,
+                      label: 'Topic Description (optional)',
+                      hintText: 'Semaphores & Mutex',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.mintWash.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.inkForest.withValues(alpha: 0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: AppTheme.inkForest),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'A Jitsi Meet room will be generated and an alert will be automatically published to the classroom stream.',
+                        style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.inkForest),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.charcoalSlate)),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          PrimaryButton(
+            text: 'Launch Live Class',
+            icon: Icons.rocket_launch,
+            onPressed: () async {
+              final title = titleCtrl.text.trim().isNotEmpty ? titleCtrl.text.trim() : 'Live Class';
+              final unitNum = int.tryParse(unitCtrl.text.trim());
+              final topic = topicCtrl.text.trim().isNotEmpty ? topicCtrl.text.trim() : null;
+              final roomName = 'StudyMate_${_classroom.code}_${Random().nextInt(900000) + 100000}';
+
+              Navigator.pop(ctx);
+
+              final newSession = LiveClassSession(
+                id: 'new',
+                classroomId: _classroom.id,
+                title: title,
+                unitNumber: unitNum,
+                unitTitle: topic,
+                roomName: roomName,
+                hostTeacherId: widget.currentUser.id,
+                hostTeacherName: widget.currentUser.name,
+                isOngoing: true,
+                startedAt: DateTime.now(),
+              );
+
+              try {
+                final created = await FirestoreService.instance.startLiveClassSession(
+                  _classroom.id,
+                  newSession,
+                  autoPostAnnouncement: true,
+                );
+                openUrlInBrowser(created.meetUrl);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Live class started! Join URL: ${created.meetUrl}'),
+                      backgroundColor: AppTheme.inkForest,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to start session: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dialog to schedule a live class and alert students in stream.
+  Future<void> _showScheduleLiveClassDialog() async {
+    final titleCtrl = TextEditingController(text: 'Scheduled Class: ${_classroom.subject}');
+    DateTime scheduledDate = DateTime.now().add(const Duration(days: 1));
+    TimeOfDay scheduledTime = const TimeOfDay(hour: 10, minute: 0);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.calendar_month, color: AppTheme.inkForest),
+              SizedBox(width: 8),
+              Text('Schedule Live Session', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CustomTextField(
+                  controller: titleCtrl,
+                  label: 'Session Title',
+                  hintText: 'e.g. Midterm Revision & Doubt Clearing',
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.event, color: AppTheme.inkForest),
+                  title: const Text('Date', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13)),
+                  subtitle: Text(
+                    '${scheduledDate.year}-${scheduledDate.month.toString().padLeft(2, '0')}-${scheduledDate.day.toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: scheduledDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      setDialogState(() => scheduledDate = picked);
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.access_time, color: AppTheme.inkForest),
+                  title: const Text('Time', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13)),
+                  subtitle: Text(
+                    scheduledTime.format(ctx),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  onTap: () async {
+                    final picked = await showTimePicker(context: ctx, initialTime: scheduledTime);
+                    if (picked != null) {
+                      setDialogState(() => scheduledTime = picked);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.charcoalSlate)),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            PrimaryButton(
+              text: 'Schedule & Announce',
+              icon: Icons.send,
+              onPressed: () async {
+                final title = titleCtrl.text.trim().isNotEmpty ? titleCtrl.text.trim() : 'Live Class';
+                Navigator.pop(ctx);
+
+                try {
+                  final dateStr = '${scheduledDate.year}-${scheduledDate.month.toString().padLeft(2, '0')}-${scheduledDate.day.toString().padLeft(2, '0')}';
+                  final timeStr = scheduledTime.format(context);
+
+                  await FirestoreService.instance.postAnnouncement(
+                    classroomId: _classroom.id,
+                    authorId: widget.currentUser.id,
+                    authorName: widget.currentUser.name,
+                    authorRole: 'Teacher',
+                    content: '📅 Scheduled Live Class: "$title"\nDate: $dateStr at $timeStr.\nPlease check the Live Class tab when class starts.',
+                    pinned: true,
+                  );
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Session "$title" scheduled and announced in classroom stream.'),
+                        backgroundColor: AppTheme.inkForest,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to schedule session: $e'), backgroundColor: Colors.redAccent),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Dialog to confirm ending an ongoing live class session.
+  Future<void> _showEndLiveClassDialog(LiveClassSession session) async {
+    final notesCtrl = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('End Live Class', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to conclude this live lecture? Attendance records will be preserved in lecture history.',
+              style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate),
+            ),
+            const SizedBox(height: 14),
+            CustomTextField(
+              controller: notesCtrl,
+              label: 'Lecture Notes / Recording Link (optional)',
+              hintText: 'e.g. Covered slides 1-25; Recording: https://...',
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.charcoalSlate)),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('End Class'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await FirestoreService.instance.endLiveClassSession(
+                  _classroom.id,
+                  session.id,
+                  notes: notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Live class concluded. Attendance saved to history.'),
+                      backgroundColor: AppTheme.inkForest,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to end session: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Displays the attendance report modal for a live class session with CSV export.
+  void _showAttendanceModal(LiveClassSession session) {
+    final attendees = session.attendanceRecords;
+    final totalEnrolled = _students.length;
+    final pct = totalEnrolled == 0 ? 0 : (attendees.length / totalEnrolled * 100).round();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (ctx, scrollController) => Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Jitsi Meet Live Classroom',
-                          style: TextStyle(
+                        Text(
+                          'Attendance Roster: ${session.title}',
+                          style: const TextStyle(
                             fontFamily: AppTheme.fontCardo,
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
+                            fontSize: 16,
                             color: AppTheme.inkForest,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          'Room: $jitsiRoomName',
+                          '${attendees.length} / $totalEnrolled students present ($pct%)',
                           style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 12,
+                            fontFamily: AppTheme.fontZilla,
+                            fontSize: 12.5,
                             color: AppTheme.charcoalSlate,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'Instant audio/video conferencing with screen sharing and chat. Free, secure, and accessible directly in any browser without installing software.',
-                style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  PrimaryButton(
-                    text: _isTeacher ? 'Start Live Class Now' : 'Join Live Class',
-                    icon: Icons.video_call,
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.download, size: 14),
+                    label: const Text('Export CSV'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.inkForest,
+                      side: const BorderSide(color: AppTheme.inkForest),
+                      textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, fontWeight: FontWeight.bold),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
                     onPressed: () {
-                      final url = 'https://meet.jit.si/$jitsiRoomName';
-                      Clipboard.setData(ClipboardData(text: url));
+                      final csv = ExportService.instance.generateAttendanceCsv(
+                        session: session,
+                        enrolledStudents: _students,
+                      );
+                      Clipboard.setData(ClipboardData(text: csv));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Live class link "$url" copied! Full Jitsi integration is activating in Phase 6.'),
+                        const SnackBar(
+                          content: Text('Attendance CSV copied to clipboard!'),
                           backgroundColor: AppTheme.inkForest,
                         ),
                       );
                     },
                   ),
-                  if (_isTeacher)
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.schedule, size: 16),
-                      label: const Text('Schedule Live Session'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.inkForest,
-                        side: const BorderSide(color: AppTheme.inkForest),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _students.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No students enrolled in this classroom.',
+                        style: TextStyle(fontFamily: AppTheme.fontZilla, color: AppTheme.charcoalSlate),
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Scheduled live classes with auto-stream posting is activating in Phase 6.'),
-                            backgroundColor: AppTheme.inkForest,
+                    )
+                  : ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: _students.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (ctx, i) {
+                        final student = _students[i];
+                        final record = attendees[student.studentId];
+                        final isPresent = record != null;
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          leading: CircleAvatar(
+                            backgroundColor: isPresent ? AppTheme.inkForest.withValues(alpha: 0.1) : Colors.grey.shade200,
+                            child: Text(
+                              student.studentName.isNotEmpty ? student.studentName[0].toUpperCase() : 'S',
+                              style: TextStyle(
+                                color: isPresent ? AppTheme.inkForest : Colors.grey,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            student.studentName,
+                            style: const TextStyle(
+                              fontFamily: AppTheme.fontZilla,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                          subtitle: Text(
+                            student.studentEmail,
+                            style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.charcoalSlate),
+                          ),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isPresent ? AppTheme.mintWash : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isPresent ? AppTheme.inkForest.withValues(alpha: 0.3) : Colors.grey.shade300,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isPresent ? Icons.check_circle : Icons.cancel_outlined,
+                                  size: 13,
+                                  color: isPresent ? AppTheme.inkForest : Colors.grey,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isPresent ? 'Present' : 'Absent',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontZilla,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11.5,
+                                    color: isPresent ? AppTheme.inkForest : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
                     ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  /// Dialog allowing the teacher to update notes or add a recording link for a completed session.
+  Future<void> _showEditSessionNotesDialog(LiveClassSession session) async {
+    final notesCtrl = TextEditingController(text: session.notes ?? '');
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Edit Lecture Notes / Recording', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomTextField(
+              controller: notesCtrl,
+              label: 'Notes / Video Recording Link',
+              hintText: 'e.g. Recording URL: https://..., Homework page 42',
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.charcoalSlate)),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          PrimaryButton(
+            text: 'Save Notes',
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await FirestoreService.instance.endLiveClassSession(
+                  _classroom.id,
+                  session.id,
+                  notes: notesCtrl.text.trim(),
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notes updated successfully.'), backgroundColor: AppTheme.inkForest),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update notes: $e'), backgroundColor: Colors.redAccent),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 

@@ -64,7 +64,7 @@ void main() {
       expect(restored.rubricCriteria.first.maxPoints, 50.0);
       expect(restored.referenceAttachments.first.fileName, 'http_spec.pdf');
       expect(restored.isPastDue, false);
-      expect(restored.dueRelativeText, contains('Due in 4') | contains('Due in 5'));
+      expect(restored.dueRelativeText, anyOf(contains('Due in 4'), contains('Due in 5')));
     });
 
     test('AssignmentSubmission model and CSV export pipeline', () {
