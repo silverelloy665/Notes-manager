@@ -953,6 +953,116 @@ class FirestoreService {
   }
 
   // ===========================================================================
+  // 3B. CLASSROOM QUESTION BANK (classrooms/{classId}/questions/{questionId})
+  // ===========================================================================
+
+  /// Live stream of questions in a classroom's question bank.
+  Stream<({List<Question> questions, bool isFromCache})> getClassroomQuestionsStream(
+    String classroomId, {
+    String? topic,
+    int? unitNumber,
+    String? questionType,
+    String? difficulty,
+  }) {
+    Query query = _firestore.collection('classrooms').doc(classroomId).collection('questions');
+
+    if (topic != null && topic.isNotEmpty && topic != 'All Topics') {
+      query = query.where('topic', isEqualTo: topic);
+    }
+    if (unitNumber != null) {
+      query = query.where('unitNumber', isEqualTo: unitNumber);
+    }
+    if (questionType != null && questionType.isNotEmpty && questionType != 'all') {
+      query = query.where('questionType', isEqualTo: questionType);
+    }
+    if (difficulty != null && difficulty.isNotEmpty && difficulty != 'All') {
+      query = query.where('difficulty', isEqualTo: difficulty);
+    }
+
+    return query.snapshots(includeMetadataChanges: true).map((snapshot) {
+      final isFromCache = snapshot.metadata.isFromCache;
+      final list = snapshot.docs.map((doc) => Question.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+      list.sort((a, b) {
+        final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        return bTime.compareTo(aTime);
+      });
+      return (questions: list, isFromCache: isFromCache);
+    });
+  }
+
+  /// Creates a single question in a classroom's question bank.
+  Future<Question> createClassroomQuestion(String classroomId, Question question) async {
+    try {
+      final colRef = _firestore.collection('classrooms').doc(classroomId).collection('questions');
+      final docRef = question.id.isNotEmpty && question.id != 'new' ? colRef.doc(question.id) : colRef.doc();
+      final q = question.copyWith(id: docRef.id, classroomId: classroomId, createdAt: DateTime.now());
+      await docRef.set(q.toMap());
+      return q;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to create classroom question: $e');
+    }
+  }
+
+  /// Updates an existing question in a classroom's question bank.
+  Future<void> updateClassroomQuestion(String classroomId, Question question) async {
+    try {
+      final docRef = _firestore.collection('classrooms').doc(classroomId).collection('questions').doc(question.id);
+      await docRef.update(question.toMap());
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to update classroom question: $e');
+    }
+  }
+
+  /// Deletes a question from a classroom's question bank.
+  Future<void> deleteClassroomQuestion(String classroomId, String questionId) async {
+    try {
+      await _firestore.collection('classrooms').doc(classroomId).collection('questions').doc(questionId).delete();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to delete classroom question: $e');
+    }
+  }
+
+  /// Batches multiple questions into the classroom question bank.
+  Future<List<Question>> batchAddClassroomQuestions(String classroomId, List<Question> questions) async {
+    if (questions.isEmpty) return [];
+    try {
+      final createdList = <Question>[];
+      final colRef = _firestore.collection('classrooms').doc(classroomId).collection('questions');
+
+      const chunkSize = 400;
+      for (int i = 0; i < questions.length; i += chunkSize) {
+        final end = (i + chunkSize < questions.length) ? i + chunkSize : questions.length;
+        final chunk = questions.sublist(i, end);
+        final batch = _firestore.batch();
+
+        for (final q in chunk) {
+          final docRef = q.id.isNotEmpty && q.id != 'new' ? colRef.doc(q.id) : colRef.doc();
+          final populatedQ = q.copyWith(
+            id: docRef.id,
+            classroomId: classroomId,
+            createdAt: q.createdAt ?? DateTime.now(),
+          );
+          batch.set(docRef, populatedQ.toMap());
+          createdList.add(populatedQ);
+        }
+        await batch.commit();
+      }
+      return createdList;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to batch add classroom questions: $e');
+    }
+  }
+
+  // ===========================================================================
   // 4. ASSESSMENT GRADES (classrooms/{classId}/grades/{gradeId})
   // ===========================================================================
 

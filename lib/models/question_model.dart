@@ -36,6 +36,15 @@ class Question {
   final bool isBookmarked;
   final double? lastScore; // 0.0 to 1.0
 
+  // Classroom Question Bank fields (Phase 3)
+  final String? classroomId;
+  final int? unitNumber;
+  final String questionType; // 'mcq', 'true_false', 'short', 'long', 'fill_in', 'numerical', 'code'
+  final double marks;
+  final double negativeMarks;
+  final List<String> tags;
+  final bool isAiGenerated;
+
   const Question({
     required this.id,
     required this.topic,
@@ -65,6 +74,13 @@ class Question {
     this.nextReviewDate,
     this.isBookmarked = false,
     this.lastScore,
+    this.classroomId,
+    this.unitNumber,
+    this.questionType = 'mcq',
+    this.marks = 1.0,
+    this.negativeMarks = 0.0,
+    this.tags = const [],
+    this.isAiGenerated = false,
   });
 
   bool get isMcq => options != null && options!.length >= 2 && (correctOptionIndex != null || (correctOptionIndices != null && correctOptionIndices!.isNotEmpty));
@@ -98,6 +114,13 @@ class Question {
       if (nextReviewDate != null) 'nextReviewDate': Timestamp.fromDate(nextReviewDate!),
       'isBookmarked': isBookmarked,
       if (lastScore != null) 'lastScore': lastScore,
+      if (classroomId != null) 'classroomId': classroomId,
+      if (unitNumber != null) 'unitNumber': unitNumber,
+      'questionType': questionType,
+      'marks': marks,
+      'negativeMarks': negativeMarks,
+      'tags': tags,
+      'isAiGenerated': isAiGenerated,
     };
   }
 
@@ -147,6 +170,11 @@ class Question {
       parsedCorrectIndex = int.tryParse(map['correctOptionIndex'].toString());
     }
 
+    List<String> parsedTags = [];
+    if (map['tags'] is List) {
+      parsedTags = (map['tags'] as List).map((e) => e.toString()).toList();
+    }
+
     return Question(
       id: docId,
       topic: (map['topic'] ?? 'Other') as String,
@@ -176,6 +204,13 @@ class Question {
       nextReviewDate: parsedNextReview,
       isBookmarked: map['isBookmarked'] == true,
       lastScore: map['lastScore'] != null ? double.tryParse(map['lastScore'].toString()) : null,
+      classroomId: map['classroomId']?.toString(),
+      unitNumber: map['unitNumber'] != null ? int.tryParse(map['unitNumber'].toString()) : null,
+      questionType: map['questionType']?.toString() ?? 'mcq',
+      marks: double.tryParse(map['marks']?.toString() ?? '1.0') ?? 1.0,
+      negativeMarks: double.tryParse(map['negativeMarks']?.toString() ?? '0.0') ?? 0.0,
+      tags: parsedTags,
+      isAiGenerated: map['isAiGenerated'] == true,
     );
   }
 
@@ -208,6 +243,13 @@ class Question {
     DateTime? nextReviewDate,
     bool? isBookmarked,
     double? lastScore,
+    String? classroomId,
+    int? unitNumber,
+    String? questionType,
+    double? marks,
+    double? negativeMarks,
+    List<String>? tags,
+    bool? isAiGenerated,
   }) {
     return Question(
       id: id ?? this.id,
@@ -238,6 +280,13 @@ class Question {
       nextReviewDate: nextReviewDate ?? this.nextReviewDate,
       isBookmarked: isBookmarked ?? this.isBookmarked,
       lastScore: lastScore ?? this.lastScore,
+      classroomId: classroomId ?? this.classroomId,
+      unitNumber: unitNumber ?? this.unitNumber,
+      questionType: questionType ?? this.questionType,
+      marks: marks ?? this.marks,
+      negativeMarks: negativeMarks ?? this.negativeMarks,
+      tags: tags ?? this.tags,
+      isAiGenerated: isAiGenerated ?? this.isAiGenerated,
     );
   }
 }

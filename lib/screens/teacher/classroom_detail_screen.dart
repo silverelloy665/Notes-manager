@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:studymate_classroom/models/announcement_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/classroom_note_model.dart';
+import 'package:studymate_classroom/models/coverage_report_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
+import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/models/summary_model.dart';
 import 'package:studymate_classroom/models/topic_map_model.dart';
 import 'package:studymate_classroom/models/user_model.dart';
@@ -15,6 +18,7 @@ import 'package:studymate_classroom/screens/teacher/student_grade_history_screen
 import 'package:studymate_classroom/services/document_processing_service.dart';
 import 'package:studymate_classroom/services/export_service.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/services/notes_ai_service.dart';
 import 'package:studymate_classroom/services/smart_summarization_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/widgets/custom_dialog.dart';
@@ -65,6 +69,16 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
   String _notesSearchQuery = '';
   final TextEditingController _notesSearchController = TextEditingController();
 
+  // Question Bank tab state
+  final TextEditingController _questionSearchController = TextEditingController();
+  String _questionSearchQuery = '';
+  String _selectedQuestionTypeFilter = 'all'; // all, mcq, true_false, short, long, numerical, code
+  String _selectedDifficultyFilter = 'All'; // All, Easy, Medium, Hard
+  int? _selectedQuestionUnitFilter;
+  final Map<String, int> _studentSelectedAnswers = {};
+  final Set<String> _revealedAnswers = {};
+  final Set<String> _selectedQuestionIds = {};
+
   static const List<({String label, IconData icon})> _workspaceTabs = [
     (label: 'Overview', icon: Icons.dashboard_outlined),
     (label: 'Notes', icon: Icons.description_outlined),
@@ -93,6 +107,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
     _announcementController.dispose();
     _searchController.dispose();
     _notesSearchController.dispose();
+    _questionSearchController.dispose();
     super.dispose();
   }
 
@@ -2091,6 +2106,18 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
                   ),
                   onPressed: () => _showTopicMapDialog(note),
                 ),
+                if (_isTeacher)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.psychology, size: 14),
+                    label: const Text('Suggest Questions'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.inkForest,
+                      side: const BorderSide(color: AppTheme.inkForest),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => _showAiSuggestQuestionsDialog(preselectedNote: note),
+                  ),
                 if (canDownload && (note.fileUrl != null && note.fileUrl!.isNotEmpty))
                   IconButton(
                     icon: const Icon(Icons.download, size: 18, color: AppTheme.inkForest),
@@ -2900,81 +2927,2050 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
   }
 
   // ===========================================================================
-  // TAB 3: QUESTION BANK (Phase 3 Shell)
+  // TAB 3: QUESTION BANK (Phase 3 Full Implementation)
   // ===========================================================================
   Widget _buildQuestionBankTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        WatercolorBlobContainer(
-          variant: BlobVariant.sageSoft,
+    return StreamBuilder<({List<Question> questions, bool isFromCache})>(
+      stream: FirestoreService.instance.getClassroomQuestionsStream(_classroom.id),
+      builder: (context, snapshot) {
+        final allQuestions = snapshot.data?.questions ?? [];
+
+        // Apply local filtering
+        final filteredQuestions = allQuestions.where((q) {
+          if (_selectedQuestionTypeFilter != 'all') {
+            if (q.questionType.toLowerCase() != _selectedQuestionTypeFilter.toLowerCase()) {
+              return false;
+            }
+          }
+          if (_selectedDifficultyFilter != 'All') {
+            if ((q.difficulty ?? 'Medium').toLowerCase() != _selectedDifficultyFilter.toLowerCase()) {
+              return false;
+            }
+          }
+          if (_selectedQuestionUnitFilter != null) {
+            if (q.unitNumber != _selectedQuestionUnitFilter) {
+              return false;
+            }
+          }
+          if (_questionSearchQuery.isNotEmpty) {
+            final query = _questionSearchQuery.toLowerCase();
+            final matchesPrompt = q.question.toLowerCase().contains(query);
+            final matchesAnswer = q.answer.toLowerCase().contains(query);
+            final matchesTopic = q.topic.toLowerCase().contains(query);
+            final matchesTags = q.tags.any((t) => t.toLowerCase().contains(query));
+            if (!matchesPrompt && !matchesAnswer && !matchesTopic && !matchesTags) {
+              return false;
+            }
+          }
+          return true;
+        }).toList();
+
+        final totalMcqs = allQuestions.where((q) => q.questionType == 'mcq' || q.questionType == 'multi_mcq' || q.questionType == 'true_false').length;
+        final totalConceptual = allQuestions.length - totalMcqs;
+        final totalMarks = allQuestions.fold<double>(0.0, (acc, q) => acc + q.marks);
+
+        return ListView(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              const Icon(Icons.psychology, size: 36, color: AppTheme.inkForest),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
+          children: [
+            // Botanical Header Banner
+            WatercolorBlobContainer(
+              variant: BlobVariant.sageSoft,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.psychology, size: 36, color: AppTheme.inkForest),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Classroom Question Bank',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontCardo,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppTheme.inkForest,
+                              ),
+                            ),
+                            Text(
+                              _isTeacher
+                                  ? 'Author questions manually, import CSV banks, or auto-generate AI questions grounded in notes.'
+                                  : 'Practice faculty-approved questions with instant feedback and explanation walkthroughs.',
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontZilla,
+                                fontSize: 12.5,
+                                color: AppTheme.charcoalSlate,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Metrics row
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildHeaderStatChip(Icons.quiz_outlined, '${allQuestions.length} Total Questions'),
+                      _buildHeaderStatChip(Icons.radio_button_checked, '$totalMcqs MCQs & T/F'),
+                      _buildHeaderStatChip(Icons.short_text, '$totalConceptual Conceptual & Rubrics'),
+                      _buildHeaderStatChip(Icons.grade_outlined, '${totalMarks.toStringAsFixed(0)} Max Marks'),
+                    ],
+                  ),
+
+                  // Action Buttons row for Teacher
+                  if (_isTeacher) ...[
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        PrimaryButton(
+                          text: 'Suggest from Notes',
+                          icon: Icons.auto_awesome,
+                          height: 36,
+                          onPressed: () => _showAiSuggestQuestionsDialog(),
+                        ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('New Question'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.inkForest,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () => _showQuestionEditorDialog(),
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.upload_file, size: 16),
+                          label: const Text('Import CSV'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.inkForest,
+                            side: const BorderSide(color: AppTheme.inkForest),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: () => _showImportQuestionsDialog(),
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.download, size: 16),
+                          label: const Text('Export CSV'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.charcoalSlate,
+                            side: const BorderSide(color: AppTheme.borderColor),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5),
+                          ),
+                          onPressed: allQuestions.isEmpty ? null : () => _exportQuestionBankCsv(allQuestions),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Sticky Bulk Action Bar if items selected
+            if (_isTeacher && _selectedQuestionIds.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.inkForest,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6, offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_selectedQuestionIds.length} questions selected',
+                      style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13.5),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      icon: const Icon(Icons.download, color: Colors.white, size: 16),
+                      label: const Text('Export', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      onPressed: () {
+                        final selectedList = allQuestions.where((q) => _selectedQuestionIds.contains(q.id)).toList();
+                        _exportQuestionBankCsv(selectedList);
+                      },
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.delete_outline, color: Colors.white, size: 16),
+                      label: const Text('Delete', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      onPressed: () => _bulkDeleteQuestions(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                      tooltip: 'Deselect all',
+                      onPressed: () => setState(() => _selectedQuestionIds.clear()),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Search Bar & Filter Chips
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomTextField(
+                    controller: _questionSearchController,
+                    label: 'Search Questions',
+                    hintText: 'Search questions by prompt, answer, topic, or tag...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _questionSearchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () {
+                              _questionSearchController.clear();
+                              setState(() => _questionSearchQuery = '');
+                            },
+                          )
+                        : null,
+                    onChanged: (val) => setState(() => _questionSearchQuery = val.trim()),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Filter Chips: Question Type
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        const Text('Type:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoalSlate)),
+                        const SizedBox(width: 8),
+                        _buildTypeFilterChip('all', 'All Types'),
+                        _buildTypeFilterChip('mcq', 'MCQ'),
+                        _buildTypeFilterChip('true_false', 'True/False'),
+                        _buildTypeFilterChip('short', 'Short Answer'),
+                        _buildTypeFilterChip('long', 'Long Answer'),
+                        _buildTypeFilterChip('numerical', 'Numerical'),
+                        _buildTypeFilterChip('code', 'Code'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Filter Chips: Difficulty & Unit
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        const Text('Diff:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoalSlate)),
+                        const SizedBox(width: 8),
+                        _buildDifficultyFilterChip('All'),
+                        _buildDifficultyFilterChip('Easy'),
+                        _buildDifficultyFilterChip('Medium'),
+                        _buildDifficultyFilterChip('Hard'),
+                        const SizedBox(width: 14),
+                        const Text('Unit:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoalSlate)),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('All Units'),
+                          selected: _selectedQuestionUnitFilter == null,
+                          selectedColor: AppTheme.mintWash,
+                          labelStyle: TextStyle(
+                            fontFamily: AppTheme.fontZilla,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: _selectedQuestionUnitFilter == null ? AppTheme.inkForest : AppTheme.charcoalSlate,
+                          ),
+                          onSelected: (sel) {
+                            if (sel) setState(() => _selectedQuestionUnitFilter = null);
+                          },
+                        ),
+                        ...List.generate(5, (index) {
+                          final unitNum = index + 1;
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: ChoiceChip(
+                              label: Text('Unit $unitNum'),
+                              selected: _selectedQuestionUnitFilter == unitNum,
+                              selectedColor: AppTheme.mintWash,
+                              labelStyle: TextStyle(
+                                fontFamily: AppTheme.fontZilla,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: _selectedQuestionUnitFilter == unitNum ? AppTheme.inkForest : AppTheme.charcoalSlate,
+                              ),
+                              onSelected: (sel) {
+                                setState(() => _selectedQuestionUnitFilter = sel ? unitNum : null);
+                              },
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Content List
+            if (snapshot.connectionState == ConnectionState.waiting && allQuestions.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (filteredQuestions.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: EmptyState(
+                  icon: Icons.quiz_outlined,
+                  title: allQuestions.isEmpty ? 'Classroom Question Bank is Empty' : 'No Questions Match Filters',
+                  message: allQuestions.isEmpty
+                      ? (_isTeacher
+                          ? 'Author MCQs, numericals, and conceptual questions with marking rubrics or auto-generate them from class notes.'
+                          : 'Questions added by your instructor will appear here for practice.')
+                      : 'Try broadening your search term or clearing the active filters.',
+                  actionText: allQuestions.isEmpty && _isTeacher ? 'Suggest from Notes' : null,
+                  onAction: allQuestions.isEmpty && _isTeacher ? () => _showAiSuggestQuestionsDialog() : null,
+                ),
+              )
+            else
+              ...filteredQuestions.map((q) {
+                final isSelected = _selectedQuestionIds.contains(q.id);
+                return _buildQuestionCard(q, isSelected);
+              }),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHeaderStatChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppTheme.inkForest),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeFilterChip(String typeCode, String label) {
+    final isSelected = _selectedQuestionTypeFilter.toLowerCase() == typeCode.toLowerCase();
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        selectedColor: AppTheme.mintWash,
+        labelStyle: TextStyle(
+          fontFamily: AppTheme.fontZilla,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+          color: isSelected ? AppTheme.inkForest : AppTheme.charcoalSlate,
+        ),
+        onSelected: (sel) {
+          if (sel) setState(() => _selectedQuestionTypeFilter = typeCode);
+        },
+      ),
+    );
+  }
+
+  Widget _buildDifficultyFilterChip(String diff) {
+    final isSelected = _selectedDifficultyFilter.toLowerCase() == diff.toLowerCase();
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(diff),
+        selected: isSelected,
+        selectedColor: AppTheme.mintWash,
+        labelStyle: TextStyle(
+          fontFamily: AppTheme.fontZilla,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+          color: isSelected ? AppTheme.inkForest : AppTheme.charcoalSlate,
+        ),
+        onSelected: (sel) {
+          if (sel) setState(() => _selectedDifficultyFilter = diff);
+        },
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // QUESTION CARD (Interactive Student Practice & Teacher Management)
+  // ===========================================================================
+  Widget _buildQuestionCard(Question q, bool isSelected) {
+    final isRevealed = _revealedAnswers.contains(q.id);
+    final selectedOptionIndex = _studentSelectedAnswers[q.id];
+    final isMcq = q.options != null && q.options!.length >= 2;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isSelected ? AppTheme.inkForest : AppTheme.borderColor,
+          width: isSelected ? 2.0 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Meta Badges Row
+            Row(
+              children: [
+                if (_isTeacher) ...[
+                  Checkbox(
+                    value: isSelected,
+                    activeColor: AppTheme.inkForest,
+                    onChanged: (val) {
+                      setState(() {
+                        if (val == true) {
+                          _selectedQuestionIds.add(q.id);
+                        } else {
+                          _selectedQuestionIds.remove(q.id);
+                        }
+                      });
+                    },
+                  ),
+                ],
+                _buildQuestionTypeChip(q.questionType),
+                const SizedBox(width: 6),
+                _buildDifficultyChip(q.difficulty ?? 'Medium'),
+                const SizedBox(width: 6),
+                _buildBloomChip(q.bloomLevel ?? 'Understand'),
+                const SizedBox(width: 6),
+                if (q.unitNumber != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.mintWash.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Unit ${q.unitNumber}',
+                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+                    ),
+                  ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '+${q.marks.toStringAsFixed(1)} marks',
+                    style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoalSlate),
+                  ),
+                ),
+                if (_isTeacher)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.charcoalSlate),
+                    onSelected: (val) {
+                      if (val == 'edit') {
+                        _showQuestionEditorDialog(existingQuestion: q);
+                      } else if (val == 'duplicate') {
+                        _showQuestionEditorDialog(duplicateFrom: q);
+                      } else if (val == 'delete') {
+                        _confirmDeleteQuestion(q);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Edit Question')),
+                      const PopupMenuItem(value: 'duplicate', child: Text('Duplicate')),
+                      const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Question Prompt
+            SelectableText(
+              q.question,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontCardo,
+                fontSize: 15.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.inkForest,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Grounding & Source Metadata Chip
+            if (q.sourcePage != null || q.supportingExcerpt != null || q.isAiGenerated) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  if (q.isAiGenerated)
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome, size: 12, color: AppTheme.successColor),
+                        SizedBox(width: 4),
+                        Text('AI Grounded', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, color: AppTheme.successColor, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  if (q.sourcePage != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.menu_book, size: 12, color: AppTheme.textSecondary),
+                        const SizedBox(width: 4),
+                        Text('Page / Slide ${q.sourcePage}', style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                  if (q.topic.isNotEmpty && q.topic != 'Other')
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.label_outline, size: 12, color: AppTheme.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(q.topic, style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, color: AppTheme.textSecondary)),
+                      ],
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // MCQ Options layout
+            if (isMcq) ...[
+              ...List.generate(q.options!.length, (optIdx) {
+                final optionText = q.options![optIdx];
+                final optionLetter = String.fromCharCode(65 + optIdx);
+                final isCorrectOption = q.correctOptionIndex == optIdx || (q.correctOptionIndices != null && q.correctOptionIndices!.contains(optIdx));
+
+                Color cardColor = Colors.grey.shade50;
+                Color borderColor = AppTheme.borderColor;
+                Widget? trailingIcon;
+
+                if (_isTeacher) {
+                  // Teacher sees verified correct option highlighted
+                  if (isCorrectOption) {
+                    cardColor = AppTheme.mintWash.withValues(alpha: 0.5);
+                    borderColor = AppTheme.successColor;
+                    trailingIcon = const Icon(Icons.check_circle, size: 18, color: AppTheme.successColor);
+                  }
+                } else {
+                  // Student interactive practice mode
+                  if (selectedOptionIndex != null) {
+                    if (optIdx == selectedOptionIndex) {
+                      if (isCorrectOption) {
+                        cardColor = AppTheme.mintWash.withValues(alpha: 0.6);
+                        borderColor = AppTheme.successColor;
+                        trailingIcon = const Icon(Icons.check_circle, size: 18, color: AppTheme.successColor);
+                      } else {
+                        cardColor = Colors.red.shade50;
+                        borderColor = AppTheme.errorColor;
+                        trailingIcon = const Icon(Icons.cancel, size: 18, color: AppTheme.errorColor);
+                      }
+                    } else if (isCorrectOption) {
+                      cardColor = AppTheme.mintWash.withValues(alpha: 0.3);
+                      borderColor = AppTheme.successColor.withValues(alpha: 0.6);
+                      trailingIcon = const Icon(Icons.check_circle_outline, size: 18, color: AppTheme.successColor);
+                    }
+                  }
+                }
+
+                return InkWell(
+                  onTap: _isTeacher
+                      ? null
+                      : () {
+                          setState(() {
+                            _studentSelectedAnswers[q.id] = optIdx;
+                          });
+                        },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$optionLetter. ',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontCardo,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                            color: isCorrectOption && (_isTeacher || selectedOptionIndex != null) ? AppTheme.successColor : AppTheme.inkForest,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            optionText,
+                            style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate),
+                          ),
+                        ),
+                        if (trailingIcon != null) trailingIcon,
+                      ],
+                    ),
+                  ),
+                );
+              }),
+
+              // Distractor reasoning for Teacher or after Student makes an incorrect choice
+              if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty && (_isTeacher || selectedOptionIndex != null)) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.creamPaper,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.psychology_outlined, size: 14, color: AppTheme.inkForest),
+                          SizedBox(width: 6),
+                          Text('Distractor Analysis (Common Misconceptions):', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.inkForest)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ...q.distractorReasoning!.entries.map((e) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text(
+                            '• Option ${e.key}: ${e.value}',
+                            style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.charcoalSlate),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+            ] else ...[
+              // Conceptual / Short / Long / Numerical / Code View
+              if (isRevealed || _isTeacher) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.creamPaper,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.verified_outlined, size: 14, color: AppTheme.successColor),
+                          SizedBox(width: 6),
+                          Text('Model Answer:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.inkForest)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      SelectableText(
+                        q.answer,
+                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate, height: 1.35),
+                      ),
+                      if (q.keyPointsRubric != null && q.keyPointsRubric!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        const Text('Marking Rubric (Partial Credit Breakdown):', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.inkForest)),
+                        const SizedBox(height: 4),
+                        ...q.keyPointsRubric!.map((item) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('✔ ', style: TextStyle(color: AppTheme.successColor, fontSize: 11)),
+                                Expanded(
+                                  child: Text(item, style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.charcoalSlate)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ],
+                  ),
+                ),
+              ] else ...[
+                TextButton.icon(
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('Reveal Model Answer & Marking Rubric'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.inkForest,
+                    textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () {
+                    setState(() => _revealedAnswers.add(q.id));
+                  },
+                ),
+              ],
+            ],
+
+            // Supporting Excerpt
+            if (q.supportingExcerpt != null && q.supportingExcerpt!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Classroom Question Bank',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontCardo,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: AppTheme.inkForest,
-                      ),
-                    ),
-                    Text(
-                      _isTeacher
-                          ? 'Author questions manually or generate AI questions grounded in uploaded notes.'
-                          : 'Practice questions authored and approved by your faculty.',
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontZilla,
-                        fontSize: 12.5,
-                        color: AppTheme.charcoalSlate,
+                    const Icon(Icons.format_quote, size: 14, color: AppTheme.textSecondary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Excerpt: "${q.supportingExcerpt}"',
+                        style: const TextStyle(fontFamily: 'serif', fontStyle: FontStyle.italic, fontSize: 11, color: AppTheme.textSecondary),
                       ),
                     ),
                   ],
                 ),
               ),
-              if (_isTeacher)
-                PrimaryButton(
-                  text: 'AI Suggest',
-                  icon: Icons.auto_awesome,
-                  height: 38,
+            ],
+
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+
+            // Card Footer: Explain Simply button & Teacher actions
+            Row(
+              children: [
+                // "Explain Simply" button (Workstream B structure)
+                TextButton.icon(
+                  icon: const Icon(Icons.lightbulb_outline, size: 14),
+                  label: const Text('Explain Simply'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.inkForest,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, fontWeight: FontWeight.bold),
+                  ),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('AI Question generation grounded in notes with review pipeline is activating in Phase 3.'),
-                        backgroundColor: AppTheme.inkForest,
-                      ),
+                    String? wrongOption;
+                    if (selectedOptionIndex != null && q.options != null && selectedOptionIndex < q.options!.length) {
+                      if (selectedOptionIndex != q.correctOptionIndex) {
+                        wrongOption = q.options![selectedOptionIndex];
+                      }
+                    }
+                    ExplainSimplyDialog.show(
+                      context: context,
+                      topic: q.topic,
+                      subtopic: q.subtopic,
+                      sourceContext: '${q.question}\n\nModel Answer: ${q.answer}\n\n${q.explanation ?? ""}',
+                      sourcePage: q.sourcePage,
+                      wrongOptionChosen: wrongOption,
                     );
                   },
                 ),
+                if (q.explanation != null && q.explanation!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: Tooltip(
+                      message: q.explanation!,
+                      child: const Icon(Icons.info_outline, size: 15, color: AppTheme.textSecondary),
+                    ),
+                  ),
+                const Spacer(),
+
+                // Teacher quick actions
+                if (_isTeacher) ...[
+                  IconButton(
+                    icon: const Icon(Icons.copy, size: 16, color: AppTheme.textSecondary),
+                    tooltip: 'Duplicate Question',
+                    onPressed: () => _showQuestionEditorDialog(duplicateFrom: q),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.textSecondary),
+                    tooltip: 'Edit Question',
+                    onPressed: () => _showQuestionEditorDialog(existingQuestion: q),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
+                    tooltip: 'Delete Question',
+                    onPressed: () => _confirmDeleteQuestion(q),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionTypeChip(String type) {
+    Color bg = const Color(0xFFE0F2F1);
+    Color fg = const Color(0xFF00796B);
+    String label = 'MCQ';
+
+    switch (type.toLowerCase()) {
+      case 'mcq':
+        label = 'MCQ (Single)';
+        break;
+      case 'multi_mcq':
+        label = 'MCQ (Multi)';
+        bg = const Color(0xFFE3F2FD);
+        fg = const Color(0xFF1976D2);
+        break;
+      case 'true_false':
+        label = 'True/False';
+        bg = const Color(0xFFF3E5F5);
+        fg = const Color(0xFF7B1FA2);
+        break;
+      case 'short':
+        label = 'Short Answer';
+        bg = const Color(0xFFFFF3E0);
+        fg = const Color(0xFFE65100);
+        break;
+      case 'long':
+        label = 'Long Answer';
+        bg = const Color(0xFFEDE7F6);
+        fg = const Color(0xFF512DA8);
+        break;
+      case 'numerical':
+        label = 'Numerical';
+        bg = const Color(0xFFE8F5E9);
+        fg = const Color(0xFF2E7D32);
+        break;
+      case 'code':
+        label = 'Code';
+        bg = const Color(0xFFECEFF1);
+        fg = const Color(0xFF37474F);
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(label, style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10.5, fontWeight: FontWeight.bold, color: fg)),
+    );
+  }
+
+  Widget _buildDifficultyChip(String difficulty) {
+    Color bg = Colors.green.shade50;
+    Color fg = Colors.green.shade800;
+
+    if (difficulty.toLowerCase() == 'medium') {
+      bg = Colors.amber.shade50;
+      fg = Colors.orange.shade900;
+    } else if (difficulty.toLowerCase() == 'hard') {
+      bg = Colors.red.shade50;
+      fg = Colors.red.shade800;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(difficulty, style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10.5, fontWeight: FontWeight.bold, color: fg)),
+    );
+  }
+
+  Widget _buildBloomChip(String bloom) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(6)),
+      child: Text(bloom, style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+    );
+  }
+
+  // ===========================================================================
+  // QUESTION CREATOR & EDITOR DIALOG
+  // ===========================================================================
+  void _showQuestionEditorDialog({Question? existingQuestion, Question? duplicateFrom}) {
+    final base = existingQuestion ?? duplicateFrom;
+    String qType = base?.questionType ?? 'mcq';
+    String topic = base?.topic ?? (_classroom.subject.isNotEmpty ? _classroom.subject : 'General');
+    int unitNum = base?.unitNumber ?? 1;
+    String difficulty = base?.difficulty ?? 'Medium';
+    String bloom = base?.bloomLevel ?? 'Understand';
+    double marks = base?.marks ?? 1.0;
+    double negMarks = base?.negativeMarks ?? 0.0;
+
+    final promptCtrl = TextEditingController(text: base?.question ?? '');
+    final answerCtrl = TextEditingController(text: base?.answer ?? '');
+    final explanationCtrl = TextEditingController(text: base?.explanation ?? '');
+    final tagsCtrl = TextEditingController(text: base?.tags.join(', ') ?? '');
+    final sourcePageCtrl = TextEditingController(text: base?.sourcePage?.toString() ?? '');
+
+    // MCQ Options
+    final optACtrl = TextEditingController(text: (base?.options != null && base!.options!.isNotEmpty) ? base.options![0] : '');
+    final optBCtrl = TextEditingController(text: (base?.options != null && base!.options!.length > 1) ? base.options![1] : '');
+    final optCCtrl = TextEditingController(text: (base?.options != null && base!.options!.length > 2) ? base.options![2] : '');
+    final optDCtrl = TextEditingController(text: (base?.options != null && base!.options!.length > 3) ? base.options![3] : '');
+    int correctIndex = base?.correctOptionIndex ?? 0;
+
+    // Distractor reasoning
+    final distACtrl = TextEditingController(text: base?.distractorReasoning?['A'] ?? '');
+    final distBCtrl = TextEditingController(text: base?.distractorReasoning?['B'] ?? '');
+    final distCCtrl = TextEditingController(text: base?.distractorReasoning?['C'] ?? '');
+    final distDCtrl = TextEditingController(text: base?.distractorReasoning?['D'] ?? '');
+
+    // Marking Rubric Points for conceptual questions
+    final List<TextEditingController> rubricControllers = (base?.keyPointsRubric != null && base!.keyPointsRubric!.isNotEmpty)
+        ? base.keyPointsRubric!.map((r) => TextEditingController(text: r)).toList()
+        : [TextEditingController(text: 'Accurately defines the core principle'), TextEditingController(text: 'Provides valid example/derivation')];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => CustomDialog(
+          title: existingQuestion != null ? 'Edit Question' : (duplicateFrom != null ? 'Duplicate Question' : 'Create Question'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Type selector
+                Row(
+                  children: [
+                    const Text('Question Type:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: qType,
+                        decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                        items: const [
+                          DropdownMenuItem(value: 'mcq', child: Text('Single-Select MCQ (4 Options)')),
+                          DropdownMenuItem(value: 'multi_mcq', child: Text('Multi-Select MCQ')),
+                          DropdownMenuItem(value: 'true_false', child: Text('True / False')),
+                          DropdownMenuItem(value: 'short', child: Text('Short Answer (with Rubric)')),
+                          DropdownMenuItem(value: 'long', child: Text('Long Answer (with Rubric)')),
+                          DropdownMenuItem(value: 'numerical', child: Text('Numerical Problem')),
+                          DropdownMenuItem(value: 'code', child: Text('Coding / Algorithmic Problem')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setDlgState(() => qType = v);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Unit, Topic, Difficulty row
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      child: CustomTextField(
+                        controller: TextEditingController(text: unitNum.toString()),
+                        label: 'Unit #',
+                        keyboardType: TextInputType.number,
+                        onChanged: (v) => unitNum = int.tryParse(v) ?? unitNum,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CustomTextField(
+                        controller: TextEditingController(text: topic),
+                        label: 'Topic / Subtopic',
+                        onChanged: (v) => topic = v,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: difficulty,
+                        decoration: const InputDecoration(labelText: 'Difficulty', isDense: true),
+                        items: const [
+                          DropdownMenuItem(value: 'Easy', child: Text('Easy')),
+                          DropdownMenuItem(value: 'Medium', child: Text('Medium')),
+                          DropdownMenuItem(value: 'Hard', child: Text('Hard')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setDlgState(() => difficulty = v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: bloom,
+                        decoration: const InputDecoration(labelText: 'Bloom Tier', isDense: true),
+                        items: const [
+                          DropdownMenuItem(value: 'Remember', child: Text('Remember')),
+                          DropdownMenuItem(value: 'Understand', child: Text('Understand')),
+                          DropdownMenuItem(value: 'Apply', child: Text('Apply')),
+                          DropdownMenuItem(value: 'Analyze', child: Text('Analyze')),
+                          DropdownMenuItem(value: 'Evaluate', child: Text('Evaluate')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setDlgState(() => bloom = v);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Marks and Negative Marks
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        controller: TextEditingController(text: marks.toString()),
+                        label: 'Marks (+)',
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (v) => marks = double.tryParse(v) ?? marks,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CustomTextField(
+                        controller: TextEditingController(text: negMarks.toString()),
+                        label: 'Negative Marks (-)',
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (v) => negMarks = double.tryParse(v) ?? negMarks,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CustomTextField(
+                        controller: sourcePageCtrl,
+                        label: 'Source Page #',
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Prompt
+                CustomTextField(
+                  controller: promptCtrl,
+                  label: 'Question Prompt *',
+                  hintText: 'Enter clear, well-phrased question prompt...',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+
+                // If MCQ
+                if (qType == 'mcq' || qType == 'multi_mcq') ...[
+                  const Text('Options & Correct Choice:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  _buildOptionEditorRow('A', optACtrl, distACtrl, 0, correctIndex, (idx) => setDlgState(() => correctIndex = idx)),
+                  _buildOptionEditorRow('B', optBCtrl, distBCtrl, 1, correctIndex, (idx) => setDlgState(() => correctIndex = idx)),
+                  _buildOptionEditorRow('C', optCCtrl, distCCtrl, 2, correctIndex, (idx) => setDlgState(() => correctIndex = idx)),
+                  _buildOptionEditorRow('D', optDCtrl, distDCtrl, 3, correctIndex, (idx) => setDlgState(() => correctIndex = idx)),
+                ] else if (qType == 'true_false') ...[
+                  const Text('Correct Option:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                  Row(
+                    children: [
+                      Radio<int>(
+                        value: 0,
+                        groupValue: correctIndex,
+                        activeColor: AppTheme.inkForest,
+                        onChanged: (v) => setDlgState(() => correctIndex = v ?? 0),
+                      ),
+                      const Text('True', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13)),
+                      const SizedBox(width: 20),
+                      Radio<int>(
+                        value: 1,
+                        groupValue: correctIndex,
+                        activeColor: AppTheme.inkForest,
+                        onChanged: (v) => setDlgState(() => correctIndex = v ?? 1),
+                      ),
+                      const Text('False', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13)),
+                    ],
+                  ),
+                ] else ...[
+                  // Conceptual / Model answer
+                  CustomTextField(
+                    controller: answerCtrl,
+                    label: 'Model / Reference Answer *',
+                    hintText: 'Provide the ideal student answer...',
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Text('Marking Rubric Items:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Spacer(),
+                      TextButton.icon(
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text('Add Point'),
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        onPressed: () {
+                          setDlgState(() => rubricControllers.add(TextEditingController()));
+                        },
+                      ),
+                    ],
+                  ),
+                  ...List.generate(rubricControllers.length, (idx) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: CustomTextField(
+                              controller: rubricControllers[idx],
+                              label: 'Rubric Criterion ${idx + 1}',
+                              hintText: 'Rubric criterion ${idx + 1}',
+                            ),
+                          ),
+                          if (rubricControllers.length > 1)
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, size: 18, color: Colors.red),
+                              onPressed: () {
+                                setDlgState(() => rubricControllers.removeAt(idx));
+                              },
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+
+                const SizedBox(height: 10),
+                CustomTextField(
+                  controller: explanationCtrl,
+                  label: 'Educational Explanation / Guidance',
+                  hintText: 'Optional background reasoning for students...',
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  controller: tagsCtrl,
+                  label: 'Tags (comma-separated)',
+                  hintText: 'e.g. OS, CPU Scheduling, Round Robin',
+                ),
+              ],
+            ),
+          ),
+          confirmLabel: existingQuestion != null ? 'Update Question' : 'Save Question',
+          onConfirm: () async {
+            if (promptCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter a question prompt.'), backgroundColor: AppTheme.errorColor),
+              );
+              return;
+            }
+
+            List<String>? options;
+            String finalAnswer = answerCtrl.text.trim();
+            Map<String, String>? distractors;
+
+            if (qType == 'mcq' || qType == 'multi_mcq') {
+              options = [
+                optACtrl.text.trim(),
+                optBCtrl.text.trim(),
+                optCCtrl.text.trim(),
+                optDCtrl.text.trim(),
+              ];
+              if (correctIndex < options.length) {
+                finalAnswer = options[correctIndex];
+              }
+              distractors = {
+                if (distACtrl.text.trim().isNotEmpty) 'A': distACtrl.text.trim(),
+                if (distBCtrl.text.trim().isNotEmpty) 'B': distBCtrl.text.trim(),
+                if (distCCtrl.text.trim().isNotEmpty) 'C': distCCtrl.text.trim(),
+                if (distDCtrl.text.trim().isNotEmpty) 'D': distDCtrl.text.trim(),
+              };
+            } else if (qType == 'true_false') {
+              options = ['True', 'False'];
+              finalAnswer = correctIndex == 0 ? 'True' : 'False';
+            }
+
+            final parsedRubric = rubricControllers.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+            final parsedTags = tagsCtrl.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+            final parsedSourcePage = int.tryParse(sourcePageCtrl.text.trim());
+
+            final targetQuestion = Question(
+              id: existingQuestion?.id ?? '',
+              topic: topic.trim().isNotEmpty ? topic.trim() : 'General',
+              question: promptCtrl.text.trim(),
+              answer: finalAnswer.isNotEmpty ? finalAnswer : 'See Explanation',
+              options: options,
+              correctOptionIndex: (qType == 'mcq' || qType == 'multi_mcq' || qType == 'true_false') ? correctIndex : null,
+              explanation: explanationCtrl.text.trim().isNotEmpty ? explanationCtrl.text.trim() : null,
+              distractorReasoning: distractors,
+              keyPointsRubric: parsedRubric.isNotEmpty ? parsedRubric : null,
+              unitNumber: unitNum,
+              questionType: qType,
+              difficulty: difficulty,
+              bloomLevel: bloom,
+              marks: marks,
+              negativeMarks: negMarks,
+              tags: parsedTags,
+              sourcePage: parsedSourcePage,
+              classroomId: _classroom.id,
+              isAiGenerated: existingQuestion?.isAiGenerated ?? false,
+              createdAt: existingQuestion?.createdAt ?? DateTime.now(),
+            );
+
+            try {
+              if (existingQuestion != null) {
+                await FirestoreService.instance.updateClassroomQuestion(_classroom.id, targetQuestion);
+              } else {
+                await FirestoreService.instance.createClassroomQuestion(_classroom.id, targetQuestion);
+              }
+              if (mounted) {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(existingQuestion != null ? 'Question updated successfully!' : 'Question added to Classroom Question Bank!'),
+                    backgroundColor: AppTheme.successColor,
+                  ),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to save question: $e'), backgroundColor: AppTheme.errorColor),
+                );
+              }
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionEditorRow(
+    String letter,
+    TextEditingController textCtrl,
+    TextEditingController distCtrl,
+    int index,
+    int correctIndex,
+    Function(int) onSelectCorrect,
+  ) {
+    final isCorrect = index == correctIndex;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Radio<int>(
+                value: index,
+                groupValue: correctIndex,
+                activeColor: AppTheme.successColor,
+                onChanged: (v) {
+                  if (v != null) onSelectCorrect(v);
+                },
+              ),
+              Text('Option $letter: ', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 13, color: isCorrect ? AppTheme.successColor : AppTheme.charcoalSlate)),
+              Expanded(
+                child: CustomTextField(
+                  controller: textCtrl,
+                  label: 'Option $letter',
+                  hintText: 'Enter text for option $letter...',
+                ),
+              ),
             ],
           ),
+          if (!isCorrect)
+            Padding(
+              padding: const EdgeInsets.only(left: 48, top: 2),
+              child: CustomTextField(
+                controller: distCtrl,
+                label: 'Distractor Reason',
+                hintText: 'Distractor reasoning for $letter (why it is wrong)...',
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteQuestion(Question q) {
+    showDialog(
+      context: context,
+      builder: (ctx) => CustomDialog(
+        title: 'Delete Question?',
+        content: Text(
+          'Are you sure you want to permanently delete this question from the Question Bank?\n\n"${q.question}"',
+          style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13.5, color: AppTheme.charcoalSlate),
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: EmptyState(
-            icon: Icons.quiz_outlined,
-            title: 'Classroom Question Bank is Empty',
-            message: _isTeacher
-                ? 'Create MCQs, numericals, and conceptual questions with marking rubrics or auto-generate them from class notes.'
-                : 'Questions added by your instructor will appear here for practice.',
-            actionText: _isTeacher ? 'Create Question' : null,
-            onAction: _isTeacher ? () {} : null,
-          ),
+        confirmLabel: 'Delete',
+        confirmColor: Colors.red,
+        onConfirm: () async {
+          Navigator.of(ctx).pop();
+          try {
+            await FirestoreService.instance.deleteClassroomQuestion(_classroom.id, q.id);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Question deleted from Question Bank.'), backgroundColor: AppTheme.inkForest),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Delete failed: $e'), backgroundColor: AppTheme.errorColor),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  void _bulkDeleteQuestions() {
+    final count = _selectedQuestionIds.length;
+    showDialog(
+      context: context,
+      builder: (ctx) => CustomDialog(
+        title: 'Delete $count Questions?',
+        content: Text(
+          'Are you sure you want to delete all $count selected questions from the Question Bank?',
+          style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13.5, color: AppTheme.charcoalSlate),
         ),
-      ],
+        confirmLabel: 'Delete All Selected',
+        confirmColor: Colors.red,
+        onConfirm: () async {
+          Navigator.of(ctx).pop();
+          try {
+            for (final qId in _selectedQuestionIds.toList()) {
+              await FirestoreService.instance.deleteClassroomQuestion(_classroom.id, qId);
+            }
+            if (mounted) {
+              setState(() => _selectedQuestionIds.clear());
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Successfully deleted $count questions.'), backgroundColor: AppTheme.inkForest),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Bulk delete failed: $e'), backgroundColor: AppTheme.errorColor),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // CSV IMPORT & EXPORT
+  // ===========================================================================
+  void _exportQuestionBankCsv(List<Question> questions) {
+    final csvData = ExportService.instance.generateQuestionBankCsv(questions);
+    Clipboard.setData(ClipboardData(text: csvData));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Question Bank CSV copied to clipboard (${questions.length} questions)! Ready to paste into Excel or Sheets.'),
+        backgroundColor: AppTheme.inkForest,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showImportQuestionsDialog() {
+    final textCtrl = TextEditingController();
+    List<Question> parsed = [];
+    bool isParsing = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => CustomDialog(
+          title: 'Import Questions from CSV',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Upload or paste CSV rows matching our standard format:\nTopic, Unit, Type, Difficulty, Bloom, Marks, Negative Marks, Question, Answer, Option A, Option B, Option C, Option D, Correct Option, Explanation, Tags',
+                  style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.folder_open, size: 16),
+                      label: const Text('Pick CSV File'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.mintWash,
+                        foregroundColor: AppTheme.inkForest,
+                        elevation: 0,
+                      ),
+                      onPressed: () async {
+                        try {
+                          final result = await FilePicker.pickFiles(
+                            type: FileType.custom,
+                            allowedExtensions: ['csv', 'txt'],
+                          );
+                          if (result.isNotEmpty) {
+                            final file = result.first;
+                            final bytes = await file.readAsBytes();
+                            final text = utf8.decode(bytes);
+                            textCtrl.text = text;
+                            final list = ExportService.instance.parseQuestionBankCsv(text, classroomId: _classroom.id, defaultTopic: _classroom.subject);
+                            setDlgState(() => parsed = list);
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error reading file: $e'), backgroundColor: AppTheme.errorColor),
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      icon: const Icon(Icons.copy, size: 14),
+                      label: const Text('Copy CSV Template'),
+                      onPressed: () {
+                        const template = 'Topic,Unit,Type,Difficulty,Bloom,Marks,Negative Marks,Question,Answer,Option A,Option B,Option C,Option D,Correct Option,Explanation,Tags\n'
+                            'Operating Systems,1,mcq,Medium,Understand,1.0,0.0,"What is a process control block (PCB)?","A data structure containing process state information","A compiler tool","A data structure containing process state information","A hardware cache register","An optical bus architecture",B,"PCB maintains PID, registers, and program counter.","OS; Processes"';
+                        Clipboard.setData(const ClipboardData(text: template));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Sample CSV template copied to clipboard!'), backgroundColor: AppTheme.inkForest),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(
+                  controller: textCtrl,
+                  label: 'Or Paste CSV Content Here',
+                  hintText: 'Paste CSV text with header row...',
+                  maxLines: 8,
+                  onChanged: (val) {
+                    final list = ExportService.instance.parseQuestionBankCsv(val, classroomId: _classroom.id, defaultTopic: _classroom.subject);
+                    setDlgState(() => parsed = list);
+                  },
+                ),
+                if (parsed.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.mintWash.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: AppTheme.successColor, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${parsed.length} valid questions parsed and ready to import!',
+                          style: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.inkForest),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          confirmLabel: isParsing ? 'Importing...' : 'Import ${parsed.length} Questions',
+          onConfirm: parsed.isEmpty || isParsing
+              ? null
+              : () async {
+                  setDlgState(() => isParsing = true);
+                  try {
+                    await FirestoreService.instance.batchAddClassroomQuestions(_classroom.id, parsed);
+                    if (mounted) {
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Successfully imported ${parsed.length} questions into Question Bank!'), backgroundColor: AppTheme.successColor),
+                      );
+                    }
+                  } catch (e) {
+                    setDlgState(() => isParsing = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Import failed: $e'), backgroundColor: AppTheme.errorColor),
+                      );
+                    }
+                  }
+                },
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // AI QUESTION SUGGESTION WITH COVERAGE AUDIT & REVIEW PIPELINE
+  // ===========================================================================
+  void _showAiSuggestQuestionsDialog({ClassroomNote? preselectedNote}) {
+    ClassroomNote? selectedNote = preselectedNote;
+    int questionCount = 8;
+    String typeMix = 'balanced'; // balanced, mcq_only, conceptual_only
+    String targetDifficulty = 'Balanced';
+    double marks = 1.0;
+
+    bool isGenerating = false;
+    String stageText = '';
+    double progressValue = 0.0;
+
+    // Review state
+    CoverageReport? coverageReport;
+    List<Question> candidateQuestions = [];
+    final Set<int> acceptedIndices = {};
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          if (isGenerating) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                padding: const EdgeInsets.all(28),
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 40, color: AppTheme.inkForest),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'AI Question Generator Active',
+                      style: TextStyle(fontFamily: AppTheme.fontCardo, fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      stageText,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate),
+                    ),
+                    const SizedBox(height: 20),
+                    LinearProgressIndicator(value: progressValue > 0 ? progressValue : null, color: AppTheme.inkForest, backgroundColor: AppTheme.mintWash),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Grounding strictly in note excerpts with distractor analysis and Bloom tagging...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // Step 3: Review UI & Coverage Report
+          if (candidateQuestions.isNotEmpty) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 720,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        children: [
+                          const Icon(Icons.verified, color: AppTheme.inkForest, size: 24),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Review AI Suggested Questions',
+                                  style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.inkForest),
+                                ),
+                                Text(
+                                  '${acceptedIndices.length} of ${candidateQuestions.length} questions selected for Question Bank.',
+                                  style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.charcoalSlate),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setDlgState(() {
+                                if (acceptedIndices.length == candidateQuestions.length) {
+                                  acceptedIndices.clear();
+                                } else {
+                                  acceptedIndices.addAll(List.generate(candidateQuestions.length, (i) => i));
+                                }
+                              });
+                            },
+                            child: Text(acceptedIndices.length == candidateQuestions.length ? 'Deselect All' : 'Select All'),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(ctx).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Coverage Report Banner
+                      if (coverageReport != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.sageBlob.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.borderColor),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.analytics_outlined, size: 28, color: AppTheme.inkForest),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Coverage Matrix: ${coverageReport!.pageCoveragePercentage.toStringAsFixed(0)}% Note Covered',
+                                      style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.inkForest),
+                                    ),
+                                    Text(
+                                      '${coverageReport!.mcqCount} MCQs · ${coverageReport!.conceptualCount} Conceptual · ${coverageReport!.coveredPages.length} Pages Covered · 100% Grounded',
+                                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.charcoalSlate),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Candidate questions review list
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: candidateQuestions.length,
+                          itemBuilder: (ctx, idx) {
+                            final cq = candidateQuestions[idx];
+                            final isAccepted = acceptedIndices.contains(idx);
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isAccepted ? Colors.white : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: isAccepted ? AppTheme.inkForest : AppTheme.borderColor),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Checkbox(
+                                        value: isAccepted,
+                                        activeColor: AppTheme.inkForest,
+                                        onChanged: (val) {
+                                          setDlgState(() {
+                                            if (val == true) {
+                                              acceptedIndices.add(idx);
+                                            } else {
+                                              acceptedIndices.remove(idx);
+                                            }
+                                          });
+                                        },
+                                      ),
+                                      _buildQuestionTypeChip(cq.questionType),
+                                      const SizedBox(width: 6),
+                                      _buildDifficultyChip(cq.difficulty ?? 'Medium'),
+                                      const SizedBox(width: 6),
+                                      _buildBloomChip(cq.bloomLevel ?? 'Understand'),
+                                      const Spacer(),
+                                      if (cq.sourcePage != null)
+                                        Text('Page ${cq.sourcePage}', style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppTheme.textSecondary)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    cq.question,
+                                    style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.inkForest),
+                                  ),
+                                  const SizedBox(height: 6),
+
+                                  if (cq.options != null && cq.options!.isNotEmpty) ...[
+                                    ...List.generate(cq.options!.length, (optI) {
+                                      final isCorrect = cq.correctOptionIndex == optI;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 3),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              '${String.fromCharCode(65 + optI)}. ',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isCorrect ? AppTheme.successColor : AppTheme.charcoalSlate),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                cq.options![optI],
+                                                style: TextStyle(fontSize: 12, color: isCorrect ? AppTheme.inkForest : AppTheme.charcoalSlate),
+                                              ),
+                                            ),
+                                            if (isCorrect) const Icon(Icons.check, size: 14, color: AppTheme.successColor),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ] else ...[
+                                    Text('Model Answer: ${cq.answer}', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, color: AppTheme.charcoalSlate)),
+                                  ],
+
+                                  const SizedBox(height: 8),
+                                  // Quick Tuning Actions: Make Harder, Make Easier, Reject
+                                  Row(
+                                    children: [
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.trending_up, size: 14),
+                                        label: const Text('Make Harder', style: TextStyle(fontSize: 11)),
+                                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2)),
+                                        onPressed: () {
+                                          setDlgState(() {
+                                            candidateQuestions[idx] = cq.copyWith(
+                                              difficulty: 'Hard',
+                                              bloomLevel: 'Analyze',
+                                              question: 'In deep analysis: ${cq.question}',
+                                            );
+                                          });
+                                        },
+                                      ),
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.trending_down, size: 14),
+                                        label: const Text('Make Easier', style: TextStyle(fontSize: 11)),
+                                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2)),
+                                        onPressed: () {
+                                          setDlgState(() {
+                                            candidateQuestions[idx] = cq.copyWith(
+                                              difficulty: 'Easy',
+                                              bloomLevel: 'Remember',
+                                              question: 'Define fundamentally: ${cq.question}',
+                                            );
+                                          });
+                                        },
+                                      ),
+                                      const Spacer(),
+                                      TextButton(
+                                        onPressed: () {
+                                          setDlgState(() {
+                                            candidateQuestions.removeAt(idx);
+                                            acceptedIndices.remove(idx);
+                                          });
+                                        },
+                                        child: const Text('Reject', style: TextStyle(color: Colors.red, fontSize: 11)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
+                      // Footer Save Action
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          PrimaryButton(
+                            text: 'Add ${acceptedIndices.length} Questions to Bank',
+                            icon: Icons.check,
+                            height: 38,
+                            onPressed: acceptedIndices.isEmpty
+                                ? null
+                                : () async {
+                                    final toSave = acceptedIndices.map((i) => candidateQuestions[i]).toList();
+                                    try {
+                                      await FirestoreService.instance.batchAddClassroomQuestions(_classroom.id, toSave);
+                                      if (mounted) {
+                                        Navigator.of(ctx).pop();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Added ${toSave.length} AI-recommended questions to Question Bank!'),
+                                            backgroundColor: AppTheme.successColor,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Failed to save questions: $e'), backgroundColor: AppTheme.errorColor),
+                                        );
+                                      }
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
+
+          // Step 1: Configuration Form
+          return StreamBuilder<List<ClassroomNote>>(
+            stream: FirestoreService.instance.getClassroomNotesStream(_classroom.id),
+            builder: (ctx, notesSnap) {
+              final classNotes = notesSnap.data ?? [];
+              if (selectedNote == null && classNotes.isNotEmpty) {
+                selectedNote = classNotes.first;
+              }
+
+              return CustomDialog(
+                title: 'Suggest Questions from Notes',
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Select note material to extract grounded conceptual and MCQ practice questions with Bloom taxonomy and distractor analysis.',
+                        style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, color: AppTheme.charcoalSlate),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Note selector
+                      const Text('Source Document / Note *:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 6),
+                      if (classNotes.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8)),
+                          child: const Text('No notes uploaded yet. Please upload class notes or slides in the Notes tab first.', style: TextStyle(fontSize: 12, color: Colors.brown)),
+                        )
+                      else
+                        DropdownButtonFormField<ClassroomNote>(
+                          value: selectedNote,
+                          decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                          items: classNotes.map((n) {
+                            return DropdownMenuItem<ClassroomNote>(
+                              value: n,
+                              child: Text('Unit ${n.unitNumber}: ${n.title} (${n.fileName ?? "note"})', overflow: TextOverflow.ellipsis),
+                            );
+                          }).toList(),
+                          onChanged: (n) => setDlgState(() => selectedNote = n),
+                        ),
+                      const SizedBox(height: 12),
+
+                      // Count selector
+                      Row(
+                        children: [
+                          const Text('Number of Questions:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(width: 12),
+                          DropdownButton<int>(
+                            value: questionCount,
+                            items: const [
+                              DropdownMenuItem(value: 5, child: Text('5 Questions')),
+                              DropdownMenuItem(value: 8, child: Text('8 Questions')),
+                              DropdownMenuItem(value: 12, child: Text('12 Questions')),
+                              DropdownMenuItem(value: 16, child: Text('16 Questions')),
+                              DropdownMenuItem(value: 20, child: Text('20 Questions')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setDlgState(() => questionCount = v);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Question Type Mix
+                      const Text('Question Type Mix:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Balanced (MCQ + Conceptual)'),
+                            selected: typeMix == 'balanced',
+                            selectedColor: AppTheme.mintWash,
+                            onSelected: (sel) {
+                              if (sel) setDlgState(() => typeMix = 'balanced');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('Only MCQs'),
+                            selected: typeMix == 'mcq_only',
+                            selectedColor: AppTheme.mintWash,
+                            onSelected: (sel) {
+                              if (sel) setDlgState(() => typeMix = 'mcq_only');
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Difficulty distribution
+                      const Text('Target Difficulty:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Balanced Mix'),
+                            selected: targetDifficulty == 'Balanced',
+                            selectedColor: AppTheme.mintWash,
+                            onSelected: (sel) {
+                              if (sel) setDlgState(() => targetDifficulty = 'Balanced');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: const Text('Exam / Hard Focus'),
+                            selected: targetDifficulty == 'Hard',
+                            selectedColor: AppTheme.mintWash,
+                            onSelected: (sel) {
+                              if (sel) setDlgState(() => targetDifficulty = 'Hard');
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                confirmLabel: 'Generate Questions',
+                onConfirm: selectedNote == null
+                    ? null
+                    : () async {
+                        setDlgState(() {
+                          isGenerating = true;
+                          stageText = 'Parsing document sections and hierarchical topic map...';
+                          progressValue = 0.15;
+                        });
+
+                        try {
+                          // Parse note text into ProcessedDocument
+                          final doc = await DocumentProcessingService.instance.processBytes(
+                            bytes: utf8.encode(selectedNote!.extractedText),
+                            fileName: selectedNote!.fileName ?? '${selectedNote!.title}.txt',
+                            preferredTopic: selectedNote!.unitTitle,
+                          );
+
+                          setDlgState(() {
+                            stageText = 'Generating deep questions with distractor analysis across topics...';
+                            progressValue = 0.50;
+                          });
+
+                          final deepResult = await NotesAiService.instance.generateDeepCoverageQuestions(
+                            doc: doc,
+                            onProgress: (stage, msg, pct) {
+                              setDlgState(() {
+                                stageText = msg;
+                                progressValue = pct;
+                              });
+                            },
+                          );
+
+                          // Convert GeneratedPracticeQuestions to Question models
+                          final converted = deepResult.questions.take(questionCount).map((gq) {
+                            return Question(
+                              id: '',
+                              topic: gq.topic,
+                              question: gq.question,
+                              answer: gq.answer,
+                              options: gq.options,
+                              correctOptionIndex: gq.correctOptionIndex,
+                              explanation: gq.explanation,
+                              sourcePage: gq.sourcePage,
+                              difficulty: targetDifficulty == 'Hard' ? 'Hard' : (gq.difficulty ?? 'Medium'),
+                              bloomLevel: targetDifficulty == 'Hard' ? 'Analyze' : (gq.bloomLevel ?? 'Understand'),
+                              subtopic: gq.subtopic,
+                              sourceChunkId: gq.sourceChunkId,
+                              supportingExcerpt: gq.supportingExcerpt,
+                              keyPointsRubric: gq.keyPointsRubric,
+                              distractorReasoning: gq.distractorReasoning,
+                              classroomId: _classroom.id,
+                              unitNumber: selectedNote!.unitNumber,
+                              documentId: selectedNote!.id,
+                              questionType: gq.isMcq ? 'mcq' : 'short',
+                              marks: marks,
+                              negativeMarks: 0.0,
+                              tags: [
+                                if (gq.bloomLevel != null) gq.bloomLevel!,
+                                if (gq.subtopic != null) gq.subtopic!,
+                                'Unit ${selectedNote!.unitNumber}',
+                              ],
+                              isAiGenerated: true,
+                              createdAt: DateTime.now(),
+                            );
+                          }).toList();
+
+                          setDlgState(() {
+                            isGenerating = false;
+                            candidateQuestions = converted;
+                            coverageReport = deepResult.report;
+                            acceptedIndices.addAll(List.generate(converted.length, (i) => i));
+                          });
+                        } catch (e) {
+                          setDlgState(() => isGenerating = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Generation failed: $e'), backgroundColor: AppTheme.errorColor),
+                            );
+                          }
+                        }
+                      },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

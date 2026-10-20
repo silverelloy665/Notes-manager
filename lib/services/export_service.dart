@@ -351,6 +351,179 @@ class ExportService {
     return buffer.toString();
   }
 
+  /// Generates a CSV string representing classroom questions.
+  String generateQuestionBankCsv(List<Question> questions) {
+    final buffer = StringBuffer();
+    buffer.writeln('Topic,Unit,Type,Difficulty,Bloom,Marks,Negative Marks,Question,Answer,Option A,Option B,Option C,Option D,Correct Option,Explanation,Tags,Source Note,Source Page');
+    for (final q in questions) {
+      final optA = (q.options != null && q.options!.isNotEmpty) ? q.options![0] : '';
+      final optB = (q.options != null && q.options!.length > 1) ? q.options![1] : '';
+      final optC = (q.options != null && q.options!.length > 2) ? q.options![2] : '';
+      final optD = (q.options != null && q.options!.length > 3) ? q.options![3] : '';
+      final correctOpt = q.correctOptionIndex != null
+          ? String.fromCharCode(65 + q.correctOptionIndex!)
+          : (q.correctOptionIndices != null && q.correctOptionIndices!.isNotEmpty
+              ? q.correctOptionIndices!.map((i) => String.fromCharCode(65 + i)).join(';')
+              : '');
+
+      buffer.writeln([
+        _escapeCsv(q.topic),
+        q.unitNumber?.toString() ?? '',
+        _escapeCsv(q.questionType),
+        _escapeCsv(q.difficulty ?? 'Medium'),
+        _escapeCsv(q.bloomLevel ?? 'Understand'),
+        q.marks.toString(),
+        q.negativeMarks.toString(),
+        _escapeCsv(q.question),
+        _escapeCsv(q.answer),
+        _escapeCsv(optA),
+        _escapeCsv(optB),
+        _escapeCsv(optC),
+        _escapeCsv(optD),
+        _escapeCsv(correctOpt),
+        _escapeCsv(q.explanation ?? ''),
+        _escapeCsv(q.tags.join(';')),
+        _escapeCsv(q.documentId ?? ''),
+        q.sourcePage?.toString() ?? '',
+      ].join(','));
+    }
+    return buffer.toString();
+  }
+
+  /// Parses a CSV string into a list of Question objects.
+  List<Question> parseQuestionBankCsv(String csvContent, {String? classroomId, String? defaultTopic}) {
+    final lines = _splitCsvLines(csvContent);
+    if (lines.length <= 1) return [];
+
+    final questions = <Question>[];
+    for (int i = 1; i < lines.length; i++) {
+      final row = _parseCsvRow(lines[i]);
+      if (row.isEmpty || row.every((c) => c.trim().isEmpty)) continue;
+
+      final topic = (row.isNotEmpty && row[0].trim().isNotEmpty) ? row[0].trim() : (defaultTopic ?? 'General');
+      final unit = row.length > 1 ? int.tryParse(row[1].trim()) : null;
+      final type = row.length > 2 && row[2].trim().isNotEmpty ? row[2].trim().toLowerCase() : 'mcq';
+      final difficulty = row.length > 3 && row[3].trim().isNotEmpty ? row[3].trim() : 'Medium';
+      final bloom = row.length > 4 && row[4].trim().isNotEmpty ? row[4].trim() : 'Understand';
+      final marks = row.length > 5 ? (double.tryParse(row[5].trim()) ?? 1.0) : 1.0;
+      final negMarks = row.length > 6 ? (double.tryParse(row[6].trim()) ?? 0.0) : 0.0;
+      final questionText = row.length > 7 ? row[7].trim() : '';
+      final answerText = row.length > 8 ? row[8].trim() : '';
+
+      final optA = row.length > 9 ? row[9].trim() : '';
+      final optB = row.length > 10 ? row[10].trim() : '';
+      final optC = row.length > 11 ? row[11].trim() : '';
+      final optD = row.length > 12 ? row[12].trim() : '';
+      final correctStr = row.length > 13 ? row[13].trim().toUpperCase() : '';
+      final explanation = row.length > 14 ? row[14].trim() : '';
+      final tagsStr = row.length > 15 ? row[15].trim() : '';
+      final docId = row.length > 16 && row[16].trim().isNotEmpty ? row[16].trim() : null;
+      final sourcePage = row.length > 17 ? int.tryParse(row[17].trim()) : null;
+
+      if (questionText.isEmpty) continue;
+
+      List<String>? options;
+      int? correctOptionIndex;
+      final opts = [optA, optB, optC, optD].where((o) => o.isNotEmpty).toList();
+      if (opts.isNotEmpty) {
+        options = opts;
+        if (correctStr.isNotEmpty) {
+          final charCode = correctStr.codeUnitAt(0);
+          if (charCode >= 65 && charCode <= 68) {
+            correctOptionIndex = charCode - 65;
+          } else {
+            correctOptionIndex = int.tryParse(correctStr);
+          }
+        }
+      }
+
+      final tags = tagsStr.isNotEmpty
+          ? tagsStr.split(';').map((t) => t.trim()).where((t) => t.isNotEmpty).toList()
+          : <String>[];
+
+      questions.add(
+        Question(
+          id: '',
+          topic: topic,
+          question: questionText,
+          answer: answerText.isNotEmpty
+              ? answerText
+              : (options != null && correctOptionIndex != null && correctOptionIndex < options.length
+                  ? options[correctOptionIndex]
+                  : 'True'),
+          options: options,
+          correctOptionIndex: correctOptionIndex,
+          unitNumber: unit,
+          questionType: type,
+          difficulty: difficulty,
+          bloomLevel: bloom,
+          marks: marks,
+          negativeMarks: negMarks,
+          explanation: explanation.isNotEmpty ? explanation : null,
+          tags: tags,
+          documentId: docId,
+          sourcePage: sourcePage,
+          classroomId: classroomId,
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
+    return questions;
+  }
+
+  static List<String> _splitCsvLines(String text) {
+    final lines = <String>[];
+    final buffer = StringBuffer();
+    bool inQuote = false;
+
+    for (int i = 0; i < text.length; i++) {
+      final char = text[i];
+      if (char == '"') {
+        inQuote = !inQuote;
+        buffer.write(char);
+      } else if ((char == '\n' || char == '\r') && !inQuote) {
+        if (char == '\r' && i + 1 < text.length && text[i + 1] == '\n') {
+          i++; // Skip \n in CRLF
+        }
+        if (buffer.isNotEmpty) {
+          lines.add(buffer.toString());
+          buffer.clear();
+        }
+      } else {
+        buffer.write(char);
+      }
+    }
+    if (buffer.isNotEmpty) {
+      lines.add(buffer.toString());
+    }
+    return lines;
+  }
+
+  static List<String> _parseCsvRow(String line) {
+    final result = <String>[];
+    final buffer = StringBuffer();
+    bool inQuote = false;
+
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+      if (char == '"') {
+        if (inQuote && i + 1 < line.length && line[i + 1] == '"') {
+          buffer.write('"');
+          i++;
+        } else {
+          inQuote = !inQuote;
+        }
+      } else if (char == ',' && !inQuote) {
+        result.add(buffer.toString());
+        buffer.clear();
+      } else {
+        buffer.write(char);
+      }
+    }
+    result.add(buffer.toString());
+    return result;
+  }
+
   static String _escapeCsv(String text) {
     if (text.contains(',') || text.contains('"') || text.contains('\n')) {
       return '"${text.replaceAll('"', '""')}"';
