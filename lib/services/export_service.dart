@@ -517,6 +517,24 @@ class ExportService {
     return buffer.toString();
   }
 
+  /// Generates a CSV export of comprehensive classroom analytics.
+  String generateClassroomAnalyticsCsv({
+    required Classroom classroom,
+    required List<StudentGradeSummary> students,
+    required double classAverage,
+  }) {
+    final buffer = StringBuffer();
+    buffer.writeln('Classroom: ${_escapeCsv(classroom.name)} (${_escapeCsv(classroom.subject)})');
+    buffer.writeln('Code: ${classroom.code}, Total Students: ${students.length}, Class Average: ${classAverage.toStringAsFixed(1)}%');
+    buffer.writeln('');
+    buffer.writeln('Student ID,Student Name,Student Email,Assessments Count,Total Obtained,Total Max,Percentage,Tier');
+    for (final s in students) {
+      final tier = s.percentage >= 80 ? 'Distinction' : (s.percentage >= 60 ? 'First Class' : (s.percentage >= 40 ? 'Pass' : 'Needs Support'));
+      buffer.writeln('${_escapeCsv(s.studentId)},${_escapeCsv(s.studentName)},${_escapeCsv(s.studentEmail)},${s.assessmentsCount},${s.totalObtained.toStringAsFixed(1)},${s.totalMax.toStringAsFixed(1)},${s.percentage.toStringAsFixed(1)}%,$tier');
+    }
+    return buffer.toString();
+  }
+
   static List<String> _splitCsvLines(String text) {
     final lines = <String>[];
     final buffer = StringBuffer();
