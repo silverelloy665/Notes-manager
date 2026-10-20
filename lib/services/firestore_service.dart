@@ -7,6 +7,7 @@ import 'package:studymate_classroom/models/announcement_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/classroom_note_model.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
+import 'package:studymate_classroom/models/exam_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
@@ -1059,6 +1060,152 @@ class FirestoreService {
       throw AppException.fromFirebase(e);
     } catch (e) {
       throw AppException('Failed to batch add classroom questions: $e');
+    }
+  }
+
+  // ===========================================================================
+  // 3C. CLASSROOM EXAMS & ASSESSMENTS (classrooms/{classId}/exams/{examId})
+  // ===========================================================================
+
+  /// Live stream of exams in a classroom.
+  Stream<({List<Exam> exams, bool isFromCache})> getClassroomExamsStream(String classroomId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('exams')
+        .snapshots(includeMetadataChanges: true)
+        .map((snapshot) {
+      final isFromCache = snapshot.metadata.isFromCache;
+      final list = snapshot.docs
+          .map((doc) => Exam.fromMap(doc.data(), doc.id, classroomId: classroomId))
+          .toList();
+      list.sort((a, b) {
+        final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        return bTime.compareTo(aTime);
+      });
+      return (exams: list, isFromCache: isFromCache);
+    });
+  }
+
+  /// Creates a timed classroom exam.
+  Future<Exam> createClassroomExam(String classroomId, Exam exam) async {
+    try {
+      final colRef = _firestore.collection('classrooms').doc(classroomId).collection('exams');
+      final docRef = exam.id.isNotEmpty && exam.id != 'new' ? colRef.doc(exam.id) : colRef.doc();
+      final populated = exam.copyWith(
+        id: docRef.id,
+        classroomId: classroomId,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await docRef.set(populated.toMap());
+      return populated;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to create classroom exam: $e');
+    }
+  }
+
+  /// Updates an existing classroom exam.
+  Future<void> updateClassroomExam(String classroomId, Exam exam) async {
+    try {
+      final docRef = _firestore.collection('classrooms').doc(classroomId).collection('exams').doc(exam.id);
+      await docRef.update(exam.toMap());
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to update classroom exam: $e');
+    }
+  }
+
+  /// Deletes a classroom exam and its subcollections.
+  Future<void> deleteClassroomExam(String classroomId, String examId) async {
+    try {
+      final examRef = _firestore.collection('classrooms').doc(classroomId).collection('exams').doc(examId);
+      final subs = await examRef.collection('submissions').get();
+      final batch = _firestore.batch();
+      for (final doc in subs.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(examRef);
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to delete classroom exam: $e');
+    }
+  }
+
+  /// Live stream of submissions for a specific exam.
+  Stream<List<ExamSubmission>> getExamSubmissionsStream(String classroomId, String examId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('exams')
+        .doc(examId)
+        .collection('submissions')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ExamSubmission.fromMap(doc.data(), doc.id, classroomId: classroomId, examId: examId))
+          .toList();
+    });
+  }
+
+  /// Gets single submission for a student.
+  Future<ExamSubmission?> getStudentExamSubmission(String classroomId, String examId, String studentId) async {
+    try {
+      final doc = await _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('exams')
+          .doc(examId)
+          .collection('submissions')
+          .doc(studentId)
+          .get();
+      if (!doc.exists || doc.data() == null) return null;
+      return ExamSubmission.fromMap(doc.data()!, doc.id, classroomId: classroomId, examId: examId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Saves or auto-saves student's ongoing or final exam submission.
+  Future<void> saveExamSubmission(String classroomId, String examId, ExamSubmission submission) async {
+    try {
+      final docRef = _firestore
+          .collection('classrooms')
+          .doc(classroomId)
+          .collection('exams')
+          .doc(examId)
+          .collection('submissions')
+          .doc(submission.studentId);
+      await docRef.set(submission.toMap(), SetOptions(merge: true));
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to save exam submission: $e');
+    }
+  }
+
+  /// Updates score release setting across exam and submissions.
+  Future<void> releaseExamScores(String classroomId, String examId, bool release) async {
+    try {
+      final examRef = _firestore.collection('classrooms').doc(classroomId).collection('exams').doc(examId);
+      await examRef.update({'releaseScoresImmediately': release});
+
+      final subs = await examRef.collection('submissions').get();
+      final batch = _firestore.batch();
+      for (final doc in subs.docs) {
+        batch.update(doc.reference, {'status': release ? 'released' : 'graded'});
+      }
+      await batch.commit();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to release exam scores: $e');
     }
   }
 

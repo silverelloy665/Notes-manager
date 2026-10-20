@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,12 +8,14 @@ import 'package:studymate_classroom/models/announcement_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
 import 'package:studymate_classroom/models/classroom_note_model.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
+import 'package:studymate_classroom/models/exam_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/models/summary_model.dart';
 import 'package:studymate_classroom/models/topic_map_model.dart';
 import 'package:studymate_classroom/models/user_model.dart';
+import 'package:studymate_classroom/screens/classroom/exam_runner_screen.dart';
 import 'package:studymate_classroom/screens/student/student_grades_screen.dart';
 import 'package:studymate_classroom/screens/teacher/student_grade_history_screen.dart';
 import 'package:studymate_classroom/services/document_processing_service.dart';
@@ -78,6 +81,9 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
   final Map<String, int> _studentSelectedAnswers = {};
   final Set<String> _revealedAnswers = {};
   final Set<String> _selectedQuestionIds = {};
+
+  // Exams tab state
+  String _selectedExamFilter = 'all'; // all, ongoing, upcoming, past
 
   static const List<({String label, IconData icon})> _workspaceTabs = [
     (label: 'Overview', icon: Icons.dashboard_outlined),
@@ -4975,80 +4981,1267 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
   }
 
   // ===========================================================================
-  // TAB 4: EXAMS (Phase 4 Shell)
+  // TAB 4: EXAMS (Phase 4 Full Implementation)
   // ===========================================================================
   Widget _buildExamsTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        WatercolorBlobContainer(
-          variant: BlobVariant.mintWash,
+    return StreamBuilder<({List<Exam> exams, bool isFromCache})>(
+      stream: FirestoreService.instance.getClassroomExamsStream(_classroom.id),
+      builder: (context, snapshot) {
+        final allExams = snapshot.data?.exams ?? [];
+
+        // Apply local filter
+        final filteredExams = allExams.where((e) {
+          if (_selectedExamFilter == 'ongoing') return e.isOngoing;
+          if (_selectedExamFilter == 'upcoming') {
+            return e.startWindow != null && DateTime.now().isBefore(e.startWindow!);
+          }
+          if (_selectedExamFilter == 'past') return e.isExpired;
+          return true;
+        }).toList();
+
+        final ongoingCount = allExams.where((e) => e.isOngoing).length;
+        final totalQuestionsCount = allExams.fold<int>(0, (acc, e) => acc + e.questions.length);
+
+        return ListView(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              const Icon(Icons.timer_outlined, size: 36, color: AppTheme.inkForest),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Botanical Header Banner
+            WatercolorBlobContainer(
+              variant: BlobVariant.mintWash,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 36, color: AppTheme.inkForest),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Timed Exams & Assessments',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontCardo,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: AppTheme.inkForest,
+                              ),
+                            ),
+                            Text(
+                              _isTeacher
+                                  ? 'Build online exams with blueprint generation, randomized questions, and tab-switch monitoring.'
+                                  : 'Take proctored exams, auto-save answers, and view comprehensive scorecards.',
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontZilla,
+                                fontSize: 12.5,
+                                color: AppTheme.charcoalSlate,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_isTeacher)
+                        PrimaryButton(
+                          text: 'Create Exam',
+                          icon: Icons.add,
+                          height: 38,
+                          onPressed: () => _showCreateExamDialog(),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Metrics Chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildHeaderStatChip(Icons.assignment_outlined, '${allExams.length} Total Exams'),
+                      _buildHeaderStatChip(Icons.play_circle_outline, '$ongoingCount Active / Ongoing'),
+                      _buildHeaderStatChip(Icons.quiz_outlined, '$totalQuestionsCount Assessed Questions'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Filter Chips Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
-                    const Text(
-                      'Timed Exams & Assessments',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontCardo,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: AppTheme.inkForest,
-                      ),
-                    ),
-                    Text(
-                      _isTeacher
-                          ? 'Build online exams with blueprint generation, randomized questions, and tab-switch monitoring.'
-                          : 'View scheduled exams, take tests, and review auto-graded results.',
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontZilla,
-                        fontSize: 12.5,
-                        color: AppTheme.charcoalSlate,
-                      ),
-                    ),
+                    const Text('Filter:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoalSlate)),
+                    const SizedBox(width: 8),
+                    _buildExamFilterChip('all', 'All Exams'),
+                    _buildExamFilterChip('ongoing', 'Ongoing / Active'),
+                    _buildExamFilterChip('upcoming', 'Upcoming'),
+                    _buildExamFilterChip('past', 'Completed / Past'),
                   ],
                 ),
               ),
-              if (_isTeacher)
-                PrimaryButton(
-                  text: 'New Exam',
-                  icon: Icons.add,
-                  height: 38,
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Exam builder with blueprint generation and test-taking engine is activating in Phase 4.'),
-                        backgroundColor: AppTheme.inkForest,
+            ),
+            const SizedBox(height: 14),
+
+            // Content List
+            if (snapshot.connectionState == ConnectionState.waiting && allExams.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (filteredExams.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: EmptyState(
+                  icon: Icons.assignment_turned_in_outlined,
+                  title: allExams.isEmpty ? 'No Active or Scheduled Exams' : 'No Exams Match Filter',
+                  message: allExams.isEmpty
+                      ? (_isTeacher
+                          ? 'Create your first exam with duration, start window, passing marks, and question shuffling.'
+                          : 'No exams have been assigned to you in this classroom yet.')
+                      : 'Try switching your filter to "All Exams".',
+                  actionText: allExams.isEmpty && _isTeacher ? 'Create Exam' : null,
+                  onAction: allExams.isEmpty && _isTeacher ? () => _showCreateExamDialog() : null,
+                ),
+              )
+            else
+              ...filteredExams.map((exam) => _buildExamCard(exam)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildExamFilterChip(String filterKey, String label) {
+    final isSelected = _selectedExamFilter == filterKey;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        selectedColor: AppTheme.mintWash,
+        labelStyle: TextStyle(
+          fontFamily: AppTheme.fontZilla,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+          color: isSelected ? AppTheme.inkForest : AppTheme.charcoalSlate,
+        ),
+        onSelected: (sel) {
+          if (sel) setState(() => _selectedExamFilter = filterKey);
+        },
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // EXAM CARD (Student Runner Action & Teacher Grading / Analytics)
+  // ===========================================================================
+  Widget _buildExamCard(Exam exam) {
+    final isOngoing = exam.isOngoing;
+    final isExpired = exam.isExpired;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isOngoing ? AppTheme.inkForest : AppTheme.borderColor, width: isOngoing ? 1.6 : 1.0),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status row
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isOngoing
+                        ? AppTheme.mintWash.withValues(alpha: 0.6)
+                        : (isExpired ? Colors.grey.shade100 : Colors.amber.shade50),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isOngoing ? AppTheme.successColor : (isExpired ? Colors.grey : Colors.amber.shade800),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isOngoing ? Icons.play_circle : (isExpired ? Icons.history : Icons.schedule),
+                        size: 12,
+                        color: isOngoing ? AppTheme.successColor : (isExpired ? Colors.grey.shade700 : Colors.amber.shade900),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isOngoing ? 'ONGOING' : (isExpired ? 'PAST EXAM' : 'UPCOMING'),
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontZilla,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isOngoing ? AppTheme.successColor : (isExpired ? Colors.grey.shade700 : Colors.amber.shade900),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (exam.unitNumber != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                    child: Text('Unit ${exam.unitNumber}', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.charcoalSlate)),
+                  ),
+                const Spacer(),
+                if (_isTeacher)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.charcoalSlate),
+                    onSelected: (val) {
+                      if (val == 'edit') {
+                        _showCreateExamDialog(existingExam: exam);
+                      } else if (val == 'release_scores') {
+                        FirestoreService.instance.releaseExamScores(_classroom.id, exam.id, !exam.releaseScoresImmediately);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(exam.releaseScoresImmediately ? 'Exam scores hidden from students.' : 'All exam scores released to students!'),
+                            backgroundColor: AppTheme.inkForest,
+                          ),
+                        );
+                      } else if (val == 'delete') {
+                        _confirmDeleteExam(exam);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Edit Exam')),
+                      PopupMenuItem(
+                        value: 'release_scores',
+                        child: Text(exam.releaseScoresImmediately ? 'Hide Released Scores' : 'Release Scores to Students'),
+                      ),
+                      const PopupMenuItem(value: 'delete', child: Text('Delete Exam', style: TextStyle(color: Colors.red))),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Exam Title & Subject
+            Text(
+              exam.title,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontCardo,
+                fontSize: 16.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.inkForest,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${exam.subject} · ${exam.questions.length} Questions · Passing Marks: ${exam.passingMarks.toStringAsFixed(0)} / ${exam.totalMarks.toStringAsFixed(0)}',
+              style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.charcoalSlate),
+            ),
+            const SizedBox(height: 8),
+
+            // Badges row: duration, attempts, integrity
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                _buildExamMetaBadge(Icons.timer, '${exam.durationMinutes} mins'),
+                _buildExamMetaBadge(Icons.fullscreen, exam.fullScreenEnforced ? 'Full-screen' : 'Standard'),
+                _buildExamMetaBadge(Icons.tab_unselected, 'Tab limit: ${exam.tabSwitchLimit}'),
+                if (exam.allowCalculator) _buildExamMetaBadge(Icons.calculate, 'Calculator'),
+                if (exam.watermarkStudentId) _buildExamMetaBadge(Icons.shield_outlined, 'Watermarked'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+
+            // Action Footer
+            Row(
+              children: [
+                if (_isTeacher) ...[
+                  // Teacher: Submissions Stream count & management
+                  StreamBuilder<List<ExamSubmission>>(
+                    stream: FirestoreService.instance.getExamSubmissionsStream(_classroom.id, exam.id),
+                    builder: (ctx, subSnap) {
+                      final subs = subSnap.data ?? [];
+                      return Row(
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.people_outline, size: 15),
+                            label: Text('Submissions (${subs.length})'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.inkForest,
+                              side: const BorderSide(color: AppTheme.inkForest),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () => _showExamSubmissionsDialog(exam),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.bar_chart, size: 15),
+                            label: const Text('Analytics'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.charcoalSlate,
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12),
+                            ),
+                            onPressed: subs.isEmpty ? null : () => _showExamAnalyticsDialog(exam),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ] else ...[
+                  // Student: Check submission status & launch runner
+                  FutureBuilder<ExamSubmission?>(
+                    future: FirestoreService.instance.getStudentExamSubmission(_classroom.id, exam.id, widget.currentUser.id),
+                    builder: (ctx, subSnap) {
+                      final sub = subSnap.data;
+                      if (sub != null && (sub.status == 'submitted' || sub.status == 'graded' || sub.status == 'released')) {
+                        if (sub.isReleased || exam.releaseScoresImmediately) {
+                          return ElevatedButton.icon(
+                            icon: const Icon(Icons.emoji_events, size: 15),
+                            label: Text('Scorecard: ${sub.totalMarksObtained.toStringAsFixed(1)} / ${sub.maxMarks.toStringAsFixed(0)} (${sub.percentage.toStringAsFixed(0)}%)'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: sub.isPassed ? AppTheme.successColor : AppTheme.inkForest,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ExamRunnerScreen(
+                                    exam: exam,
+                                    currentUser: widget.currentUser,
+                                    classroomId: _classroom.id,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        } else {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: AppTheme.mintWash.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(8)),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.check_circle_outline, size: 14, color: AppTheme.inkForest),
+                                SizedBox(width: 6),
+                                Text('Submitted · Grading in Progress', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.inkForest)),
+                              ],
+                            ),
+                          );
+                        }
+                      }
+
+                      // Not submitted yet
+                      if (isOngoing) {
+                        return PrimaryButton(
+                          text: sub != null && sub.status == 'in_progress' ? 'Resume Exam' : 'Start Exam',
+                          icon: Icons.play_arrow,
+                          height: 36,
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ExamRunnerScreen(
+                                  exam: exam,
+                                  currentUser: widget.currentUser,
+                                  classroomId: _classroom.id,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      } else if (isExpired) {
+                        return const Text('Exam submission window has expired.', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: Colors.grey));
+                      } else {
+                        return const Text('Exam will open during scheduled window.', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.textSecondary));
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExamMetaBadge(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade200)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: AppTheme.textSecondary),
+          const SizedBox(width: 4),
+          Text(text, style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10.5, color: AppTheme.charcoalSlate)),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TEACHER CREATE EXAM & BLUEPRINT GENERATOR DIALOG
+  // ===========================================================================
+  void _showCreateExamDialog({Exam? existingExam}) {
+    final titleCtrl = TextEditingController(text: existingExam?.title ?? '');
+    final subjectCtrl = TextEditingController(text: existingExam?.subject ?? _classroom.subject);
+    final unitCtrl = TextEditingController(text: existingExam?.unitNumber?.toString() ?? '1');
+    final durationCtrl = TextEditingController(text: existingExam?.durationMinutes.toString() ?? '60');
+    final passMarksCtrl = TextEditingController(text: existingExam?.passingMarks.toString() ?? '40');
+    final totalMarksCtrl = TextEditingController(text: existingExam?.totalMarks.toString() ?? '100');
+    final instructionsCtrl = TextEditingController(text: existingExam?.instructions ?? 'Answer all questions carefully. Maintain focus in this window.');
+
+    bool fullScreen = existingExam?.fullScreenEnforced ?? true;
+    int tabLimit = existingExam?.tabSwitchLimit ?? 3;
+    bool disableCopy = existingExam?.disableCopyPaste ?? true;
+    bool allowCalc = existingExam?.allowCalculator ?? true;
+    bool watermark = existingExam?.watermarkStudentId ?? true;
+    bool shuffleQ = existingExam?.shuffleQuestions ?? true;
+    bool shuffleOpt = existingExam?.shuffleOptions ?? true;
+    bool releaseNow = existingExam?.releaseScoresImmediately ?? false;
+
+    // Selected questions for this exam
+    List<Question> examQuestions = List<Question>.from(existingExam?.questions ?? []);
+
+    // Blueprint generator inputs
+    int blueprintMcqCount = 5;
+    int blueprintShortCount = 2;
+    int blueprintLongCount = 1;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => CustomDialog(
+          title: existingExam != null ? 'Edit Timed Exam' : 'Create Timed Exam',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CustomTextField(controller: titleCtrl, label: 'Exam Title *', hintText: 'e.g. Midterm Assessment: CPU & Memory'),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: CustomTextField(controller: subjectCtrl, label: 'Subject')),
+                    const SizedBox(width: 8),
+                    SizedBox(width: 80, child: CustomTextField(controller: unitCtrl, label: 'Unit #', keyboardType: TextInputType.number)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: CustomTextField(controller: durationCtrl, label: 'Duration (Mins)', keyboardType: TextInputType.number)),
+                    const SizedBox(width: 8),
+                    Expanded(child: CustomTextField(controller: passMarksCtrl, label: 'Passing Marks', keyboardType: TextInputType.number)),
+                    const SizedBox(width: 8),
+                    Expanded(child: CustomTextField(controller: totalMarksCtrl, label: 'Total Marks', keyboardType: TextInputType.number)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                CustomTextField(controller: instructionsCtrl, label: 'Instructions', maxLines: 2),
+                const SizedBox(height: 14),
+
+                // Integrity Toggles
+                const Text('Proctoring & Integrity Controls:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.inkForest)),
+                const SizedBox(height: 6),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Enforce Full-Screen Mode', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5)),
+                  value: fullScreen,
+                  activeThumbColor: AppTheme.inkForest,
+                  onChanged: (v) => setDlgState(() => fullScreen = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Disable Copy-Paste & Right Click', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5)),
+                  value: disableCopy,
+                  activeThumbColor: AppTheme.inkForest,
+                  onChanged: (v) => setDlgState(() => disableCopy = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Enable Built-in Scratch Calculator', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5)),
+                  value: allowCalc,
+                  activeThumbColor: AppTheme.inkForest,
+                  onChanged: (v) => setDlgState(() => allowCalc = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Watermark Student ID on Screen', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5)),
+                  value: watermark,
+                  activeThumbColor: AppTheme.inkForest,
+                  onChanged: (v) => setDlgState(() => watermark = v),
+                ),
+                Row(
+                  children: [
+                    const Text('Tab Switch Limit:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5)),
+                    const SizedBox(width: 10),
+                    DropdownButton<int>(
+                      value: tabLimit,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('1 (Strict: Auto-submit on 1st)')),
+                        DropdownMenuItem(value: 2, child: Text('2 tab switches')),
+                        DropdownMenuItem(value: 3, child: Text('3 tab switches (Recommended)')),
+                        DropdownMenuItem(value: 5, child: Text('5 tab switches')),
+                        DropdownMenuItem(value: 0, child: Text('Disabled')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setDlgState(() => tabLimit = v);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Question Selection & Blueprint Generator
+                Row(
+                  children: [
+                    const Text('Exam Questions:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.inkForest)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: AppTheme.mintWash, borderRadius: BorderRadius.circular(6)),
+                      child: Text('${examQuestions.length} selected', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.inkForest)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Blueprint Auto-Assemble Section
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.creamPaper,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Blueprint Auto-Assembler (from Question Bank):',
+                        style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.inkForest),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButton<int>(
+                              isExpanded: true,
+                              value: blueprintMcqCount,
+                              items: const [
+                                DropdownMenuItem(value: 3, child: Text('3 MCQs')),
+                                DropdownMenuItem(value: 5, child: Text('5 MCQs')),
+                                DropdownMenuItem(value: 10, child: Text('10 MCQs')),
+                              ],
+                              onChanged: (v) => setDlgState(() => blueprintMcqCount = v ?? 5),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButton<int>(
+                              isExpanded: true,
+                              value: blueprintShortCount,
+                              items: const [
+                                DropdownMenuItem(value: 1, child: Text('1 Short')),
+                                DropdownMenuItem(value: 2, child: Text('2 Short')),
+                                DropdownMenuItem(value: 5, child: Text('5 Short')),
+                              ],
+                              onChanged: (v) => setDlgState(() => blueprintShortCount = v ?? 2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: DropdownButton<int>(
+                              isExpanded: true,
+                              value: blueprintLongCount,
+                              items: const [
+                                DropdownMenuItem(value: 0, child: Text('0 Long')),
+                                DropdownMenuItem(value: 1, child: Text('1 Long')),
+                                DropdownMenuItem(value: 2, child: Text('2 Long')),
+                              ],
+                              onChanged: (v) => setDlgState(() => blueprintLongCount = v ?? 1),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      PrimaryButton(
+                        text: 'Auto-Assemble Blueprint',
+                        icon: Icons.auto_awesome,
+                        height: 34,
+                        onPressed: () async {
+                          try {
+                            final snapshot = await FirestoreService.instance.getClassroomQuestionsStream(_classroom.id).first;
+                            final bank = snapshot.questions;
+
+                            final mcqs = bank.where((q) => q.questionType == 'mcq' || q.questionType == 'multi_mcq' || q.questionType == 'true_false').toList();
+                            final shorts = bank.where((q) => q.questionType == 'short' || q.questionType == 'numerical').toList();
+                            final longs = bank.where((q) => q.questionType == 'long' || q.questionType == 'code').toList();
+
+                            final selected = <Question>[
+                              ...mcqs.take(blueprintMcqCount),
+                              ...shorts.take(blueprintShortCount),
+                              ...longs.take(blueprintLongCount),
+                            ];
+
+                            if (selected.isEmpty && bank.isNotEmpty) {
+                              selected.addAll(bank.take(blueprintMcqCount + blueprintShortCount + blueprintLongCount));
+                            }
+
+                            setDlgState(() {
+                              examQuestions = selected;
+                              final sumMarks = selected.fold<double>(0.0, (acc, q) => acc + q.marks);
+                              if (sumMarks > 0) {
+                                totalMarksCtrl.text = sumMarks.toStringAsFixed(0);
+                                passMarksCtrl.text = (sumMarks * 0.4).toStringAsFixed(0);
+                              }
+                            });
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Blueprint assembled with ${selected.length} questions!'), backgroundColor: AppTheme.successColor),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to assemble blueprint: $e'), backgroundColor: AppTheme.errorColor),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Questions preview list
+                if (examQuestions.isNotEmpty) ...[
+                  ...examQuestions.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final q = entry.value;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6)),
+                      child: Row(
+                        children: [
+                          Text('${idx + 1}. ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                          Expanded(
+                            child: Text(q.question, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
+                          ),
+                          Text('+${q.marks}m', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.inkForest)),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 14, color: Colors.red),
+                            onPressed: () {
+                              setDlgState(() => examQuestions.removeAt(idx));
+                            },
+                          ),
+                        ],
                       ),
                     );
-                  },
+                  }),
+                ],
+
+                const SizedBox(height: 10),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Release Scores to Students Immediately Upon Submit', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5)),
+                  value: releaseNow,
+                  activeThumbColor: AppTheme.inkForest,
+                  onChanged: (v) => setDlgState(() => releaseNow = v),
                 ),
-            ],
+              ],
+            ),
+          ),
+          confirmLabel: existingExam != null ? 'Update Exam' : 'Create & Publish Exam',
+          onConfirm: () async {
+            if (titleCtrl.text.trim().isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter an exam title.'), backgroundColor: AppTheme.errorColor),
+              );
+              return;
+            }
+
+            final exam = Exam(
+              id: existingExam?.id ?? '',
+              classroomId: _classroom.id,
+              title: titleCtrl.text.trim(),
+              subject: subjectCtrl.text.trim(),
+              unitNumber: int.tryParse(unitCtrl.text.trim()) ?? 1,
+              durationMinutes: int.tryParse(durationCtrl.text.trim()) ?? 60,
+              passingMarks: double.tryParse(passMarksCtrl.text.trim()) ?? 40.0,
+              totalMarks: double.tryParse(totalMarksCtrl.text.trim()) ?? 100.0,
+              instructions: instructionsCtrl.text.trim(),
+              questions: examQuestions,
+              fullScreenEnforced: fullScreen,
+              tabSwitchLimit: tabLimit,
+              disableCopyPaste: disableCopy,
+              allowCalculator: allowCalc,
+              watermarkStudentId: watermark,
+              shuffleQuestions: shuffleQ,
+              shuffleOptions: shuffleOpt,
+              releaseScoresImmediately: releaseNow,
+              isPublished: true,
+            );
+
+            try {
+              if (existingExam != null) {
+                await FirestoreService.instance.updateClassroomExam(_classroom.id, exam);
+              } else {
+                await FirestoreService.instance.createClassroomExam(_classroom.id, exam);
+              }
+
+              if (mounted) {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(existingExam != null ? 'Exam updated successfully!' : 'Exam published and available for classroom assessment!'),
+                    backgroundColor: AppTheme.successColor,
+                  ),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to save exam: $e'), backgroundColor: AppTheme.errorColor),
+                );
+              }
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteExam(Exam exam) {
+    showDialog(
+      context: context,
+      builder: (ctx) => CustomDialog(
+        title: 'Delete Exam?',
+        content: Text(
+          'Are you sure you want to permanently delete "${exam.title}" and all associated student submissions?',
+          style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate),
+        ),
+        confirmLabel: 'Delete Exam',
+        confirmColor: Colors.red,
+        onConfirm: () async {
+          Navigator.of(ctx).pop();
+          try {
+            await FirestoreService.instance.deleteClassroomExam(_classroom.id, exam.id);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Exam deleted.'), backgroundColor: AppTheme.inkForest),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Delete failed: $e'), backgroundColor: AppTheme.errorColor),
+              );
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TEACHER SUBMISSIONS & GRADING DIALOG
+  // ===========================================================================
+  void _showExamSubmissionsDialog(Exam exam) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 700),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: StreamBuilder<List<ExamSubmission>>(
+              stream: FirestoreService.instance.getExamSubmissionsStream(_classroom.id, exam.id),
+              builder: (ctx, snapshot) {
+                final subs = snapshot.data ?? [];
+                final avgScore = subs.isNotEmpty ? subs.fold<double>(0, (a, b) => a + b.percentage) / subs.length : 0.0;
+                final passCount = subs.where((s) => s.isPassed).length;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.fact_check_outlined, size: 24, color: AppTheme.inkForest),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${exam.title} - Submissions',
+                                style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.inkForest),
+                              ),
+                              Text(
+                                '${subs.length} attempts · Average: ${avgScore.toStringAsFixed(1)}% · Pass Rate: ${subs.isNotEmpty ? ((passCount / subs.length) * 100).toStringAsFixed(0) : 0}%',
+                                style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.charcoalSlate),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(ctx).pop()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Release Scores Toggle for all
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(color: AppTheme.mintWash.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(10)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.visibility, size: 18, color: AppTheme.inkForest),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Release All Scores to Students',
+                              style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.inkForest),
+                            ),
+                          ),
+                          Switch(
+                            value: exam.releaseScoresImmediately,
+                            activeThumbColor: AppTheme.inkForest,
+                            onChanged: (val) async {
+                              await FirestoreService.instance.releaseExamScores(_classroom.id, exam.id, val);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    Expanded(
+                      child: subs.isEmpty
+                          ? const Center(child: Text('No student submissions received yet.', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.textSecondary)))
+                          : ListView.builder(
+                              itemCount: subs.length,
+                              itemBuilder: (ctx, idx) {
+                                final s = subs[idx];
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: AppTheme.borderColor),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: AppTheme.mintWash,
+                                        child: Text(s.studentName.isNotEmpty ? s.studentName[0].toUpperCase() : 'S', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.inkForest)),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(s.studentName, style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.inkForest)),
+                                            Text(s.studentEmail, style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.textSecondary)),
+                                            if (s.tabSwitchCount > 0)
+                                              Text(
+                                                '⚠ ${s.tabSwitchCount} tab switch(es) logged',
+                                                style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '${s.totalMarksObtained.toStringAsFixed(1)} / ${s.maxMarks.toStringAsFixed(0)}',
+                                            style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.inkForest),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: s.isPassed ? Colors.green.shade50 : Colors.red.shade50,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '${s.percentage.toStringAsFixed(0)}% · ${s.isPassed ? "PASS" : "FAIL"}',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: s.isPassed ? AppTheme.successColor : AppTheme.errorColor),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 10),
+                                      OutlinedButton(
+                                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                                        child: const Text('Review', style: TextStyle(fontSize: 11)),
+                                        onPressed: () => _showGradeSubmissionDialog(exam, s),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
-        const SizedBox(height: 16),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TEACHER GRADING ASSISTANT & RUBRICS OVERRIDE MODAL
+  // ===========================================================================
+  void _showGradeSubmissionDialog(Exam exam, ExamSubmission sub) {
+    final Map<String, TextEditingController> scoreControllers = {};
+    final Map<String, TextEditingController> feedbackControllers = {};
+
+    for (final q in exam.questions) {
+      final curScore = sub.questionScores[q.id] ?? 0.0;
+      scoreControllers[q.id] = TextEditingController(text: curScore.toString());
+      feedbackControllers[q.id] = TextEditingController(text: sub.questionFeedback[q.id] ?? '');
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setGradeState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760, maxHeight: 800),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.grading, size: 24, color: AppTheme.inkForest),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Grading: ${sub.studentName} (${sub.studentEmail})',
+                          style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.inkForest),
+                        ),
+                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(ctx).pop()),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: exam.questions.length,
+                      itemBuilder: (ctx, idx) {
+                        final q = exam.questions[idx];
+                        final studentAns = sub.answers[q.id];
+                        final scoreCtrl = scoreControllers[q.id]!;
+                        final feedbackCtrl = feedbackControllers[q.id]!;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppTheme.borderColor)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text('Q${idx + 1}. ', style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.inkForest)),
+                                  Expanded(child: Text(q.question, style: const TextStyle(fontFamily: AppTheme.fontCardo, fontSize: 13, color: AppTheme.charcoalSlate))),
+                                  Text('[Max: ${q.marks}m]', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: AppTheme.creamPaper, borderRadius: BorderRadius.circular(6)),
+                                child: Text('Student Answer: ${studentAns ?? "(unanswered)"}', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.inkForest)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text('Model Answer: ${q.answer}', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.charcoalSlate)),
+                              if (q.keyPointsRubric != null && q.keyPointsRubric!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text('Rubric: ${q.keyPointsRubric!.join("; ")}', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, color: AppTheme.textSecondary)),
+                              ],
+                              const SizedBox(height: 8),
+
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 100,
+                                    child: CustomTextField(
+                                      controller: scoreCtrl,
+                                      label: 'Score',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: CustomTextField(
+                                      controller: feedbackCtrl,
+                                      label: 'Feedback / Rubric Note',
+                                      hintText: 'Enter specific feedback for student...',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+                      const SizedBox(width: 8),
+                      PrimaryButton(
+                        text: 'Save & Update Grade',
+                        icon: Icons.check,
+                        height: 38,
+                        onPressed: () async {
+                          final newScores = <String, double>{};
+                          final newFeedback = <String, String>{};
+                          double newTotal = 0.0;
+
+                          for (final q in exam.questions) {
+                            final sc = double.tryParse(scoreControllers[q.id]!.text.trim()) ?? 0.0;
+                            newScores[q.id] = sc;
+                            newFeedback[q.id] = feedbackControllers[q.id]!.text.trim();
+                            newTotal += sc;
+                          }
+
+                          final newPct = exam.totalMarks > 0 ? (newTotal / exam.totalMarks) * 100 : 0.0;
+                          final newPassed = newTotal >= exam.passingMarks;
+
+                          final updatedSub = sub.copyWith(
+                            questionScores: newScores,
+                            questionFeedback: newFeedback,
+                            totalMarksObtained: newTotal,
+                            percentage: newPct,
+                            isPassed: newPassed,
+                            status: 'graded',
+                          );
+
+                          try {
+                            await FirestoreService.instance.saveExamSubmission(_classroom.id, exam.id, updatedSub);
+                            if (mounted) {
+                              Navigator.of(ctx).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Student grade updated successfully!'), backgroundColor: AppTheme.successColor),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to update grade: $e'), backgroundColor: AppTheme.errorColor),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TEACHER ANALYTICS & SCORE DISTRIBUTION HISTOGRAM
+  // ===========================================================================
+  void _showExamAnalyticsDialog(Exam exam) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: 580,
+          padding: const EdgeInsets.all(24),
+          child: StreamBuilder<List<ExamSubmission>>(
+            stream: FirestoreService.instance.getExamSubmissionsStream(_classroom.id, exam.id),
+            builder: (ctx, snapshot) {
+              final subs = snapshot.data ?? [];
+              if (subs.isEmpty) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('No submissions available for analytics yet.', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13)),
+                    const SizedBox(height: 12),
+                    TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+                  ],
+                );
+              }
+
+              // Build histogram brackets: 0-20, 21-40, 41-60, 61-80, 81-100
+              final brackets = [0, 0, 0, 0, 0];
+              double highest = 0;
+              double lowest = 100;
+              double sum = 0;
+
+              for (final s in subs) {
+                final pct = s.percentage;
+                sum += pct;
+                if (pct > highest) highest = pct;
+                if (pct < lowest) lowest = pct;
+
+                if (pct <= 20) {
+                  brackets[0]++;
+                } else if (pct <= 40) {
+                  brackets[1]++;
+                } else if (pct <= 60) {
+                  brackets[2]++;
+                } else if (pct <= 80) {
+                  brackets[3]++;
+                } else {
+                  brackets[4]++;
+                }
+              }
+
+              final avg = sum / subs.length;
+              final maxCount = brackets.reduce(max);
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.analytics, color: AppTheme.inkForest, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Performance Analytics: ${exam.title}',
+                          style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.inkForest),
+                        ),
+                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(ctx).pop()),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Metrics Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildAnalyticMetric('Class Average', '${avg.toStringAsFixed(1)}%'),
+                      _buildAnalyticMetric('Highest Score', '${highest.toStringAsFixed(1)}%'),
+                      _buildAnalyticMetric('Lowest Score', '${lowest.toStringAsFixed(1)}%'),
+                      _buildAnalyticMetric('Attempts', '${subs.length}'),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  const Text('Score Distribution Histogram:', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.inkForest)),
+                  const SizedBox(height: 12),
+
+                  // Histogram Bars
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildHistogramBar('0-20%', brackets[0], maxCount),
+                      _buildHistogramBar('21-40%', brackets[1], maxCount),
+                      _buildHistogramBar('41-60%', brackets[2], maxCount),
+                      _buildHistogramBar('61-80%', brackets[3], maxCount),
+                      _buildHistogramBar('81-100%', brackets[4], maxCount),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticMetric(String label, String value) {
+    return Column(
+      children: [
+        Text(value, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.inkForest)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, color: AppTheme.textSecondary)),
+      ],
+    );
+  }
+
+  Widget _buildHistogramBar(String label, int count, int maxCount) {
+    final heightRatio = maxCount > 0 ? (count / maxCount) : 0.0;
+    final barHeight = 20.0 + (heightRatio * 90.0);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text('$count', style: const TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.inkForest)),
+        const SizedBox(height: 4),
         Container(
-          padding: const EdgeInsets.all(32),
+          width: 38,
+          height: barHeight,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: EmptyState(
-            icon: Icons.assignment_turned_in_outlined,
-            title: 'No Active or Scheduled Exams',
-            message: _isTeacher
-                ? 'Create your first exam with duration, start window, passing marks, and question shuffling.'
-                : 'No exams have been assigned to you in this classroom yet.',
-            actionText: _isTeacher ? 'Create Exam' : null,
-            onAction: _isTeacher ? () {} : null,
+            color: AppTheme.mintWash,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.inkForest, width: 1.2),
           ),
         ),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 10, color: AppTheme.charcoalSlate)),
       ],
     );
   }
