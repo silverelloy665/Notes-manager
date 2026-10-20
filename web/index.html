@@ -51,9 +51,29 @@
       margin: 0;
       font-family: 'Zilla Slab', Georgia, serif;
     }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
+  <div id="loading" style="position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #FAF6EE; z-index: 99999; font-family: 'Cardo', Georgia, serif; transition: opacity 0.4s ease;">
+    <div style="width: 48px; height: 48px; border: 3px solid #C5DCC6; border-top: 3px solid #0F4A22; border-radius: 50%; animation: spin 0.9s linear infinite;"></div>
+    <div style="font-size: 22px; font-weight: bold; color: #0F4A22; margin-top: 18px; letter-spacing: 0.5px;">StudyMate Classroom</div>
+    <div style="font-size: 13.5px; color: #355843; font-family: 'Zilla Slab', Georgia, serif; margin-top: 6px;">Opening your botanical study workspace...</div>
+  </div>
+  <script>
+    function removeLoader() {
+      var loader = document.getElementById('loading');
+      if (loader && loader.style.opacity !== '0') {
+        loader.style.opacity = '0';
+        setTimeout(function() { if (loader.parentNode) loader.parentNode.removeChild(loader); }, 400);
+      }
+    }
+    window.addEventListener('flutter-first-frame', removeLoader);
+    setTimeout(removeLoader, 4500);
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
