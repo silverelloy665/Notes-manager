@@ -5,11 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:path/path.dart' as p;
 import 'package:studymate_classroom/models/announcement_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
+import 'package:studymate_classroom/models/classroom_note_model.dart';
 import 'package:studymate_classroom/models/coverage_report_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
 import 'package:studymate_classroom/models/note_model.dart';
 import 'package:studymate_classroom/models/question_model.dart';
 import 'package:studymate_classroom/models/subject_model.dart';
+import 'package:studymate_classroom/models/summary_model.dart';
 import 'package:studymate_classroom/models/topic_map_model.dart';
 import 'package:studymate_classroom/models/user_model.dart';
 import 'package:studymate_classroom/utils/constants.dart';
@@ -768,6 +770,185 @@ class FirestoreService {
       throw AppException.fromFirebase(e);
     } catch (e) {
       throw AppException('Failed to delete comment: $e');
+    }
+  }
+
+  // ===========================================================================
+  // 3B. CLASSROOM NOTES & TOPIC MAPS (classrooms/{classId}/notes/{noteId})
+  // ===========================================================================
+
+  /// Live stream of notes published or drafted in a classroom.
+  Stream<List<ClassroomNote>> getClassroomNotesStream(String classroomId) {
+    return _firestore
+        .collection('classrooms')
+        .doc(classroomId)
+        .collection('notes')
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs.map((doc) => ClassroomNote.fromMap(doc.data(), doc.id)).toList();
+      list.sort((a, b) {
+        if (a.unitNumber != b.unitNumber) {
+          return a.unitNumber.compareTo(b.unitNumber);
+        }
+        final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        return bTime.compareTo(aTime);
+      });
+      return list;
+    });
+  }
+
+  /// Uploads and parses a new classroom note with topic map, text, and summaries.
+  Future<ClassroomNote> uploadClassroomNote({
+    required String classroomId,
+    required int unitNumber,
+    required String unitTitle,
+    required String title,
+    String? description,
+    required String fileType,
+    String? fileUrl,
+    String? fileName,
+    int? fileSizeBytes,
+    String extractedText = '',
+    TopicMap? topicMap,
+    MultiLevelSummary? summary,
+    String status = 'published',
+    DateTime? scheduledPublishAt,
+    bool allowDownload = true,
+  }) async {
+    if (title.trim().isEmpty) {
+      throw const AppException('Note title cannot be empty.');
+    }
+
+    try {
+      final docRef = _firestore.collection('classrooms').doc(classroomId).collection('notes').doc();
+      final now = DateTime.now();
+
+      final initialVersion = NoteVersion(
+        version: 1,
+        fileName: fileName ?? title,
+        uploadedAt: now,
+        note: 'Initial upload',
+      );
+
+      final note = ClassroomNote(
+        id: docRef.id,
+        classroomId: classroomId,
+        unitNumber: unitNumber,
+        unitTitle: unitTitle,
+        title: title.trim(),
+        description: description?.trim(),
+        fileType: fileType,
+        fileUrl: fileUrl,
+        fileName: fileName,
+        fileSizeBytes: fileSizeBytes,
+        extractedText: extractedText,
+        topicMap: topicMap,
+        summary: summary,
+        status: status,
+        scheduledPublishAt: scheduledPublishAt,
+        allowDownload: allowDownload,
+        version: 1,
+        versionHistory: [initialVersion],
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await docRef.set(note.toMap());
+      return note;
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to upload classroom note: $e');
+    }
+  }
+
+  /// Re-uploads a new file version of an existing note while maintaining question links and history.
+  Future<void> reuploadClassroomNoteVersion({
+    required String classroomId,
+    required String noteId,
+    required String fileName,
+    required String fileType,
+    required String extractedText,
+    TopicMap? topicMap,
+    MultiLevelSummary? summary,
+    int? fileSizeBytes,
+    String? noteRemark,
+  }) async {
+    try {
+      final docRef = _firestore.collection('classrooms').doc(classroomId).collection('notes').doc(noteId);
+      final snapshot = await docRef.get();
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw const AppException('Note does not exist.');
+      }
+
+      final existingNote = ClassroomNote.fromMap(snapshot.data()!, noteId);
+      final newVersionNum = existingNote.version + 1;
+      final newVersion = NoteVersion(
+        version: newVersionNum,
+        fileName: fileName,
+        uploadedAt: DateTime.now(),
+        note: noteRemark ?? 'Version $newVersionNum re-upload',
+      );
+
+      final updatedHistory = [...existingNote.versionHistory, newVersion];
+
+      await docRef.update({
+        'version': newVersionNum,
+        'fileName': fileName,
+        'fileType': fileType,
+        'extractedText': extractedText,
+        'topicMap': topicMap?.toMap(),
+        'summary': summary?.toMap(),
+        'fileSizeBytes': fileSizeBytes,
+        'versionHistory': updatedHistory.map((v) => v.toMap()).toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to update note version: $e');
+    }
+  }
+
+  /// Updates note metadata, unit, visibility, or download settings.
+  Future<void> updateClassroomNote(
+    String classroomId,
+    String noteId, {
+    String? title,
+    String? description,
+    int? unitNumber,
+    String? unitTitle,
+    String? status,
+    DateTime? scheduledPublishAt,
+    bool? allowDownload,
+  }) async {
+    try {
+      final updates = <String, dynamic>{'updatedAt': FieldValue.serverTimestamp()};
+      if (title != null) updates['title'] = title.trim();
+      if (description != null) updates['description'] = description.trim();
+      if (unitNumber != null) updates['unitNumber'] = unitNumber;
+      if (unitTitle != null) updates['unitTitle'] = unitTitle;
+      if (status != null) updates['status'] = status;
+      if (scheduledPublishAt != null) updates['scheduledPublishAt'] = Timestamp.fromDate(scheduledPublishAt);
+      if (allowDownload != null) updates['allowDownload'] = allowDownload;
+
+      await _firestore.collection('classrooms').doc(classroomId).collection('notes').doc(noteId).update(updates);
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to update classroom note: $e');
+    }
+  }
+
+  /// Deletes a classroom note.
+  Future<void> deleteClassroomNote(String classroomId, String noteId) async {
+    try {
+      await _firestore.collection('classrooms').doc(classroomId).collection('notes').doc(noteId).delete();
+    } on FirebaseException catch (e) {
+      throw AppException.fromFirebase(e);
+    } catch (e) {
+      throw AppException('Failed to delete classroom note: $e');
     }
   }
 

@@ -1,19 +1,28 @@
 import 'dart:async';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:studymate_classroom/models/announcement_model.dart';
 import 'package:studymate_classroom/models/classroom_model.dart';
+import 'package:studymate_classroom/models/classroom_note_model.dart';
 import 'package:studymate_classroom/models/grade_model.dart';
+import 'package:studymate_classroom/models/note_model.dart';
+import 'package:studymate_classroom/models/summary_model.dart';
+import 'package:studymate_classroom/models/topic_map_model.dart';
 import 'package:studymate_classroom/models/user_model.dart';
 import 'package:studymate_classroom/screens/student/student_grades_screen.dart';
 import 'package:studymate_classroom/screens/teacher/student_grade_history_screen.dart';
+import 'package:studymate_classroom/services/document_processing_service.dart';
 import 'package:studymate_classroom/services/export_service.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
+import 'package:studymate_classroom/services/smart_summarization_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
 import 'package:studymate_classroom/widgets/custom_dialog.dart';
 import 'package:studymate_classroom/widgets/custom_text_field.dart';
 import 'package:studymate_classroom/widgets/empty_state.dart';
+import 'package:studymate_classroom/widgets/explain_simply_dialog.dart';
 import 'package:studymate_classroom/widgets/primary_button.dart';
+import 'package:studymate_classroom/widgets/smart_summary_viewer.dart';
 import 'package:studymate_classroom/widgets/watercolor_blob_container.dart';
 
 /// Full-featured Classroom Workspace shell for Faculty and Students.
@@ -51,6 +60,11 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
   // Roster search controller
   final TextEditingController _searchController = TextEditingController();
 
+  // Notes tab state
+  int? _selectedUnitFilter;
+  String _notesSearchQuery = '';
+  final TextEditingController _notesSearchController = TextEditingController();
+
   static const List<({String label, IconData icon})> _workspaceTabs = [
     (label: 'Overview', icon: Icons.dashboard_outlined),
     (label: 'Notes', icon: Icons.description_outlined),
@@ -78,6 +92,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
     _tabController.dispose();
     _announcementController.dispose();
     _searchController.dispose();
+    _notesSearchController.dispose();
     super.dispose();
   }
 
@@ -1569,81 +1584,1318 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
   }
 
   // ===========================================================================
-  // TAB 2: NOTES (Phase 2 Shell)
+  // TAB 2: NOTES & TOPIC MAP MANAGEMENT (Phase 2)
   // ===========================================================================
   Widget _buildNotesTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        WatercolorBlobContainer(
-          variant: BlobVariant.mintWash,
+    return StreamBuilder<List<ClassroomNote>>(
+      stream: FirestoreService.instance.getClassroomNotesStream(_classroom.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final allNotes = snapshot.data ?? [];
+        // Students only see published notes whose scheduled time has passed
+        final notes = _isTeacher
+            ? allNotes
+            : allNotes.where((n) => n.isPublished).toList();
+
+        // Extract available units for filter chips
+        final unitNumbers = notes.map((n) => n.unitNumber).toSet().toList()..sort();
+
+        // Filter by unit
+        final unitFilteredNotes = _selectedUnitFilter == null
+            ? notes
+            : notes.where((n) => n.unitNumber == _selectedUnitFilter).toList();
+
+        // Filter by search query
+        final filteredNotes = unitFilteredNotes.where((n) {
+          if (_notesSearchQuery.isEmpty) return true;
+          final q = _notesSearchQuery.toLowerCase();
+          return n.title.toLowerCase().contains(q) ||
+              n.unitTitle.toLowerCase().contains(q) ||
+              (n.description != null && n.description!.toLowerCase().contains(q));
+        }).toList();
+
+        return ListView(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              const Icon(Icons.folder_special, size: 36, color: AppTheme.inkForest),
-              const SizedBox(width: 14),
-              Expanded(
+          children: [
+            // Top Summary Card
+            WatercolorBlobContainer(
+              variant: BlobVariant.mintWash,
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.folder_special, size: 36, color: AppTheme.inkForest),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Classroom Notes & Units',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontCardo,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                            color: AppTheme.inkForest,
+                          ),
+                        ),
+                        Text(
+                          _isTeacher
+                              ? 'Upload PDFs, slides, and docs categorized by units for your students.'
+                              : 'Access verified notes, topic maps, and AI summaries posted by your teacher.',
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontZilla,
+                            fontSize: 12.5,
+                            color: AppTheme.charcoalSlate,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_isTeacher)
+                    PrimaryButton(
+                      text: 'Upload Note',
+                      icon: Icons.upload_file,
+                      height: 38,
+                      onPressed: () => _showUploadNoteDialog(),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Search Bar & Unit Filters
+            Card(
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppTheme.borderColor),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Classroom Notes & Units',
+                    TextField(
+                      controller: _notesSearchController,
+                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Search notes by title, topic, or unit...',
+                        hintStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5),
+                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.inkForest),
+                        suffixIcon: _notesSearchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () {
+                                  _notesSearchController.clear();
+                                  setState(() => _notesSearchQuery = '');
+                                },
+                              )
+                            : null,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        filled: true,
+                        fillColor: AppTheme.creamPaper,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.6)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: AppTheme.borderColor.withValues(alpha: 0.6)),
+                        ),
+                        focusedBorder: const OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(8)),
+                          borderSide: BorderSide(color: AppTheme.inkForest),
+                        ),
+                      ),
+                      onChanged: (v) => setState(() => _notesSearchQuery = v.trim()),
+                    ),
+                    if (unitNumbers.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 6.0),
+                              child: ChoiceChip(
+                                label: const Text('All Units'),
+                                selected: _selectedUnitFilter == null,
+                                selectedColor: AppTheme.inkForest,
+                                backgroundColor: AppTheme.mintWash.withValues(alpha: 0.25),
+                                labelStyle: TextStyle(
+                                  fontFamily: AppTheme.fontZilla,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: _selectedUnitFilter == null ? Colors.white : AppTheme.inkForest,
+                                ),
+                                onSelected: (sel) {
+                                  if (sel) setState(() => _selectedUnitFilter = null);
+                                },
+                              ),
+                            ),
+                            ...unitNumbers.map((u) {
+                              final isSel = _selectedUnitFilter == u;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6.0),
+                                child: ChoiceChip(
+                                  label: Text('Unit $u'),
+                                  selected: isSel,
+                                  selectedColor: AppTheme.inkForest,
+                                  backgroundColor: AppTheme.mintWash.withValues(alpha: 0.25),
+                                  labelStyle: TextStyle(
+                                    fontFamily: AppTheme.fontZilla,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSel ? Colors.white : AppTheme.inkForest,
+                                  ),
+                                  onSelected: (sel) {
+                                    setState(() => _selectedUnitFilter = sel ? u : null);
+                                  },
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Note List
+            if (filteredNotes.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: EmptyState(
+                  icon: Icons.menu_book_outlined,
+                  title: _notesSearchQuery.isNotEmpty || _selectedUnitFilter != null
+                      ? 'No Notes Found'
+                      : 'No Classroom Notes Published Yet',
+                  message: _notesSearchQuery.isNotEmpty || _selectedUnitFilter != null
+                      ? 'Try clearing your search query or selecting a different unit filter.'
+                      : (_isTeacher
+                          ? 'Upload lecture PDFs, slides, and syllabus documents. The AI parser extracts topics and builds summaries automatically.'
+                          : 'Your instructor will publish lecture notes and study guides here.'),
+                  actionText: _isTeacher && _notesSearchQuery.isEmpty && _selectedUnitFilter == null
+                      ? 'Upload First Note'
+                      : (_notesSearchQuery.isNotEmpty || _selectedUnitFilter != null ? 'Clear Filters' : null),
+                  onAction: () {
+                    if (_isTeacher && _notesSearchQuery.isEmpty && _selectedUnitFilter == null) {
+                      _showUploadNoteDialog();
+                    } else {
+                      setState(() {
+                        _selectedUnitFilter = null;
+                        _notesSearchQuery = '';
+                        _notesSearchController.clear();
+                      });
+                    }
+                  },
+                ),
+              )
+            else
+              ...filteredNotes.map((note) => _buildClassroomNoteCard(note)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildClassroomNoteCard(ClassroomNote note) {
+    final bool canDownload = note.allowDownload || _isTeacher;
+    final int pageCount = note.topicMap?.topics.fold<int>(0, (acc, t) => acc + t.subtopics.length) ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: AppTheme.borderColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Row: Unit Badge, File Type, Version, and 3-dot Menu
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.inkForest.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Unit ${note.unitNumber}',
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontZilla,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.inkForest,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.mintWash.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    note.fileType.toUpperCase(),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.inkForest,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () => _showVersionHistoryDialog(note),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.history, size: 11, color: AppTheme.charcoalSlate),
+                        const SizedBox(width: 3),
+                        Text(
+                          'v${note.version}',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.charcoalSlate,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (_isTeacher) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: note.isPublished
+                          ? AppTheme.successColor.withValues(alpha: 0.12)
+                          : (note.isScheduled
+                              ? AppTheme.warningColor.withValues(alpha: 0.15)
+                              : Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      note.isPublished
+                          ? 'PUBLISHED'
+                          : (note.isScheduled ? 'SCHEDULED' : 'DRAFT'),
                       style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: note.isPublished
+                            ? AppTheme.successColor
+                            : (note.isScheduled ? AppTheme.warningColor : Colors.grey.shade700),
+                      ),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.charcoalSlate),
+                    onSelected: (val) async {
+                      if (val == 'reupload') {
+                        _showUploadNoteDialog(existingNoteToReplace: note);
+                      } else if (val == 'edit') {
+                        _showEditNoteDetailsDialog(note);
+                      } else if (val == 'toggle_status') {
+                        final newStatus = note.isPublished ? 'draft' : 'published';
+                        await FirestoreService.instance.updateClassroomNote(
+                          _classroom.id,
+                          note.id,
+                          status: newStatus,
+                        );
+                      } else if (val == 'toggle_download') {
+                        await FirestoreService.instance.updateClassroomNote(
+                          _classroom.id,
+                          note.id,
+                          allowDownload: !note.allowDownload,
+                        );
+                      } else if (val == 'delete') {
+                        _showDeleteNoteConfirm(note);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(
+                        value: 'reupload',
+                        child: Row(
+                          children: [
+                            Icon(Icons.upgrade, size: 16),
+                            SizedBox(width: 8),
+                            Text('Re-upload Version'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 16),
+                            SizedBox(width: 8),
+                            Text('Edit Details'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'toggle_status',
+                        child: Row(
+                          children: [
+                            Icon(note.isPublished ? Icons.visibility_off : Icons.visibility, size: 16),
+                            const SizedBox(width: 8),
+                            Text(note.isPublished ? 'Switch to Draft' : 'Publish Note'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'toggle_download',
+                        child: Row(
+                          children: [
+                            Icon(note.allowDownload ? Icons.file_download_off : Icons.file_download, size: 16),
+                            const SizedBox(width: 8),
+                            Text(note.allowDownload ? 'Disable Download' : 'Enable Download'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, size: 16, color: AppTheme.errorColor),
+                            SizedBox(width: 8),
+                            Text('Delete Note', style: TextStyle(color: AppTheme.errorColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Note Title & Unit
+            Text(
+              note.title,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontCardo,
+                fontWeight: FontWeight.bold,
+                fontSize: 16.5,
+                color: AppTheme.inkForest,
+              ),
+            ),
+            Text(
+              note.unitTitle,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontZilla,
+                fontSize: 12.5,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (note.description != null && note.description!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                note.description!,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontZilla,
+                  fontSize: 12.5,
+                  color: AppTheme.charcoalSlate,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+
+            // Metadata row: topics count, OCR tag, download info
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (pageCount > 0)
+                  _buildMetaChip(Icons.segment, '$pageCount Subtopics Parsed'),
+                if (note.topicMap != null)
+                  _buildMetaChip(Icons.schema_outlined, 'Topic Map Ready'),
+                _buildMetaChip(
+                  note.allowDownload ? Icons.file_download : Icons.file_download_off,
+                  note.allowDownload ? 'Downloads Allowed' : 'View-Only (No Download)',
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+
+            // Action Row: AI Summary, Explain Simply, Topic Map, Download
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.auto_awesome, size: 14),
+                  label: const Text('AI Summary'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.inkForest,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _showSmartSummaryModal(note),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.lightbulb_outline, size: 14),
+                  label: const Text('Explain Simply'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.inkForest,
+                    side: const BorderSide(color: AppTheme.inkForest),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _showExplainSimplyModal(note),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.account_tree_outlined, size: 14),
+                  label: const Text('Topic Map'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textSecondary,
+                    side: const BorderSide(color: AppTheme.borderColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12),
+                  ),
+                  onPressed: () => _showTopicMapDialog(note),
+                ),
+                if (canDownload && (note.fileUrl != null && note.fileUrl!.isNotEmpty))
+                  IconButton(
+                    icon: const Icon(Icons.download, size: 18, color: AppTheme.inkForest),
+                    tooltip: 'Download File Resource',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: note.fileUrl!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('File link copied to clipboard: ${note.fileUrl}'),
+                          backgroundColor: AppTheme.inkForest,
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetaChip(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: AppTheme.textSecondary),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: AppTheme.fontZilla,
+            fontSize: 11,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // PHASE 2 MODALS: UPLOAD, TOPIC MAP, AI SUMMARY, EXPLAIN SIMPLY, VERSIONING
+  // ===========================================================================
+
+  void _showUploadNoteDialog({ClassroomNote? existingNoteToReplace}) {
+    final unitNumCtrl = TextEditingController(text: existingNoteToReplace?.unitNumber.toString() ?? '1');
+    final unitTitleCtrl = TextEditingController(text: existingNoteToReplace?.unitTitle ?? 'Unit 1: Core Fundamentals');
+    final titleCtrl = TextEditingController(text: existingNoteToReplace?.title ?? '');
+    final descCtrl = TextEditingController(text: existingNoteToReplace?.description ?? '');
+    final linkCtrl = TextEditingController(text: existingNoteToReplace?.fileUrl ?? '');
+    bool allowDownload = existingNoteToReplace?.allowDownload ?? true;
+    String status = existingNoteToReplace?.status ?? 'published';
+    PlatformFile? pickedFile;
+    bool isProcessing = false;
+    String stageText = '';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => CustomDialog(
+          title: existingNoteToReplace != null
+              ? 'Re-upload Note (v${existingNoteToReplace.version + 1})'
+              : 'Upload Classroom Note',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isProcessing) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.mintWash.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        const CircularProgressIndicator(strokeWidth: 3),
+                        const SizedBox(height: 12),
+                        Text(
+                          stageText,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontCardo,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: AppTheme.inkForest,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Extracting slides, running OCR fallback, and structuring Topic Map...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 80,
+                        child: CustomTextField(
+                          controller: unitNumCtrl,
+                          label: 'Unit #',
+                          hintText: '1',
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: CustomTextField(
+                          controller: unitTitleCtrl,
+                          label: 'Unit Title',
+                          hintText: 'e.g. Unit 1: Process Management',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  CustomTextField(
+                    controller: titleCtrl,
+                    label: 'Note / Document Title',
+                    hintText: 'e.g. CPU Scheduling & IPC Slides',
+                  ),
+                  const SizedBox(height: 12),
+                  CustomTextField(
+                    controller: descCtrl,
+                    label: 'Description / Instructions (Optional)',
+                    hintText: 'Reading assignment for Week 3...',
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // File Picker / Upload section
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.creamPaper,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Select File Resource (PDF, PPTX, DOCX, Images)',
+                          style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 12.5),
+                        ),
+                        const SizedBox(height: 8),
+                        if (pickedFile != null) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.description, size: 20, color: AppTheme.inkForest),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  pickedFile!.name,
+                                  style: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 16),
+                                onPressed: () => setDlgState(() => pickedFile = null),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.attach_file, size: 16),
+                            label: const Text('Choose File from Device'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.inkForest,
+                              side: const BorderSide(color: AppTheme.inkForest),
+                            ),
+                            onPressed: () async {
+                              try {
+                                final res = await FilePicker.pickFiles(
+                                  type: FileType.custom,
+                                  allowedExtensions: ['pdf', 'ppt', 'pptx', 'docx', 'png', 'jpg', 'jpeg', 'txt', 'md'],
+                                );
+                                if (res.isNotEmpty) {
+                                  setDlgState(() {
+                                    pickedFile = res.first;
+                                    if (titleCtrl.text.trim().isEmpty) {
+                                      titleCtrl.text = pickedFile!.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+                                    }
+                                  });
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('File picker failed: $e'), backgroundColor: AppTheme.errorColor),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 10),
+                        CustomTextField(
+                          controller: linkCtrl,
+                          label: 'Or Video / External Reference URL',
+                          hintText: 'https://youtube.com/watch?... or https://...',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Visibility & download controls
+                  Row(
+                    children: [
+                      const Text(
+                        'Status:',
+                        style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(width: 10),
+                      ChoiceChip(
+                        label: const Text('Published'),
+                        selected: status == 'published',
+                        selectedColor: AppTheme.successColor,
+                        labelStyle: TextStyle(
+                          color: status == 'published' ? Colors.white : AppTheme.charcoalSlate,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                        onSelected: (sel) {
+                          if (sel) setDlgState(() => status = 'published');
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      ChoiceChip(
+                        label: const Text('Draft'),
+                        selected: status == 'draft',
+                        selectedColor: Colors.grey.shade700,
+                        labelStyle: TextStyle(
+                          color: status == 'draft' ? Colors.white : AppTheme.charcoalSlate,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                        onSelected: (sel) {
+                          if (sel) setDlgState(() => status = 'draft');
+                        },
+                      ),
+                    ],
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Allow Students to Download File', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13)),
+                    subtitle: const Text('When disabled, students can study and read summaries but cannot export the raw document.', style: TextStyle(fontSize: 11)),
+                    value: allowDownload,
+                    activeThumbColor: AppTheme.inkForest,
+                    onChanged: (v) => setDlgState(() => allowDownload = v),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          confirmLabel: isProcessing ? 'Processing...' : (existingNoteToReplace != null ? 'Update Version' : 'Upload Note'),
+          onConfirm: isProcessing
+              ? null
+              : () async {
+                  if (titleCtrl.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter a note title.'), backgroundColor: AppTheme.errorColor),
+                    );
+                    return;
+                  }
+
+                  setDlgState(() {
+                    isProcessing = true;
+                    stageText = 'Parsing file bytes & running OCR fallback...';
+                  });
+
+                  try {
+                    String extractedText = '';
+                    String fileType = 'pdf';
+                    TopicMap? topicMap;
+                    MultiLevelSummary? summary;
+                    int? sizeBytes;
+
+                    if (pickedFile != null) {
+                      fileType = pickedFile!.extension?.toLowerCase() ?? 'pdf';
+                      final bytes = await pickedFile!.readAsBytes();
+                      sizeBytes = bytes.length;
+
+                      final processed = await DocumentProcessingService.instance.processBytes(
+                        bytes: bytes,
+                        fileName: pickedFile!.name,
+                        preferredTopic: unitTitleCtrl.text.trim(),
+                      );
+                      extractedText = processed.fullText;
+                      topicMap = processed.topicMap;
+
+                      setDlgState(() => stageText = 'Synthesizing multi-level smart summaries...');
+                      summary = await SmartSummarizationService.instance.generateSummary(
+                        title: titleCtrl.text.trim(),
+                        topic: unitTitleCtrl.text.trim(),
+                        text: extractedText,
+                        topicMap: topicMap,
+                      );
+                    } else if (linkCtrl.text.trim().isNotEmpty) {
+                      fileType = 'link';
+                      extractedText = 'Reference link: ${linkCtrl.text.trim()}\nTitle: ${titleCtrl.text.trim()}\nDescription: ${descCtrl.text.trim()}';
+                      topicMap = TopicMap(
+                        id: 'map_${DateTime.now().millisecondsSinceEpoch}',
+                        documentId: titleCtrl.text.trim(),
+                        fileName: pickedFile?.name ?? titleCtrl.text.trim(),
+                        title: titleCtrl.text.trim(),
+                        domainTopic: unitTitleCtrl.text.trim(),
+                        pageCount: 1,
+                        totalWordCount: extractedText.split(RegExp(r'\s+')).length,
+                        topics: [
+                          TopicNode(
+                            id: 'topic_1',
+                            title: unitTitleCtrl.text.trim(),
+                            pageStart: 1,
+                            pageEnd: 1,
+                            contentSnippet: extractedText,
+                            subtopics: [
+                              SubtopicNode(
+                                id: 'sub_1',
+                                title: titleCtrl.text.trim(),
+                                pageNumber: 1,
+                                summary: descCtrl.text.trim(),
+                                concepts: [
+                                  ConceptNode(
+                                    name: titleCtrl.text.trim(),
+                                    description: descCtrl.text.trim(),
+                                    pageNumber: 1,
+                                  ),
+                                ],
+                              ),
+                            ],
+                            wordCount: extractedText.split(RegExp(r'\s+')).length,
+                          ),
+                        ],
+                        chunks: const [],
+                        createdAt: DateTime.now(),
+                      );
+                    } else {
+                      extractedText = descCtrl.text.trim();
+                    }
+
+                    setDlgState(() => stageText = 'Saving to classroom database...');
+
+                    final int unitNum = int.tryParse(unitNumCtrl.text.trim()) ?? 1;
+
+                    if (existingNoteToReplace != null) {
+                      await FirestoreService.instance.reuploadClassroomNoteVersion(
+                        classroomId: _classroom.id,
+                        noteId: existingNoteToReplace.id,
+                        fileName: pickedFile?.name ?? existingNoteToReplace.fileName ?? titleCtrl.text.trim(),
+                        fileType: fileType,
+                        extractedText: extractedText.isNotEmpty ? extractedText : existingNoteToReplace.extractedText,
+                        topicMap: topicMap ?? existingNoteToReplace.topicMap,
+                        summary: summary ?? existingNoteToReplace.summary,
+                        fileSizeBytes: sizeBytes ?? existingNoteToReplace.fileSizeBytes,
+                        noteRemark: 'Updated to version ${existingNoteToReplace.version + 1}',
+                      );
+                    } else {
+                      await FirestoreService.instance.uploadClassroomNote(
+                        classroomId: _classroom.id,
+                        unitNumber: unitNum,
+                        unitTitle: unitTitleCtrl.text.trim(),
+                        title: titleCtrl.text.trim(),
+                        description: descCtrl.text.trim(),
+                        fileType: fileType,
+                        fileUrl: linkCtrl.text.trim(),
+                        fileName: pickedFile?.name,
+                        fileSizeBytes: sizeBytes,
+                        extractedText: extractedText,
+                        topicMap: topicMap,
+                        summary: summary,
+                        status: status,
+                        allowDownload: allowDownload,
+                      );
+                    }
+
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(existingNoteToReplace != null
+                              ? 'Note "${titleCtrl.text.trim()}" updated to version ${existingNoteToReplace.version + 1}!'
+                              : 'Note "${titleCtrl.text.trim()}" uploaded and parsed successfully!'),
+                          backgroundColor: AppTheme.successColor,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    setDlgState(() => isProcessing = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppTheme.errorColor),
+                      );
+                    }
+                  }
+                },
+        ),
+      ),
+    );
+  }
+
+  void _showEditNoteDetailsDialog(ClassroomNote note) {
+    final titleCtrl = TextEditingController(text: note.title);
+    final unitNumCtrl = TextEditingController(text: note.unitNumber.toString());
+    final unitTitleCtrl = TextEditingController(text: note.unitTitle);
+    final descCtrl = TextEditingController(text: note.description ?? '');
+    bool allowDownload = note.allowDownload;
+    String status = note.status;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => CustomDialog(
+          title: 'Edit Note Details',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: 70,
+                    child: CustomTextField(
+                      controller: unitNumCtrl,
+                      label: 'Unit #',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CustomTextField(
+                      controller: unitTitleCtrl,
+                      label: 'Unit Title',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              CustomTextField(controller: titleCtrl, label: 'Title'),
+              const SizedBox(height: 10),
+              CustomTextField(controller: descCtrl, label: 'Description', maxLines: 2),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Text('Status:', style: TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Published'),
+                    selected: status == 'published',
+                    selectedColor: AppTheme.successColor,
+                    labelStyle: TextStyle(
+                      color: status == 'published' ? Colors.white : AppTheme.charcoalSlate,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                    onSelected: (sel) {
+                      if (sel) setDlgState(() => status = 'published');
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                  ChoiceChip(
+                    label: const Text('Draft'),
+                    selected: status == 'draft',
+                    selectedColor: Colors.grey.shade700,
+                    labelStyle: TextStyle(
+                      color: status == 'draft' ? Colors.white : AppTheme.charcoalSlate,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                    onSelected: (sel) {
+                      if (sel) setDlgState(() => status = 'draft');
+                    },
+                  ),
+                ],
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Allow Download', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13)),
+                value: allowDownload,
+                activeThumbColor: AppTheme.inkForest,
+                onChanged: (v) => setDlgState(() => allowDownload = v),
+              ),
+            ],
+          ),
+          confirmLabel: 'Save',
+          onConfirm: () async {
+            await FirestoreService.instance.updateClassroomNote(
+              _classroom.id,
+              note.id,
+              title: titleCtrl.text.trim(),
+              unitNumber: int.tryParse(unitNumCtrl.text.trim()) ?? note.unitNumber,
+              unitTitle: unitTitleCtrl.text.trim(),
+              description: descCtrl.text.trim(),
+              status: status,
+              allowDownload: allowDownload,
+            );
+            if (ctx.mounted) Navigator.of(ctx).pop();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteNoteConfirm(ClassroomNote note) {
+    showDialog(
+      context: context,
+      builder: (ctx) => CustomDialog(
+        title: 'Delete Note?',
+        content: Text(
+          'Are you sure you want to delete "${note.title}"? This cannot be undone.',
+          style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 14, color: AppTheme.charcoalSlate),
+        ),
+        confirmLabel: 'Delete',
+        confirmColor: AppTheme.errorColor,
+        onConfirm: () async {
+          Navigator.of(ctx).pop();
+          await FirestoreService.instance.deleteClassroomNote(_classroom.id, note.id);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Note "${note.title}" deleted.'), backgroundColor: AppTheme.inkForest),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  void _showTopicMapDialog(ClassroomNote note) {
+    final topics = note.topicMap?.topics ?? [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => CustomDialog(
+        title: 'Topic Map: ${note.title}',
+        content: SizedBox(
+          width: 500,
+          child: topics.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No structured topic map available for this document.'),
+                )
+              : SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.mintWash.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Hierarchical outline extracted from ${note.fileName ?? note.title}. Tap "Explain" next to any subtopic to understand it simply.',
+                          style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.inkForest),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...topics.map((t) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.borderColor),
+                          ),
+                          child: ExpansionTile(
+                            initiallyExpanded: true,
+                            leading: const Icon(Icons.bookmark, color: AppTheme.inkForest, size: 20),
+                            title: Text(
+                              t.title,
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontCardo,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14.5,
+                                color: AppTheme.inkForest,
+                              ),
+                            ),
+                            children: t.subtopics.map((sub) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border(top: BorderSide(color: Colors.grey.shade100)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.subdirectory_arrow_right, size: 16, color: AppTheme.textSecondary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            sub.title,
+                                            style: const TextStyle(
+                                              fontFamily: AppTheme.fontZilla,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                              color: AppTheme.charcoalSlate,
+                                            ),
+                                          ),
+                                          if (sub.pageNumber > 0)
+                                            Text(
+                                              'Slide / Page ${sub.pageNumber}',
+                                              style: const TextStyle(
+                                                fontFamily: 'monospace',
+                                                fontSize: 10.5,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.lightbulb_outline, size: 12),
+                                      label: const Text('Explain'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppTheme.inkForest,
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        textStyle: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.of(ctx).pop();
+                                        _showExplainSimplyModal(note, subtopic: sub.title);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+        ),
+        confirmLabel: 'Close',
+        onConfirm: () => Navigator.of(ctx).pop(),
+      ),
+    );
+  }
+
+  void _showSmartSummaryModal(ClassroomNote note) {
+    final noteAdapter = Note(
+      id: note.id,
+      userId: note.classroomId,
+      title: note.title,
+      topic: note.unitTitle,
+      content: note.extractedText,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(ctx).size.height * 0.9,
+        decoration: const BoxDecoration(
+          color: AppTheme.creamPaper,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome, color: AppTheme.inkForest, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'AI Smart Summaries: ${note.title}',
+                      style: const TextStyle(
                         fontFamily: AppTheme.fontCardo,
                         fontWeight: FontWeight.bold,
                         fontSize: 17,
                         color: AppTheme.inkForest,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      _isTeacher
-                          ? 'Upload PDFs, slides, and docs categorized by units for your students.'
-                          : 'Access verified notes, topic maps, and AI summaries posted by your teacher.',
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontZilla,
-                        fontSize: 12.5,
-                        color: AppTheme.charcoalSlate,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
               ),
-              if (_isTeacher)
-                PrimaryButton(
-                  text: 'Upload',
-                  icon: Icons.upload_file,
-                  height: 38,
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Multi-format unit notes upload with OCR topic map parser is activating in Phase 2.'),
-                        backgroundColor: AppTheme.inkForest,
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SmartSummaryViewer(
+                note: noteAdapter,
+                initialSummary: note.summary,
+                topicMap: note.topicMap,
+                onOpenFlashcards: () {
+                  Navigator.of(ctx).pop();
+                  _tabController.animateTo(2); // Jump to question bank
+                },
+                onOpenQuiz: () {
+                  Navigator.of(ctx).pop();
+                  _tabController.animateTo(3); // Jump to exams
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showExplainSimplyModal(ClassroomNote note, {String? subtopic}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => ExplainSimplyDialog(
+        topic: note.title,
+        subtopic: subtopic,
+        sourceContext: note.extractedText,
+        sourcePage: 1,
+      ),
+    );
+  }
+
+  void _showVersionHistoryDialog(ClassroomNote note) {
+    showDialog(
+      context: context,
+      builder: (ctx) => CustomDialog(
+        title: 'Version History: ${note.title}',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Current active version: v${note.version}',
+              style: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            if (note.versionHistory.isEmpty)
+              const Text('No prior revisions recorded.')
+            else
+              ...note.versionHistory.reversed.map((v) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.creamPaper,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.inkForest,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'v${v.version}',
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                ),
-            ],
-          ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              v.fileName,
+                              style: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 12.5),
+                            ),
+                            Text(
+                              '${_formatTimestamp(v.uploadedAt)}${v.note != null && v.note!.isNotEmpty ? ' • ${v.note}' : ''}',
+                              style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11, color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: EmptyState(
-            icon: Icons.menu_book_outlined,
-            title: 'No Classroom Notes Published Yet',
-            message: _isTeacher
-                ? 'Organize your syllabus into units/chapters and upload lecture notes, slides, and reading materials.'
-                : 'Your instructor will publish lecture notes and study guides here.',
-            actionText: _isTeacher ? 'Upload First Note' : null,
-            onAction: _isTeacher ? () {} : null,
-          ),
-        ),
-      ],
+        confirmLabel: _isTeacher ? 'Re-upload New Version' : 'Close',
+        onConfirm: () {
+          Navigator.of(ctx).pop();
+          if (_isTeacher) {
+            _showUploadNoteDialog(existingNoteToReplace: note);
+          }
+        },
+      ),
     );
   }
 
