@@ -1,11 +1,11 @@
 {
-    "name": "studymate_classroom",
-    "short_name": "studymate_classroom",
+    "name": "StudyMate Classroom",
+    "short_name": "StudyMate",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FAF6EE",
+    "theme_color": "#0F4A22",
+    "description": "StudyMate Classroom Workspace for Faculty & Students",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -4,48 +4,68 @@ import 'package:studymate_classroom/utils/app_theme.dart';
 
 /// Available mobile device models for interactive simulation.
 enum SimulatedDevice {
+  pixel8(
+    name: 'Google Pixel 8 (Android)',
+    shortName: 'Pixel 8',
+    width: 412,
+    height: 892,
+    topPadding: 44,
+    bottomPadding: 24,
+    borderRadius: 42,
+    isAndroid: true,
+  ),
+  galaxyS24(
+    name: 'Samsung Galaxy S24 (Android)',
+    shortName: 'Galaxy S24',
+    width: 412,
+    height: 915,
+    topPadding: 42,
+    bottomPadding: 24,
+    borderRadius: 44,
+    isAndroid: true,
+  ),
   iphone15Pro(
-    name: 'iPhone 15 Pro',
+    name: 'iPhone 15 Pro (iOS)',
+    shortName: 'iPhone 15',
     width: 393,
     height: 852,
     topPadding: 54,
     bottomPadding: 34,
     borderRadius: 50,
-  ),
-  pixel8(
-    name: 'Google Pixel 8',
-    width: 412,
-    height: 892,
-    topPadding: 48,
-    bottomPadding: 28,
-    borderRadius: 44,
+    isAndroid: false,
   );
 
   final String name;
+  final String shortName;
   final double width;
   final double height;
   final double topPadding;
   final double bottomPadding;
   final double borderRadius;
+  final bool isAndroid;
 
   const SimulatedDevice({
     required this.name,
+    required this.shortName,
     required this.width,
     required this.height,
     required this.topPadding,
     required this.bottomPadding,
     required this.borderRadius,
+    required this.isAndroid,
   });
 }
 
 /// A realistic, high-fidelity smartphone frame wrapper for Flutter Web.
-/// Emulates authentic mobile viewports, dynamic notch / punch hole,
-/// mobile status bar, and home indicator bar on desktop browsers.
+/// Emulates authentic Android & iOS viewports, punch-hole / notch cameras,
+/// Android Material 3 status bars, and navigation pill / 3-button nav on desktop.
 class PhoneFrameWrapper extends StatefulWidget {
   final Widget child;
 
+  // Defaults to Android (Google Pixel 8)
   static final ValueNotifier<bool> isPhoneMode = ValueNotifier<bool>(true);
-  static final ValueNotifier<SimulatedDevice> selectedDevice = ValueNotifier<SimulatedDevice>(SimulatedDevice.iphone15Pro);
+  static final ValueNotifier<SimulatedDevice> selectedDevice = ValueNotifier<SimulatedDevice>(SimulatedDevice.pixel8);
+  static final ValueNotifier<bool> useAndroid3Buttons = ValueNotifier<bool>(false);
 
   static void toggle() {
     isPhoneMode.value = !isPhoneMode.value;
@@ -66,248 +86,325 @@ class _PhoneFrameWrapperState extends State<PhoneFrameWrapper> {
         return ValueListenableBuilder<SimulatedDevice>(
           valueListenable: PhoneFrameWrapper.selectedDevice,
           builder: (context, device, _) {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                // If the user's browser is already a mobile screen (< 560px),
-                // render natively at 100% full screen.
-                if (constraints.maxWidth < 560) {
-                  return widget.child;
-                }
+            return ValueListenableBuilder<bool>(
+              valueListenable: PhoneFrameWrapper.useAndroid3Buttons,
+              builder: (context, show3Buttons, _) {
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    // If the user's browser is already a mobile screen (< 560px),
+                    // render natively at 100% full screen.
+                    if (constraints.maxWidth < 560) {
+                      return widget.child;
+                    }
 
-                // If user toggled to Desktop Fullscreen mode
-                if (!phoneModeActive) {
-                  return Material(
-                    color: Colors.transparent,
-                    child: Stack(
-                      children: [
-                        widget.child,
-                        Positioned(
-                          top: 14,
-                          right: 18,
-                          child: _buildFloatingControls(phoneModeActive: false, device: device, isCollapsed: true),
+                    // If user toggled to Desktop Fullscreen mode
+                    if (!phoneModeActive) {
+                      return Material(
+                        color: Colors.transparent,
+                        child: Stack(
+                          children: [
+                            widget.child,
+                            Positioned(
+                              top: 14,
+                              right: 18,
+                              child: _buildFloatingControls(phoneModeActive: false, device: device, isCollapsed: true),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                }
+                      );
+                    }
 
-                // Available height leaving room for the top control bar
-                final double availableHeight = max(450.0, constraints.maxHeight - 88);
+                    // Available height leaving room for the top control bar
+                    final double availableHeight = max(450.0, constraints.maxHeight - 88);
 
-                final now = DateTime.now();
-                final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+                    final now = DateTime.now();
+                    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
-                return Material(
-                  color: const Color(0xFFE8ECE4),
-                  child: Stack(
-                    children: [
-                      // Soothing botanical desk wallpaper
-                      Positioned.fill(
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            gradient: RadialGradient(
-                              center: Alignment(0, -0.2),
-                              radius: 1.25,
-                              colors: [
-                                Color(0xFFF7FAF5),
-                                Color(0xFFE9F1E6),
-                                Color(0xFFDCE7D8),
-                              ],
+                    final double bottomBarHeight = show3Buttons && device.isAndroid ? 44.0 : device.bottomPadding;
+
+                    return Material(
+                      color: const Color(0xFFE8ECE4),
+                      child: Stack(
+                        children: [
+                          // Soothing botanical desk wallpaper
+                          Positioned.fill(
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                gradient: RadialGradient(
+                                  center: Alignment(0, -0.2),
+                                  radius: 1.25,
+                                  colors: [
+                                    Color(0xFFF7FAF5),
+                                    Color(0xFFE9F1E6),
+                                    Color(0xFFDCE7D8),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
 
-                      // Centered Scaled Phone Frame
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 56, bottom: 16),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: availableHeight,
-                              maxWidth: constraints.maxWidth - 32,
-                            ),
-                            child: FittedBox(
-                              fit: BoxFit.contain,
-                              child: Container(
-                                width: device.width + 24, // includes bezel thickness
-                                height: device.height + 24,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1E3123), // Dark Forest metallic chassis
-                                  borderRadius: BorderRadius.circular(device.borderRadius),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF0F4A22).withValues(alpha: 0.32),
-                                      blurRadius: 45,
-                                      offset: const Offset(0, 22),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.35),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                    color: const Color(0xFF2A4230),
-                                    width: 3,
-                                  ),
+                          // Centered Scaled Phone Frame
+                          Center(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 56, bottom: 16),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxHeight: availableHeight,
+                                  maxWidth: constraints.maxWidth - 32,
                                 ),
-                                padding: const EdgeInsets.all(9), // Outer bezel padding
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(device.borderRadius - 9),
-                                  child: Stack(
-                                    children: [
-                                      // App content with authentic mobile MediaQuery
-                                      Positioned.fill(
-                                        child: MediaQuery(
-                                          data: MediaQuery.of(context).copyWith(
-                                            size: Size(device.width, device.height),
-                                            padding: EdgeInsets.only(
-                                              top: device.topPadding,
-                                              bottom: device.bottomPadding,
-                                            ),
-                                            viewPadding: EdgeInsets.only(
-                                              top: device.topPadding,
-                                              bottom: device.bottomPadding,
-                                            ),
-                                          ),
-                                          child: SizedBox(
-                                            width: device.width,
-                                            height: device.height,
-                                            child: widget.child,
-                                          ),
+                                child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: Container(
+                                    width: device.width + 24, // includes bezel thickness
+                                    height: device.height + 24,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E3123), // Dark Forest metallic chassis
+                                      borderRadius: BorderRadius.circular(device.borderRadius),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF0F4A22).withValues(alpha: 0.32),
+                                          blurRadius: 45,
+                                          offset: const Offset(0, 22),
                                         ),
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.35),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                      border: Border.all(
+                                        color: const Color(0xFF2A4230),
+                                        width: 3,
                                       ),
-
-                                      // Mobile Status Bar (Time, Wifi, Signal, Battery)
-                                      Positioned(
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        height: device.topPadding,
-                                        child: IgnorePointer(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Text(
-                                                  timeStr,
-                                                  style: const TextStyle(
-                                                    fontFamily: 'sans-serif',
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14,
-                                                    color: Color(0xFF0F4A22),
-                                                  ),
+                                    ),
+                                    padding: const EdgeInsets.all(9), // Outer bezel padding
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(device.borderRadius - 9),
+                                      child: Stack(
+                                        children: [
+                                          // App content with authentic mobile MediaQuery
+                                          Positioned.fill(
+                                            child: MediaQuery(
+                                              data: MediaQuery.of(context).copyWith(
+                                                size: Size(device.width, device.height),
+                                                padding: EdgeInsets.only(
+                                                  top: device.topPadding,
+                                                  bottom: bottomBarHeight,
                                                 ),
-                                                const Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(Icons.signal_cellular_4_bar, size: 14, color: Color(0xFF0F4A22)),
-                                                    SizedBox(width: 4),
-                                                    Icon(Icons.wifi, size: 14, color: Color(0xFF0F4A22)),
-                                                    SizedBox(width: 4),
-                                                    Icon(Icons.battery_5_bar, size: 17, color: Color(0xFF0F4A22)),
-                                                  ],
+                                                viewPadding: EdgeInsets.only(
+                                                  top: device.topPadding,
+                                                  bottom: bottomBarHeight,
                                                 ),
-                                              ],
+                                              ),
+                                              child: SizedBox(
+                                                width: device.width,
+                                                height: device.height,
+                                                child: widget.child,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ),
 
-                                      // Dynamic Island / Camera cutout
-                                      if (device == SimulatedDevice.iphone15Pro)
-                                        Positioned(
-                                          top: 11,
-                                          left: 0,
-                                          right: 0,
-                                          child: Center(
+                                          // Status Bar (Android or iOS)
+                                          Positioned(
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            height: device.topPadding,
                                             child: IgnorePointer(
-                                              child: Container(
-                                                width: 116,
-                                                height: 29,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black,
-                                                  borderRadius: BorderRadius.circular(20),
-                                                ),
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 20),
                                                 child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.end,
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                   children: [
-                                                    Container(
-                                                      margin: const EdgeInsets.only(right: 11),
-                                                      width: 10,
-                                                      height: 10,
-                                                      decoration: BoxDecoration(
-                                                        shape: BoxShape.circle,
-                                                        color: Colors.blueGrey.shade900,
-                                                        border: Border.all(color: Colors.white12, width: 1),
-                                                      ),
+                                                    // Left: Clock + Android notification icon
+                                                    Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          timeStr,
+                                                          style: TextStyle(
+                                                            fontFamily: 'sans-serif',
+                                                            fontWeight: device.isAndroid ? FontWeight.w500 : FontWeight.bold,
+                                                            fontSize: device.isAndroid ? 13.5 : 14,
+                                                            color: const Color(0xFF0F4A22),
+                                                          ),
+                                                        ),
+                                                        if (device.isAndroid) ...[
+                                                          const SizedBox(width: 6),
+                                                          const Icon(Icons.eco, size: 12, color: Color(0xFF0F4A22)),
+                                                        ],
+                                                      ],
+                                                    ),
+
+                                                    // Right: Android / iOS System Icons
+                                                    Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        if (device.isAndroid) ...[
+                                                          const Icon(Icons.alarm, size: 13, color: Color(0xFF0F4A22)),
+                                                          const SizedBox(width: 4),
+                                                        ],
+                                                        const Icon(Icons.wifi, size: 14, color: Color(0xFF0F4A22)),
+                                                        const SizedBox(width: 4),
+                                                        const Icon(Icons.signal_cellular_4_bar, size: 14, color: Color(0xFF0F4A22)),
+                                                        const SizedBox(width: 5),
+                                                        // Android vertical/pill battery
+                                                        if (device.isAndroid)
+                                                          const Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Text(
+                                                                '95%',
+                                                                style: TextStyle(fontFamily: 'sans-serif', fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F4A22)),
+                                                              ),
+                                                              SizedBox(width: 2),
+                                                              Icon(Icons.battery_full, size: 15, color: Color(0xFF0F4A22)),
+                                                            ],
+                                                          )
+                                                        else
+                                                          const Icon(Icons.battery_5_bar, size: 17, color: Color(0xFF0F4A22)),
+                                                      ],
                                                     ),
                                                   ],
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        )
-                                      else
-                                        Positioned(
-                                          top: 14,
-                                          left: 0,
-                                          right: 0,
-                                          child: Center(
-                                            child: IgnorePointer(
-                                              child: Container(
-                                                width: 13,
-                                                height: 13,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: Colors.black,
-                                                  border: Border.all(color: Colors.white24, width: 1),
+
+                                          // Camera Cutout (Android Punch-Hole or iOS Dynamic Island)
+                                          if (device.isAndroid)
+                                            Positioned(
+                                              top: 13,
+                                              left: 0,
+                                              right: 0,
+                                              child: Center(
+                                                child: IgnorePointer(
+                                                  child: Container(
+                                                    width: 13,
+                                                    height: 13,
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      color: Colors.black,
+                                                      border: Border.all(color: Colors.white24, width: 0.8),
+                                                    ),
+                                                    child: Center(
+                                                      child: Container(
+                                                        width: 4,
+                                                        height: 4,
+                                                        decoration: BoxDecoration(
+                                                          shape: BoxShape.circle,
+                                                          color: Colors.blueGrey.shade900,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            Positioned(
+                                              top: 11,
+                                              left: 0,
+                                              right: 0,
+                                              child: Center(
+                                                child: IgnorePointer(
+                                                  child: Container(
+                                                    width: 116,
+                                                    height: 29,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black,
+                                                      borderRadius: BorderRadius.circular(20),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment: MainAxisAlignment.end,
+                                                      children: [
+                                                        Container(
+                                                          margin: const EdgeInsets.only(right: 11),
+                                                          width: 10,
+                                                          height: 10,
+                                                          decoration: BoxDecoration(
+                                                            shape: BoxShape.circle,
+                                                            color: Colors.blueGrey.shade900,
+                                                            border: Border.all(color: Colors.white12, width: 1),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        ),
 
-                                      // Home Swipe Indicator Bar
-                                      Positioned(
-                                        bottom: 8,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: IgnorePointer(
-                                            child: Container(
-                                              width: 134,
-                                              height: 5,
-                                              decoration: BoxDecoration(
-                                                color: Colors.black.withValues(alpha: 0.5),
-                                                borderRadius: BorderRadius.circular(10),
+                                          // Bottom Navigation (Android Pill or Android 3-Button or iOS Bar)
+                                          if (show3Buttons && device.isAndroid)
+                                            Positioned(
+                                              bottom: 0,
+                                              left: 0,
+                                              right: 0,
+                                              height: 42,
+                                              child: Container(
+                                                color: Colors.black.withValues(alpha: 0.85),
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                  children: [
+                                                    // Back button
+                                                    IconButton(
+                                                      icon: const Icon(Icons.arrow_back, color: Colors.white70, size: 20),
+                                                      onPressed: () {
+                                                        final nav = Navigator.maybeOf(context);
+                                                        if (nav != null && nav.canPop()) {
+                                                          nav.pop();
+                                                        }
+                                                      },
+                                                    ),
+                                                    // Home button
+                                                    const Icon(Icons.circle_outlined, color: Colors.white70, size: 17),
+                                                    // Recent apps button
+                                                    const Icon(Icons.crop_square, color: Colors.white70, size: 18),
+                                                  ],
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            Positioned(
+                                              bottom: 8,
+                                              left: 0,
+                                              right: 0,
+                                              child: Center(
+                                                child: IgnorePointer(
+                                                  child: Container(
+                                                    width: device.isAndroid ? 110 : 134,
+                                                    height: device.isAndroid ? 4 : 5,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black.withValues(alpha: 0.5),
+                                                      borderRadius: BorderRadius.circular(10),
+                                                    ),
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
 
-                      // Floating Controls Bar (Top Center)
-                      Positioned(
-                        top: 12,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: _buildFloatingControls(phoneModeActive: true, device: device, isCollapsed: false),
-                        ),
+                          // Floating Controls Bar (Top Center)
+                          Positioned(
+                            top: 12,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: _buildFloatingControls(phoneModeActive: true, device: device, isCollapsed: false),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             );
@@ -339,7 +436,7 @@ class _PhoneFrameWrapperState extends State<PhoneFrameWrapper> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Phone Mode Button
+          // Android / Phone Mode Button
           InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: () => PhoneFrameWrapper.isPhoneMode.value = true,
@@ -353,13 +450,13 @@ class _PhoneFrameWrapperState extends State<PhoneFrameWrapper> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.smartphone,
+                    device.isAndroid ? Icons.android : Icons.phone_iphone,
                     size: 15,
                     color: phoneModeActive ? Colors.white : AppTheme.inkForest,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Phone Frame',
+                    phoneModeActive ? device.shortName : 'Phone Mode',
                     style: TextStyle(
                       fontFamily: AppTheme.fontZilla,
                       fontWeight: FontWeight.bold,
@@ -426,7 +523,14 @@ class _PhoneFrameWrapperState extends State<PhoneFrameWrapper> {
                 items: SimulatedDevice.values.map((d) {
                   return DropdownMenuItem(
                     value: d,
-                    child: Text('${d.name} (${d.width.toInt()}×${d.height.toInt()})'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(d.isAndroid ? Icons.android : Icons.apple, size: 14, color: AppTheme.inkForest),
+                        const SizedBox(width: 6),
+                        Text('${d.name} (${d.width.toInt()}×${d.height.toInt()})'),
+                      ],
+                    ),
                   );
                 }).toList(),
                 onChanged: (val) {

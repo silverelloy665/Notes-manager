@@ -4,7 +4,7 @@ import os
 import sys
 
 PORT = 5000
-DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build', 'web')
+DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 
 class NoCacheHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
