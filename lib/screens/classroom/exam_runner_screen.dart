@@ -569,7 +569,7 @@ class _ExamRunnerScreenState extends State<ExamRunnerScreen> with WidgetsBinding
                 children: [
                   // Top Sticky Header
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
@@ -577,35 +577,11 @@ class _ExamRunnerScreenState extends State<ExamRunnerScreen> with WidgetsBinding
                         BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2)),
                       ],
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.exam.title,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.inkForest),
-                              ),
-                              Text(
-                                '${widget.exam.subject} · Unit ${widget.exam.unitNumber ?? 1} · Question ${_currentIndex + 1} of ${_questions.length}',
-                                style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (widget.exam.allowCalculator)
-                          IconButton(
-                            icon: const Icon(Icons.calculate_outlined, color: AppTheme.inkForest),
-                            tooltip: 'Scratch Calculator',
-                            onPressed: _openCalculatorDialog,
-                          ),
-                        const SizedBox(width: 8),
-
-                        // Timer badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isCompact = constraints.maxWidth < 600;
+                        final timerBadge = Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: isCriticalTime
                                 ? Colors.red.shade100
@@ -620,30 +596,111 @@ class _ExamRunnerScreenState extends State<ExamRunnerScreen> with WidgetsBinding
                             children: [
                               Icon(
                                 Icons.timer,
-                                size: 16,
+                                size: 15,
                                 color: isCriticalTime ? Colors.red.shade900 : (isLowTime ? Colors.amber.shade900 : AppTheme.inkForest),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 4),
                               Text(
                                 '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}',
                                 style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   color: isCriticalTime ? Colors.red.shade900 : (isLowTime ? Colors.amber.shade900 : AppTheme.inkForest),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        PrimaryButton(
-                          text: 'Submit',
-                          icon: Icons.check,
-                          height: 36,
-                          onPressed: _isSubmitting ? null : _confirmAndSubmit,
-                        ),
-                      ],
+                        );
+
+                        if (isCompact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      widget.exam.title,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.inkForest),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  timerBadge,
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Q ${_currentIndex + 1} of ${_questions.length} · ${widget.exam.subject}',
+                                    style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.textSecondary),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (widget.exam.allowCalculator)
+                                        IconButton(
+                                          icon: const Icon(Icons.calculate_outlined, size: 20, color: AppTheme.inkForest),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          tooltip: 'Calculator',
+                                          onPressed: _openCalculatorDialog,
+                                        ),
+                                      const SizedBox(width: 8),
+                                      PrimaryButton(
+                                        text: 'Submit',
+                                        icon: Icons.check,
+                                        height: 30,
+                                        onPressed: _isSubmitting ? null : _confirmAndSubmit,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.exam.title,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.inkForest),
+                                  ),
+                                  Text(
+                                    '${widget.exam.subject} · Unit ${widget.exam.unitNumber ?? 1} · Question ${_currentIndex + 1} of ${_questions.length}',
+                                    style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, color: AppTheme.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (widget.exam.allowCalculator)
+                              IconButton(
+                                icon: const Icon(Icons.calculate_outlined, color: AppTheme.inkForest),
+                                tooltip: 'Scratch Calculator',
+                                onPressed: _openCalculatorDialog,
+                              ),
+                            const SizedBox(width: 8),
+                            timerBadge,
+                            const SizedBox(width: 12),
+                            PrimaryButton(
+                              text: 'Submit',
+                              icon: Icons.check,
+                              height: 36,
+                              onPressed: _isSubmitting ? null : _confirmAndSubmit,
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
 
@@ -672,201 +729,271 @@ class _ExamRunnerScreenState extends State<ExamRunnerScreen> with WidgetsBinding
 
                   // Main Assessment Body: Palette + Question Pane
                   Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Left Question Palette Drawer / Sidebar
-                        Container(
-                          width: 220,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border(right: BorderSide(color: AppTheme.borderColor)),
-                          ),
+                    child: LayoutBuilder(
+                      builder: (context, bodyConstraints) {
+                        final isDesktopExam = bodyConstraints.maxWidth >= 750;
+
+                        final questionContent = SingleChildScrollView(
+                          padding: EdgeInsets.all(isDesktopExam ? 24 : 14),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Question Palette', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.inkForest)),
-                                    const SizedBox(height: 8),
-                                    _buildPaletteLegend(),
-                                  ],
-                                ),
-                              ),
-                              const Divider(height: 1),
-                              Expanded(
-                                child: GridView.builder(
-                                  padding: const EdgeInsets.all(12),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 4,
-                                    mainAxisSpacing: 8,
-                                    crossAxisSpacing: 8,
-                                    childAspectRatio: 1.0,
-                                  ),
-                                  itemCount: _questions.length,
-                                  itemBuilder: (ctx, idx) {
-                                    final q = _questions[idx];
-                                    final isCurrent = idx == _currentIndex;
-                                    final isAnswered = _answers.containsKey(q.id);
-                                    final isFlagged = _flaggedIds.contains(q.id);
+                              // On mobile: horizontal question numbers selector row
+                              if (!isDesktopExam) ...[
+                                SizedBox(
+                                  height: 38,
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: _questions.length,
+                                    separatorBuilder: (_, _) => const SizedBox(width: 6),
+                                    itemBuilder: (ctx, idx) {
+                                      final q = _questions[idx];
+                                      final isCurrent = idx == _currentIndex;
+                                      final isAnswered = _answers.containsKey(q.id);
+                                      final isFlagged = _flaggedIds.contains(q.id);
 
-                                    Color bg = Colors.grey.shade100;
-                                    Color fg = AppTheme.charcoalSlate;
-                                    Color border = Colors.transparent;
+                                      Color bg = Colors.white;
+                                      Color fg = AppTheme.charcoalSlate;
+                                      Color border = AppTheme.borderColor;
 
-                                    if (isAnswered) {
-                                      bg = AppTheme.mintWash.withValues(alpha: 0.8);
-                                      fg = AppTheme.inkForest;
-                                    }
-                                    if (isFlagged) {
-                                      bg = AppTheme.accentPeach.withValues(alpha: 0.7);
-                                      fg = Colors.black87;
-                                    }
-                                    if (isCurrent) {
-                                      border = AppTheme.inkForest;
-                                    }
+                                      if (isAnswered) {
+                                        bg = AppTheme.mintWash.withValues(alpha: 0.8);
+                                        fg = AppTheme.inkForest;
+                                        border = AppTheme.inkForest;
+                                      }
+                                      if (isFlagged) {
+                                        bg = AppTheme.accentPeach.withValues(alpha: 0.7);
+                                        fg = Colors.black87;
+                                        border = AppTheme.accentPeach;
+                                      }
+                                      if (isCurrent) {
+                                        border = AppTheme.inkForest;
+                                      }
 
-                                    return InkWell(
-                                      onTap: () => _goToQuestion(idx),
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: bg,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: border, width: isCurrent ? 2.0 : 1.0),
-                                        ),
-                                        child: Text(
-                                          '${idx + 1}',
-                                          style: TextStyle(
-                                            fontFamily: AppTheme.fontZilla,
-                                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                                            color: fg,
+                                      return InkWell(
+                                        onTap: () => _goToQuestion(idx),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Container(
+                                          width: 38,
+                                          height: 38,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: bg,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: border, width: isCurrent ? 2.0 : 1.0),
+                                          ),
+                                          child: Text(
+                                            '${idx + 1}',
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.fontZilla,
+                                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                              fontSize: 12,
+                                              color: fg,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    );
-                                  },
+                                      );
+                                    },
+                                  ),
                                 ),
+                                const SizedBox(height: 12),
+                              ],
+
+                              // Question Header (Type, Marks, Flag toggle)
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(color: AppTheme.mintWash.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(8)),
+                                    child: Text(
+                                      'Question ${_currentIndex + 1} of ${_questions.length}',
+                                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.inkForest),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                                    child: Text(
+                                      '+${currentQ.marks.toStringAsFixed(1)} marks',
+                                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.charcoalSlate),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  OutlinedButton.icon(
+                                    icon: Icon(
+                                      _flaggedIds.contains(currentQ.id) ? Icons.flag : Icons.flag_outlined,
+                                      size: 16,
+                                      color: _flaggedIds.contains(currentQ.id) ? AppTheme.accentPeach : AppTheme.charcoalSlate,
+                                    ),
+                                    label: Text(
+                                      _flaggedIds.contains(currentQ.id) ? 'Flagged' : 'Flag',
+                                      style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: _flaggedIds.contains(currentQ.id) ? AppTheme.accentPeach : AppTheme.charcoalSlate),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      side: BorderSide(color: _flaggedIds.contains(currentQ.id) ? AppTheme.accentPeach : AppTheme.borderColor),
+                                    ),
+                                    onPressed: () => _toggleFlag(currentQ.id),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Prompt Card
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.all(isDesktopExam ? 20 : 14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: AppTheme.borderColor),
+                                ),
+                                child: SelectableText(
+                                  currentQ.question,
+                                  style: TextStyle(fontFamily: AppTheme.fontCardo, fontSize: isDesktopExam ? 17 : 15.5, color: AppTheme.inkForest, height: 1.4),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+
+                              // Interactive Answer Area
+                              _buildInteractiveAnswerArea(currentQ),
+                              const SizedBox(height: 24),
+
+                              // Bottom Navigation buttons
+                              Row(
+                                children: [
+                                  if (_currentIndex > 0)
+                                    OutlinedButton.icon(
+                                      icon: const Icon(Icons.arrow_back, size: 16),
+                                      label: const Text('Previous'),
+                                      onPressed: () => _goToQuestion(_currentIndex - 1),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  if (_answers.containsKey(currentQ.id))
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() => _answers.remove(currentQ.id));
+                                        _persistCurrentProgress();
+                                      },
+                                      child: const Text('Clear', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                                    ),
+                                  const Spacer(),
+                                  if (_currentIndex < _questions.length - 1)
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.arrow_forward, size: 16),
+                                      label: const Text('Save & Next'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.inkForest,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      ),
+                                      onPressed: () => _goToQuestion(_currentIndex + 1),
+                                    )
+                                  else
+                                    PrimaryButton(
+                                      text: 'Review & Submit',
+                                      icon: Icons.check,
+                                      height: 38,
+                                      onPressed: _confirmAndSubmit,
+                                    ),
+                                ],
                               ),
                             ],
                           ),
-                        ),
+                        );
 
-                        // Center Question Display Pane
-                        Expanded(
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Question Header (Type, Marks, Flag toggle)
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(color: AppTheme.mintWash.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(8)),
-                                      child: Text(
-                                        'Question ${_currentIndex + 1} of ${_questions.length}',
-                                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.inkForest),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-                                      child: Text(
-                                        '+${currentQ.marks.toStringAsFixed(1)} marks',
-                                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.charcoalSlate),
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    OutlinedButton.icon(
-                                      icon: Icon(
-                                        _flaggedIds.contains(currentQ.id) ? Icons.flag : Icons.flag_outlined,
-                                        size: 16,
-                                        color: _flaggedIds.contains(currentQ.id) ? AppTheme.accentPeach : AppTheme.charcoalSlate,
-                                      ),
-                                      label: Text(
-                                        _flaggedIds.contains(currentQ.id) ? 'Flagged' : 'Flag for Review',
-                                        style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: _flaggedIds.contains(currentQ.id) ? AppTheme.accentPeach : AppTheme.charcoalSlate),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        side: BorderSide(color: _flaggedIds.contains(currentQ.id) ? AppTheme.accentPeach : AppTheme.borderColor),
-                                      ),
-                                      onPressed: () => _toggleFlag(currentQ.id),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
+                        if (!isDesktopExam) {
+                          return questionContent;
+                        }
 
-                                // Prompt Card
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: AppTheme.borderColor),
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Left Question Palette Drawer / Sidebar
+                            Container(
+                              width: 220,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border(right: BorderSide(color: AppTheme.borderColor)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Question Palette', style: TextStyle(fontFamily: AppTheme.fontCardo, fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.inkForest)),
+                                        const SizedBox(height: 8),
+                                        _buildPaletteLegend(),
+                                      ],
+                                    ),
                                   ),
-                                  child: SelectableText(
-                                    currentQ.question,
-                                    style: const TextStyle(fontFamily: AppTheme.fontCardo, fontSize: 17, color: AppTheme.inkForest, height: 1.4),
+                                  const Divider(height: 1),
+                                  Expanded(
+                                    child: GridView.builder(
+                                      padding: const EdgeInsets.all(12),
+                                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 4,
+                                        mainAxisSpacing: 8,
+                                        crossAxisSpacing: 8,
+                                        childAspectRatio: 1.0,
+                                      ),
+                                      itemCount: _questions.length,
+                                      itemBuilder: (ctx, idx) {
+                                        final q = _questions[idx];
+                                        final isCurrent = idx == _currentIndex;
+                                        final isAnswered = _answers.containsKey(q.id);
+                                        final isFlagged = _flaggedIds.contains(q.id);
+
+                                        Color bg = Colors.grey.shade100;
+                                        Color fg = AppTheme.charcoalSlate;
+                                        Color border = Colors.transparent;
+
+                                        if (isAnswered) {
+                                          bg = AppTheme.mintWash.withValues(alpha: 0.8);
+                                          fg = AppTheme.inkForest;
+                                        }
+                                        if (isFlagged) {
+                                          bg = AppTheme.accentPeach.withValues(alpha: 0.7);
+                                          fg = Colors.black87;
+                                        }
+                                        if (isCurrent) {
+                                          border = AppTheme.inkForest;
+                                        }
+
+                                        return InkWell(
+                                          onTap: () => _goToQuestion(idx),
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Container(
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: bg,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: border, width: isCurrent ? 2.0 : 1.0),
+                                            ),
+                                            child: Text(
+                                              '${idx + 1}',
+                                              style: TextStyle(
+                                                fontFamily: AppTheme.fontZilla,
+                                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                                color: fg,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 20),
-
-                                // Interactive Answer Area
-                                _buildInteractiveAnswerArea(currentQ),
-                                const SizedBox(height: 30),
-
-                                // Bottom Navigation buttons
-                                Row(
-                                  children: [
-                                    if (_currentIndex > 0)
-                                      OutlinedButton.icon(
-                                        icon: const Icon(Icons.arrow_back, size: 16),
-                                        label: const Text('Previous'),
-                                        onPressed: () => _goToQuestion(_currentIndex - 1),
-                                      ),
-                                    const SizedBox(width: 12),
-                                    if (_answers.containsKey(currentQ.id))
-                                      TextButton(
-                                        onPressed: () {
-                                          setState(() => _answers.remove(currentQ.id));
-                                          _persistCurrentProgress();
-                                        },
-                                        child: const Text('Clear Response', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-                                      ),
-                                    const Spacer(),
-                                    if (_currentIndex < _questions.length - 1)
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.arrow_forward, size: 16),
-                                        label: const Text('Save & Next'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.inkForest,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                        ),
-                                        onPressed: () => _goToQuestion(_currentIndex + 1),
-                                      )
-                                    else
-                                      PrimaryButton(
-                                        text: 'Review & Submit Exam',
-                                        icon: Icons.check,
-                                        height: 42,
-                                        onPressed: _confirmAndSubmit,
-                                      ),
-                                  ],
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
+                            Expanded(child: questionContent),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ],

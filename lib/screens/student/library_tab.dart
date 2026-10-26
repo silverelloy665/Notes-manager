@@ -532,24 +532,52 @@ class _LibraryTabState extends State<LibraryTab> {
           ],
         ),
       ),
-      floatingActionButton: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'library_pdf_import',
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-            label: const Text('Import PDF'),
-            backgroundColor: AppTheme.secondaryColor,
-            onPressed: _pickAndImportPdf,
-          ),
-          const SizedBox(width: 12),
-          FloatingActionButton.extended(
-            heroTag: 'library_zip_import',
-            icon: const Icon(Icons.unarchive_outlined),
-            label: const Text('Import ZIP'),
-            onPressed: _pickAndImportZip,
-          ),
-        ],
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = MediaQuery.of(context).size.width < 500;
+          if (isMobile) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'library_pdf_import',
+                  tooltip: 'Import PDF',
+                  backgroundColor: AppTheme.mintWash,
+                  foregroundColor: AppTheme.inkForest,
+                  onPressed: _pickAndImportPdf,
+                  child: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton.extended(
+                  heroTag: 'library_zip_import',
+                  icon: const Icon(Icons.unarchive_outlined),
+                  label: const Text('Import ZIP'),
+                  onPressed: _pickAndImportZip,
+                ),
+              ],
+            );
+          }
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.extended(
+                heroTag: 'library_pdf_import',
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: const Text('Import PDF'),
+                backgroundColor: AppTheme.secondaryColor,
+                onPressed: _pickAndImportPdf,
+              ),
+              const SizedBox(width: 12),
+              FloatingActionButton.extended(
+                heroTag: 'library_zip_import',
+                icon: const Icon(Icons.unarchive_outlined),
+                label: const Text('Import ZIP'),
+                onPressed: _pickAndImportZip,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

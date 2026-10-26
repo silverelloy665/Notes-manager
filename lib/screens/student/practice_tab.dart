@@ -1214,139 +1214,196 @@ class _PracticeTabState extends State<PracticeTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryLight,
-                            borderRadius: BorderRadius.circular(10),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobileHeader = constraints.maxWidth < 680;
+                        final actionButtons = <Widget>[
+                          // Action 1: Coverage Report
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.2),
+                            ),
+                            icon: const Icon(Icons.verified_rounded, size: 15, color: AppTheme.primaryColor),
+                            label: const Text(
+                              'Coverage',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: _showCoverageReportModal,
                           ),
-                          child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 22),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Practice Questions & Assessment',
-                                style: TextStyle(
-                                  fontFamily: 'serif',
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
+                          // Action 2: Make from Summarized Notes
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.secondaryColor, width: 1.2),
+                              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.2),
+                            ),
+                            icon: const Icon(Icons.menu_book_rounded, size: 15),
+                            label: const Text(
+                              'From Notes',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: _isProcessingPdf ? null : _showNotesSelectionModal,
+                          ),
+                          // Action 3: Upload PDF / Notes
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 1,
+                            ),
+                            icon: _isProcessingPdf
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.upload_file_rounded, size: 16),
+                            label: Text(
+                              _isProcessingPdf ? 'Analyzing...' : 'Upload PDF',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: _isProcessingPdf ? null : _uploadAndGenerateQuestions,
+                          ),
+                          PopupMenuButton<String>(
+                            tooltip: 'Export Questions & Flashcards',
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            color: Colors.white,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(9),
+                                border: Border.all(color: AppTheme.borderColor),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.ios_share_rounded, size: 15, color: AppTheme.primaryColor),
+                                  SizedBox(width: 5),
+                                  Text('Export', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                                ],
+                              ),
+                            ),
+                            onSelected: (action) => _handleExportAction(action, filtered),
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'anki',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.style_rounded, size: 16, color: AppTheme.primaryColor),
+                                    SizedBox(width: 8),
+                                    Text('Export to Anki (.csv)', style: TextStyle(fontSize: 12.5)),
+                                  ],
                                 ),
                               ),
-                              Text(
-                                'Practice slide concepts with verified academic answers',
-                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              const PopupMenuItem(
+                                value: 'pdf_study',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFC62828)),
+                                    SizedBox(width: 8),
+                                    Text('Printable Study Sheet (PDF)', style: TextStyle(fontSize: 12.5)),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        // Action 1: Coverage Report
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor,
-                            side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.2),
-                          ),
-                          icon: const Icon(Icons.verified_rounded, size: 15, color: AppTheme.primaryColor),
-                          label: const Text(
-                            'Coverage',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: _showCoverageReportModal,
-                        ),
-                        const SizedBox(width: 8),
-                        // Action 2: Make from Summarized Notes
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor,
-                            side: const BorderSide(color: AppTheme.secondaryColor, width: 1.2),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.2),
-                          ),
-                          icon: const Icon(Icons.menu_book_rounded, size: 15),
-                          label: const Text(
-                            'From Notes',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: _isProcessingPdf ? null : _showNotesSelectionModal,
-                        ),
-                        const SizedBox(width: 8),
-                        // Action 3: Upload PDF / Notes
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            elevation: 1,
-                          ),
-                          icon: _isProcessingPdf
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.upload_file_rounded, size: 16),
-                          label: Text(
-                            _isProcessingPdf ? 'Analyzing...' : 'Upload PDF',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: _isProcessingPdf ? null : _uploadAndGenerateQuestions,
-                        ),
-                        const SizedBox(width: 8),
-                        PopupMenuButton<String>(
-                          tooltip: 'Export Questions & Flashcards',
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          color: Colors.white,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(9),
-                              border: Border.all(color: AppTheme.borderColor),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.ios_share_rounded, size: 15, color: AppTheme.primaryColor),
-                                SizedBox(width: 5),
-                                Text('Export', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                              ],
-                            ),
-                          ),
-                          onSelected: (action) => _handleExportAction(action, filtered),
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'anki',
-                              child: Row(
+                        ];
+
+                        if (isMobileHeader) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Icon(Icons.style_rounded, size: 16, color: AppTheme.primaryColor),
-                                  SizedBox(width: 8),
-                                  Text('Export to Anki (.csv)', style: TextStyle(fontSize: 12.5)),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryLight,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 22),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Practice Questions & Assessment',
+                                          style: TextStyle(
+                                            fontFamily: 'serif',
+                                            fontSize: 16.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Practice slide concepts with verified academic answers',
+                                          style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: actionButtons,
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryLight,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Practice Questions & Assessment',
+                                    style: TextStyle(
+                                      fontFamily: 'serif',
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Practice slide concepts with verified academic answers',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                  ),
                                 ],
                               ),
                             ),
-                            const PopupMenuItem(
-                              value: 'pdf_study',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFC62828)),
-                                  SizedBox(width: 8),
-                                  Text('Printable Study Sheet (PDF)', style: TextStyle(fontSize: 12.5)),
-                                ],
-                              ),
-                            ),
+                            ...actionButtons.map((btn) => Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: btn,
+                            )),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 14),
                     // Dropdown Topic Filter
@@ -1469,10 +1526,10 @@ class _PracticeTabState extends State<PracticeTab> {
                 ),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        // Mode Switcher: Flashcards vs Question Bank vs Exam Simulator vs Adaptive Practice
-                        SingleChildScrollView(
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobileControls = constraints.maxWidth < 720;
+                        final modeSwitcher = SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Container(
                             decoration: BoxDecoration(
@@ -1518,35 +1575,83 @@ class _PracticeTabState extends State<PracticeTab> {
                               ],
                             ),
                           ),
-                        ),
-                        const Spacer(),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: _showMasteryDashboard ? AppTheme.primaryLight : Colors.white,
-                            foregroundColor: AppTheme.primaryColor,
-                            side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          icon: const Icon(Icons.psychology_rounded, size: 16),
-                          label: Text(
-                            SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
-                                ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
-                                : 'Mastery Dashboard',
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                          ),
-                          onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${filtered.length} Questions',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12.5,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ],
+                        );
+
+                        final masteryAndCount = Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: _showMasteryDashboard ? AppTheme.primaryLight : Colors.white,
+                                foregroundColor: AppTheme.primaryColor,
+                                side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.psychology_rounded, size: 16),
+                              label: Text(
+                                SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
+                                    ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
+                                    : 'Mastery Dashboard',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
+                            ),
+                            Text(
+                              '${filtered.length} Questions',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        );
+
+                        if (isMobileControls) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              modeSwitcher,
+                              const SizedBox(height: 8),
+                              masteryAndCount,
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(child: modeSwitcher),
+                            const SizedBox(width: 12),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: _showMasteryDashboard ? AppTheme.primaryLight : Colors.white,
+                                foregroundColor: AppTheme.primaryColor,
+                                side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.psychology_rounded, size: 16),
+                              label: Text(
+                                SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
+                                    ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
+                                    : 'Mastery Dashboard',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${filtered.length} Questions',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 8),
                     // Multi-tier Filter Chips Row (Scrollable horizontally)

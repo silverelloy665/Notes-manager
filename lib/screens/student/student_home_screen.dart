@@ -73,14 +73,19 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       StudentClassroomsTab(currentUser: widget.currentUser),
     ];
 
+    final isSmallScreen = MediaQuery.of(context).size.width < 600;
+    final isVerySmallScreen = MediaQuery.of(context).size.width < 380;
+
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkSlateBase : AppTheme.creamPaper,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: isDark ? AppTheme.darkSlateBase : AppTheme.creamPaper,
         foregroundColor: isDark ? const Color(0xFFE8F5E9) : AppTheme.inkForest,
+        titleSpacing: isSmallScreen ? 12 : 16,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -88,28 +93,33 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                 Icon(
                   Icons.spa_rounded,
                   color: isDark ? const Color(0xFF81C784) : AppTheme.inkForest,
-                  size: 20,
+                  size: isVerySmallScreen ? 18 : 20,
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  'StudyMate Classroom',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontCardo,
-                    fontSize: 18.5,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.2,
-                    color: isDark ? const Color(0xFFE8F5E9) : AppTheme.inkForest,
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'StudyMate Classroom',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontCardo,
+                      fontSize: isVerySmallScreen ? 16 : (isSmallScreen ? 17.5 : 18.5),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
+                      color: isDark ? const Color(0xFFE8F5E9) : AppTheme.inkForest,
+                    ),
                   ),
                 ),
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 28),
+              padding: EdgeInsets.only(left: isVerySmallScreen ? 24 : 26),
               child: Text(
                 'Student Workspace • ${widget.currentUser.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: AppTheme.fontZilla,
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary,
                 ),
@@ -118,50 +128,52 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           ],
         ),
         actions: [
-          // Phone / Desktop Frame Switcher Toggle
-          ValueListenableBuilder<bool>(
-            valueListenable: PhoneFrameWrapper.isPhoneMode,
-            builder: (context, isPhone, _) {
-              return IconButton(
-                tooltip: isPhone ? 'Switch to Full Desktop View' : 'Switch to Mobile Phone View',
-                icon: Icon(
-                  isPhone ? Icons.desktop_windows_outlined : Icons.smartphone_outlined,
-                  color: isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest,
-                ),
-                onPressed: () => PhoneFrameWrapper.toggle(),
-              );
-            },
-          ),
-          // Calm Mode Toggle
-          ValueListenableBuilder<bool>(
-            valueListenable: AppTheme.calmModeNotifier,
-            builder: (context, isCalm, _) {
-              return IconButton(
-                tooltip: isCalm ? 'Calm Mode Active (Click to show botanical artwork)' : 'Calm Mode (Zero Distraction)',
-                icon: Icon(
-                  isCalm ? Icons.filter_vintage_outlined : Icons.filter_vintage_rounded,
-                  color: isCalm
-                      ? (isDark ? const Color(0xFF81C784) : AppTheme.accentPeach)
-                      : (isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest),
-                ),
-                onPressed: () {
-                  AppTheme.toggleCalmMode();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      duration: const Duration(milliseconds: 1400),
-                      content: Text(
-                        AppTheme.isCalmMode
-                            ? '🌿 Calm Mode activated: Clean paper & distraction-free typography'
-                            : '🌸 Botanical Artwork & watercolor washes restored',
-                        style: const TextStyle(fontFamily: AppTheme.fontZilla),
+          // On desktop (>= 600px), show Phone / Desktop Frame Switcher Toggle
+          if (!isSmallScreen)
+            ValueListenableBuilder<bool>(
+              valueListenable: PhoneFrameWrapper.isPhoneMode,
+              builder: (context, isPhone, _) {
+                return IconButton(
+                  tooltip: isPhone ? 'Switch to Full Desktop View' : 'Switch to Mobile Phone View',
+                  icon: Icon(
+                    isPhone ? Icons.desktop_windows_outlined : Icons.smartphone_outlined,
+                    color: isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest,
+                  ),
+                  onPressed: () => PhoneFrameWrapper.toggle(),
+                );
+              },
+            ),
+          // On desktop (>= 600px), show Calm Mode button directly
+          if (!isSmallScreen)
+            ValueListenableBuilder<bool>(
+              valueListenable: AppTheme.calmModeNotifier,
+              builder: (context, isCalm, _) {
+                return IconButton(
+                  tooltip: isCalm ? 'Calm Mode Active (Click to show botanical artwork)' : 'Calm Mode (Zero Distraction)',
+                  icon: Icon(
+                    isCalm ? Icons.filter_vintage_outlined : Icons.filter_vintage_rounded,
+                    color: isCalm
+                        ? (isDark ? const Color(0xFF81C784) : AppTheme.accentPeach)
+                        : (isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest),
+                  ),
+                  onPressed: () {
+                    AppTheme.toggleCalmMode();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        duration: const Duration(milliseconds: 1400),
+                        content: Text(
+                          AppTheme.isCalmMode
+                              ? 'Calm Mode activated: Clean paper & distraction-free typography'
+                              : 'Botanical Artwork & watercolor washes restored',
+                          style: const TextStyle(fontFamily: AppTheme.fontZilla),
+                        ),
                       ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-          // Charcoal Botanical Dark Mode Toggle
+                    );
+                  },
+                );
+              },
+            ),
+          // Charcoal Botanical Dark Mode Toggle (always visible 1-tap)
           IconButton(
             tooltip: isDark ? 'Switch to Cream Paper Light Theme' : 'Switch to Charcoal Botanical Dark Theme',
             icon: Icon(
@@ -170,15 +182,68 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
             ),
             onPressed: () => AppTheme.toggleThemeMode(),
           ),
-          // Sign out
-          IconButton(
-            tooltip: 'Sign Out',
-            icon: Icon(
-              Icons.logout_rounded,
-              color: isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest,
+          // On mobile (< 600px), combine Calm Mode and Sign Out into a clean PopupMenu
+          if (isSmallScreen)
+            PopupMenuButton<String>(
+              tooltip: 'More Options',
+              icon: Icon(
+                Icons.more_vert_rounded,
+                color: isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest,
+              ),
+              onSelected: (val) {
+                if (val == 'calm') {
+                  AppTheme.toggleCalmMode();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      duration: const Duration(milliseconds: 1400),
+                      content: Text(
+                        AppTheme.isCalmMode
+                            ? 'Calm Mode activated'
+                            : 'Botanical Artwork restored',
+                        style: const TextStyle(fontFamily: AppTheme.fontZilla),
+                      ),
+                    ),
+                  );
+                } else if (val == 'logout') {
+                  _handleLogout();
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  value: 'calm',
+                  child: Row(
+                    children: [
+                      Icon(
+                        AppTheme.isCalmMode ? Icons.filter_vintage_outlined : Icons.filter_vintage_rounded,
+                        size: 18,
+                        color: AppTheme.inkForest,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(AppTheme.isCalmMode ? 'Disable Calm Mode' : 'Enable Calm Mode'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout_rounded, size: 18, color: Colors.red),
+                      SizedBox(width: 10),
+                      Text('Sign Out', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            IconButton(
+              tooltip: 'Sign Out',
+              icon: Icon(
+                Icons.logout_rounded,
+                color: isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest,
+              ),
+              onPressed: _handleLogout,
             ),
-            onPressed: _handleLogout,
-          ),
           const SizedBox(width: 4),
         ],
       ),

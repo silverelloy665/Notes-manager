@@ -1660,11 +1660,10 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
             WatercolorBlobContainer(
               variant: BlobVariant.mintWash,
               padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Icon(Icons.folder_special, size: 36, color: AppTheme.inkForest),
-                  const SizedBox(width: 14),
-                  Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 600;
+                  final textCol = Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1689,15 +1688,52 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
                         ),
                       ],
                     ),
-                  ),
-                  if (_isTeacher)
-                    PrimaryButton(
-                      text: 'Upload Note',
-                      icon: Icons.upload_file,
-                      height: 38,
-                      onPressed: () => _showUploadNoteDialog(),
-                    ),
-                ],
+                  );
+
+                  if (isMobile) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.folder_special, size: 36, color: AppTheme.inkForest),
+                            const SizedBox(width: 14),
+                            textCol,
+                          ],
+                        ),
+                        if (_isTeacher) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: PrimaryButton(
+                              text: 'Upload Note',
+                              icon: Icons.upload_file,
+                              height: 38,
+                              onPressed: () => _showUploadNoteDialog(),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      const Icon(Icons.folder_special, size: 36, color: AppTheme.inkForest),
+                      const SizedBox(width: 14),
+                      textCol,
+                      if (_isTeacher) ...[
+                        const SizedBox(width: 12),
+                        PrimaryButton(
+                          text: 'Upload Note',
+                          icon: Icons.upload_file,
+                          height: 38,
+                          onPressed: () => _showUploadNoteDialog(),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
             const SizedBox(height: 14),
@@ -5027,11 +5063,10 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.timer_outlined, size: 36, color: AppTheme.inkForest),
-                      const SizedBox(width: 14),
-                      Expanded(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isMobile = constraints.maxWidth < 600;
+                      final textCol = Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -5056,15 +5091,52 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
                             ),
                           ],
                         ),
-                      ),
-                      if (_isTeacher)
-                        PrimaryButton(
-                          text: 'Create Exam',
-                          icon: Icons.add,
-                          height: 38,
-                          onPressed: () => _showCreateExamDialog(),
-                        ),
-                    ],
+                      );
+
+                      if (isMobile) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.timer_outlined, size: 36, color: AppTheme.inkForest),
+                                const SizedBox(width: 14),
+                                textCol,
+                              ],
+                            ),
+                            if (_isTeacher) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: PrimaryButton(
+                                  text: 'Create Exam',
+                                  icon: Icons.add,
+                                  height: 38,
+                                  onPressed: () => _showCreateExamDialog(),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          const Icon(Icons.timer_outlined, size: 36, color: AppTheme.inkForest),
+                          const SizedBox(width: 14),
+                          textCol,
+                          if (_isTeacher) ...[
+                            const SizedBox(width: 12),
+                            PrimaryButton(
+                              text: 'Create Exam',
+                              icon: Icons.add,
+                              height: 38,
+                              onPressed: () => _showCreateExamDialog(),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
 
@@ -6290,11 +6362,10 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.assignment_ind_outlined, size: 36, color: AppTheme.inkForest),
-                      const SizedBox(width: 14),
-                      Expanded(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isMobile = constraints.maxWidth < 600;
+                      final textCol = Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -6319,15 +6390,52 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen> with Sing
                             ),
                           ],
                         ),
-                      ),
-                      if (_isTeacher)
-                        PrimaryButton(
-                          text: 'New Assignment',
-                          icon: Icons.add,
-                          height: 38,
-                          onPressed: () => _showCreateAssignmentDialog(),
-                        ),
-                    ],
+                      );
+
+                      if (isMobile) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.assignment_ind_outlined, size: 36, color: AppTheme.inkForest),
+                                const SizedBox(width: 14),
+                                textCol,
+                              ],
+                            ),
+                            if (_isTeacher) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: PrimaryButton(
+                                  text: 'New Assignment',
+                                  icon: Icons.add,
+                                  height: 38,
+                                  onPressed: () => _showCreateAssignmentDialog(),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          const Icon(Icons.assignment_ind_outlined, size: 36, color: AppTheme.inkForest),
+                          const SizedBox(width: 14),
+                          textCol,
+                          if (_isTeacher) ...[
+                            const SizedBox(width: 12),
+                            PrimaryButton(
+                              text: 'New Assignment',
+                              icon: Icons.add,
+                              height: 38,
+                              onPressed: () => _showCreateAssignmentDialog(),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
 

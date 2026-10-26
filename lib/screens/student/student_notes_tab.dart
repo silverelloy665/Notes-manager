@@ -835,27 +835,57 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
         ),
       ),
     ),
-      floatingActionButton: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'student_notes_upload_ai',
-            icon: const Icon(Icons.auto_awesome),
-            label: const Text('Summarize PDF/ZIP'),
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            onPressed: () => _showNoteFormDialog(autoPickFile: true),
-          ),
-          const SizedBox(width: 12),
-          FloatingActionButton.extended(
-            heroTag: 'student_notes_new_note',
-            icon: const Icon(Icons.add),
-            label: const Text('New Note'),
-            backgroundColor: AppTheme.secondaryColor,
-            foregroundColor: Colors.white,
-            onPressed: () => _showNoteFormDialog(),
-          ),
-        ],
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = MediaQuery.of(context).size.width < 500;
+          if (isMobile) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'student_notes_upload_ai',
+                  tooltip: 'Summarize PDF/ZIP',
+                  backgroundColor: AppTheme.primaryLight,
+                  foregroundColor: AppTheme.primaryColor,
+                  onPressed: () => _showNoteFormDialog(autoPickFile: true),
+                  child: const Icon(Icons.auto_awesome, size: 20),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton.extended(
+                  heroTag: 'student_notes_new_note',
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Note'),
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  onPressed: () => _showNoteFormDialog(),
+                ),
+              ],
+            );
+          }
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FloatingActionButton.extended(
+                heroTag: 'student_notes_upload_ai',
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Summarize PDF/ZIP'),
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                onPressed: () => _showNoteFormDialog(autoPickFile: true),
+              ),
+              const SizedBox(width: 12),
+              FloatingActionButton.extended(
+                heroTag: 'student_notes_new_note',
+                icon: const Icon(Icons.add),
+                label: const Text('New Note'),
+                backgroundColor: AppTheme.secondaryColor,
+                foregroundColor: Colors.white,
+                onPressed: () => _showNoteFormDialog(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
