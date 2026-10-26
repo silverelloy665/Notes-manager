@@ -7,6 +7,7 @@ import 'package:studymate_classroom/screens/student/student_classrooms_tab.dart'
 import 'package:studymate_classroom/screens/student/student_notes_tab.dart';
 import 'package:studymate_classroom/services/firestore_service.dart';
 import 'package:studymate_classroom/utils/app_theme.dart';
+import 'package:studymate_classroom/widgets/phone_frame_wrapper.dart';
 
 /// Main container screen for Students, hosting Notes, Practice, Library, and Classrooms tabs.
 /// Recreated with Botanical Watercolor presentation aesthetic:
@@ -117,6 +118,20 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           ],
         ),
         actions: [
+          // Phone / Desktop Frame Switcher Toggle
+          ValueListenableBuilder<bool>(
+            valueListenable: PhoneFrameWrapper.isPhoneMode,
+            builder: (context, isPhone, _) {
+              return IconButton(
+                tooltip: isPhone ? 'Switch to Full Desktop View' : 'Switch to Mobile Phone View',
+                icon: Icon(
+                  isPhone ? Icons.desktop_windows_outlined : Icons.smartphone_outlined,
+                  color: isDark ? const Color(0xFFA5D6A7) : AppTheme.inkForest,
+                ),
+                onPressed: () => PhoneFrameWrapper.toggle(),
+              );
+            },
+          ),
           // Calm Mode Toggle
           ValueListenableBuilder<bool>(
             valueListenable: AppTheme.calmModeNotifier,

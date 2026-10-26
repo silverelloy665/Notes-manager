@@ -65,6 +65,22 @@
     <div style="font-size: 13.5px; color: #355843; font-family: 'Zilla Slab', Georgia, serif; margin-top: 6px;">Opening your botanical study workspace...</div>
   </div>
   <script>
+    // Force unregister stale service worker to ensure fresh app bundles load
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var i = 0; i < registrations.length; i++) {
+          registrations[i].unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (var i = 0; i < names.length; i++) {
+          caches.delete(names[i]);
+        }
+      });
+    }
+
     function removeLoader() {
       var loader = document.getElementById('loading');
       if (loader && loader.style.opacity !== '0') {
@@ -83,6 +99,6 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script src="flutter_bootstrap.js?v=phone_v2" async></script>
 </body>
 </html>
