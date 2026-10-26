@@ -5,6 +5,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/common/firebase_not_configured_screen.dart';
 import 'services/firestore_service.dart';
 import 'utils/app_theme.dart';
+import 'widgets/phone_frame_wrapper.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +73,7 @@ class _StudyMateAppState extends State<StudyMateApp> {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,
+          builder: (context, child) => PhoneFrameWrapper(child: child ?? const SizedBox.shrink()),
           home: _isLoading
           ? Scaffold(
               backgroundColor: AppTheme.backgroundColor,
