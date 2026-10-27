@@ -124,85 +124,108 @@ class _StudentClassroomsTabState extends State<StudentClassroomsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: isDark ? AppTheme.darkSlateBase : AppTheme.backgroundColor,
       body: SafeArea(
-        child: Column(
-          children: [
+        child: CustomScrollView(
+          slivers: [
             if (_isFromCache)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                color: Colors.orange.shade800,
-                child: const Text(
-                  'Offline, will sync',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  color: Colors.orange.shade800,
+                  child: const Text(
+                    'Offline, will sync',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _classrooms.isEmpty
-                      ? Center(
-                          child: EmptyState(
-                            icon: Icons.school_outlined,
-                            title: 'No Classrooms Joined',
-                            message: 'Join a classroom with the 6-character code given by your teacher to track assignments and grades.',
-                            actionText: 'Join Classroom',
-                            onAction: _showJoinClassDialog,
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _classrooms.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final classroom = _classrooms[index];
-                            return WatercolorBlobContainer(
-                              variant: BlobVariant.sageSoft,
-                              padding: EdgeInsets.zero,
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: AppTheme.mintWash.withValues(alpha: 0.5),
-                                  child: const Icon(Icons.school, color: AppTheme.inkForest),
-                                ),
-                                title: Text(
-                                  classroom.name,
-                                  style: const TextStyle(
-                                    fontFamily: AppTheme.fontCardo,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16.5,
-                                    color: AppTheme.inkForest,
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 4),
-                                    Text('Subject: ${classroom.subject}', style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate)),
-                                    Text(
-                                      'Instructor: ${classroom.teacherName}',
-                                      style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, color: AppTheme.textSecondary),
-                                    ),
-                                  ],
-                                ),
-                                trailing: const Icon(Icons.chevron_right, color: AppTheme.inkForest),
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => ClassroomDetailScreen(
-                                        classroom: classroom,
-                                        currentUser: widget.currentUser,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          },
+            if (_isLoading)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator(color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
+              )
+            else if (_classrooms.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: EmptyState(
+                    icon: Icons.school_outlined,
+                    title: 'No Classrooms Joined',
+                    message: 'Join a classroom with the 6-character code given by your teacher to track assignments and grades.',
+                    actionText: 'Join Classroom',
+                    onAction: _showJoinClassDialog,
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList.separated(
+                  itemCount: _classrooms.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final classroom = _classrooms[index];
+                    return WatercolorBlobContainer(
+                      variant: BlobVariant.sageSoft,
+                      padding: EdgeInsets.zero,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isDark
+                              ? const Color(0xFF2E4D38)
+                              : AppTheme.mintWash.withValues(alpha: 0.5),
+                          child: Icon(Icons.school, color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
                         ),
-            ),
+                        title: Text(
+                          classroom.name,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontCardo,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16.5,
+                            color: isDark ? const Color(0xFFE8F5E9) : AppTheme.inkForest,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              'Subject: ${classroom.subject}',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontZilla,
+                                fontSize: 13,
+                                color: isDark ? const Color(0xFFC5DCC6) : AppTheme.charcoalSlate,
+                              ),
+                            ),
+                            Text(
+                              'Instructor: ${classroom.teacherName}',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontZilla,
+                                fontSize: 12,
+                                color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: Icon(Icons.chevron_right, color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ClassroomDetailScreen(
+                                classroom: classroom,
+                                currentUser: widget.currentUser,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),

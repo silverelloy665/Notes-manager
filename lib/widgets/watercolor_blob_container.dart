@@ -80,14 +80,14 @@ class WatercolorBlobContainer extends StatelessWidget {
     if (isDark) {
       switch (variant) {
         case BlobVariant.sageSoft:
-          return const Color(0xFF1E3325);
+          return const Color(0xFF1E3827);
         case BlobVariant.mintWash:
-          return const Color(0xFF1A3022);
+          return const Color(0xFF1B3525);
         case BlobVariant.accentPeach:
           return const Color(0xFF2C221F);
         case BlobVariant.tornPaper:
         case BlobVariant.creamPaper:
-          return AppTheme.darkSageCard;
+          return const Color(0xFF1B2D22);
       }
     } else {
       switch (variant) {
@@ -108,7 +108,7 @@ class WatercolorBlobContainer extends StatelessWidget {
   Color _getBorderColor(bool isDark) {
     if (borderColor != null) return borderColor!;
     if (isDark) {
-      return AppTheme.darkBronzeBorder;
+      return const Color(0xFF385C42);
     }
     switch (variant) {
       case BlobVariant.sageSoft:

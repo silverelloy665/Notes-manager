@@ -20,10 +20,29 @@ class AppTheme {
   static const Color charcoalSlate = Color(0xFF1A3022); // Deep green-charcoal neutral text
 
   // Dark mode botanical tokens ("Charcoal Botanical")
-  static const Color darkSlateBase = Color(0xFF141E18);
-  static const Color darkSageCard = Color(0xFF1C2E23);
-  static const Color darkMintText = Color(0xFFC5DCC6);
-  static const Color darkBronzeBorder = Color(0xFF334F3C);
+  static const Color darkSlateBase = Color(0xFF0F1A13);
+  static const Color darkSageCard = Color(0xFF1B2D22);
+  static const Color darkMintText = Color(0xFFC8E6C9);
+  static const Color darkBronzeBorder = Color(0xFF385C42);
+  static const Color darkLightGreen = Color(0xFF81C784);
+  static const Color darkTextPrimary = Color(0xFFF1F8F2);
+  static const Color darkTextSecondary = Color(0xFFB8DEBA);
+
+  // Theme-aware helper methods for high-contrast dark/light rendering
+  static bool isDark(BuildContext context) => Theme.of(context).brightness == Brightness.dark;
+  static Color primaryHeading(BuildContext context) => isDark(context) ? darkLightGreen : inkForest;
+  static Color cardBackground(BuildContext context) => isDark(context) ? darkSageCard : Colors.white;
+  static Color pageBase(BuildContext context) => isDark(context) ? darkSlateBase : creamPaper;
+  static Color primaryText(BuildContext context) => isDark(context) ? darkTextPrimary : charcoalSlate;
+  static Color secondaryText(BuildContext context) => isDark(context) ? darkTextSecondary : textSecondary;
+  static Color border(BuildContext context) => isDark(context) ? darkBronzeBorder : borderColor;
+  static Color inputBackground(BuildContext context) => isDark(context) ? darkSageCard : Colors.white;
+  static Color chipBackground(BuildContext context, bool isSelected) => isSelected
+      ? (isDark(context) ? const Color(0xFF2E4D38) : mintWash)
+      : (isDark(context) ? darkSageCard : creamPaper);
+  static Color chipTextColor(BuildContext context, bool isSelected) => isSelected
+      ? (isDark(context) ? darkLightGreen : inkForest)
+      : (isDark(context) ? darkTextSecondary : textSecondary);
 
   // Backward-compatible aliases
   static const Color primaryColor = inkForest;
@@ -248,11 +267,21 @@ class AppTheme {
 
   /// Charcoal Botanical Dark Theme variant.
   static ThemeData get darkTheme {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: darkLightGreen,
+      brightness: Brightness.dark,
+      primary: darkLightGreen,
+      secondary: tealWash,
+      surface: darkSlateBase,
+      error: errorColor,
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      colorScheme: colorScheme,
       scaffoldBackgroundColor: darkSlateBase,
-      primaryColor: const Color(0xFF81C784),
+      primaryColor: darkLightGreen,
       fontFamily: fontZilla,
       textTheme: const TextTheme(
         displayLarge: TextStyle(fontFamily: fontCardo, fontWeight: FontWeight.bold, color: darkMintText),
@@ -267,16 +296,19 @@ class AppTheme {
         bodyLarge: TextStyle(fontFamily: fontZilla, color: Color(0xFFE8F5E9), fontSize: 15),
         bodyMedium: TextStyle(fontFamily: fontZilla, color: Color(0xFFD7EADB), fontSize: 13.5),
         bodySmall: TextStyle(fontFamily: fontZilla, color: Color(0xFFA5D6A7), fontSize: 12),
+        labelLarge: TextStyle(fontFamily: fontZilla, fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFFE8F5E9)),
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: darkSlateBase,
         foregroundColor: darkMintText,
         elevation: 0,
         titleTextStyle: TextStyle(fontFamily: fontCardo, color: darkMintText, fontSize: 20, fontWeight: FontWeight.bold),
+        iconTheme: IconThemeData(color: darkLightGreen),
       ),
       cardTheme: CardThemeData(
         color: darkSageCard,
         elevation: 2,
+        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(borderRadius),
           side: const BorderSide(color: darkBronzeBorder, width: 1.2),
@@ -284,13 +316,107 @@ class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: darkSageCard,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titleTextStyle: const TextStyle(fontFamily: fontCardo, color: darkMintText, fontSize: 19, fontWeight: FontWeight.bold),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: darkSageCard,
-        selectedItemColor: Color(0xFF81C784),
+        selectedItemColor: darkLightGreen,
         unselectedItemColor: Color(0xFF7D9789),
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+        elevation: 6,
+        selectedLabelStyle: TextStyle(fontFamily: fontZilla, fontWeight: FontWeight.bold, fontSize: 12),
+        unselectedLabelStyle: TextStyle(fontFamily: fontZilla, fontWeight: FontWeight.w500, fontSize: 12),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkSageCard,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+        hintStyle: const TextStyle(
+          color: darkTextSecondary,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        labelStyle: const TextStyle(
+          color: darkMintText,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIconColor: darkLightGreen,
+        suffixIconColor: darkTextSecondary,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: darkBronzeBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: darkBronzeBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(borderRadius),
+          borderSide: const BorderSide(color: darkLightGreen, width: 2),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: darkSageCard,
+        selectedColor: const Color(0xFF2E4D38),
+        labelStyle: const TextStyle(fontFamily: fontZilla, fontSize: 12.5, color: darkTextPrimary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        side: const BorderSide(color: darkBronzeBorder),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: darkLightGreen,
+          foregroundColor: darkSlateBase,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+          textStyle: const TextStyle(
+            fontFamily: fontZilla,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: darkLightGreen,
+          side: const BorderSide(color: darkLightGreen, width: 1.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+          textStyle: const TextStyle(
+            fontFamily: fontZilla,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: darkLightGreen,
+          textStyle: const TextStyle(
+            fontFamily: fontZilla,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        backgroundColor: darkSageCard,
+        contentTextStyle: const TextStyle(fontFamily: fontZilla, color: darkTextPrimary, fontSize: 13.5),
       ),
     );
   }

@@ -1179,6 +1179,7 @@ class _PracticeTabState extends State<PracticeTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final filtered = _filteredQuestions;
     final topics = _availableTopics;
 
@@ -1190,742 +1191,781 @@ class _PracticeTabState extends State<PracticeTab> {
         showBottomVine: true,
         opacity: 0.9,
         child: SafeArea(
-          child: Column(
-            children: [
+          child: CustomScrollView(
+            slivers: [
               if (_isFromCache)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  color: Colors.orange.shade800,
-                  child: const Text(
-                    'Offline, will sync',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                SliverToBoxAdapter(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    color: Colors.orange.shade800,
+                    child: const Text(
+                      'Offline, will sync',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
 
-              // Botanical Header & Actions
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  border: const Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1.2)),
-                ),
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isMobileHeader = constraints.maxWidth < 680;
-                        final actionButtons = <Widget>[
-                          // Action 1: Coverage Report
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                              side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.2),
-                            ),
-                            icon: const Icon(Icons.verified_rounded, size: 15, color: AppTheme.primaryColor),
-                            label: const Text(
-                              'Coverage',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: _showCoverageReportModal,
-                          ),
-                          // Action 2: Make from Summarized Notes
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                              side: const BorderSide(color: AppTheme.secondaryColor, width: 1.2),
-                              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.2),
-                            ),
-                            icon: const Icon(Icons.menu_book_rounded, size: 15),
-                            label: const Text(
-                              'From Notes',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: _isProcessingPdf ? null : _showNotesSelectionModal,
-                          ),
-                          // Action 3: Upload PDF / Notes
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 1,
-                            ),
-                            icon: _isProcessingPdf
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : const Icon(Icons.upload_file_rounded, size: 16),
-                            label: Text(
-                              _isProcessingPdf ? 'Analyzing...' : 'Upload PDF',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: _isProcessingPdf ? null : _uploadAndGenerateQuestions,
-                          ),
-                          PopupMenuButton<String>(
-                            tooltip: 'Export Questions & Flashcards',
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            color: Colors.white,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(9),
-                                border: Border.all(color: AppTheme.borderColor),
+              // Botanical Header & Actions that scrolls up naturally with page content (shown in Question Bank & Mastery modes)
+              if (_currentViewMode == 'bank' || _showMasteryDashboard) ...[
+                SliverToBoxAdapter(
+                  child: Container(
+                    decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkSlateBase : Colors.white.withValues(alpha: 0.92),
+                    border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor, width: 1.2)),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isMobileHeader = constraints.maxWidth < 680;
+                          final actionButtons = <Widget>[
+                            // Action 1: Coverage Report
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor, width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                backgroundColor: isDark ? const Color(0xFF1E3A25) : AppTheme.primaryLight.withValues(alpha: 0.2),
                               ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.ios_share_rounded, size: 15, color: AppTheme.primaryColor),
-                                  SizedBox(width: 5),
-                                  Text('Export', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                                ],
+                              icon: Icon(Icons.verified_rounded, size: 15, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                              label: const Text(
+                                'Coverage',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                               ),
+                              onPressed: _showCoverageReportModal,
                             ),
-                            onSelected: (action) => _handleExportAction(action, filtered),
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'anki',
+                            // Action 2: Make from Summarized Notes
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                side: BorderSide(color: isDark ? const Color(0xFF2E7D32) : AppTheme.secondaryColor, width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                backgroundColor: isDark ? const Color(0xFF1E3A25) : AppTheme.primaryLight.withValues(alpha: 0.2),
+                              ),
+                              icon: const Icon(Icons.menu_book_rounded, size: 15),
+                              label: const Text(
+                                'From Notes',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: _isProcessingPdf ? null : _showNotesSelectionModal,
+                            ),
+                            // Action 3: Upload PDF / Notes
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                elevation: 1,
+                              ),
+                              icon: _isProcessingPdf
+                                  ? SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: isDark ? AppTheme.darkSlateBase : Colors.white),
+                                    )
+                                  : const Icon(Icons.upload_file_rounded, size: 16),
+                              label: Text(
+                                _isProcessingPdf ? 'Analyzing...' : 'Upload PDF',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: _isProcessingPdf ? null : _uploadAndGenerateQuestions,
+                            ),
+                            PopupMenuButton<String>(
+                              tooltip: 'Export Questions & Flashcards',
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              color: isDark ? AppTheme.darkSageCard : Colors.white,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppTheme.darkSageCard : Colors.white,
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                                ),
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.style_rounded, size: 16, color: AppTheme.primaryColor),
-                                    SizedBox(width: 8),
-                                    Text('Export to Anki (.csv)', style: TextStyle(fontSize: 12.5)),
+                                    Icon(Icons.ios_share_rounded, size: 15, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                    const SizedBox(width: 5),
+                                    Text('Export', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
                                   ],
                                 ),
                               ),
-                              const PopupMenuItem(
-                                value: 'pdf_study',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFC62828)),
-                                    SizedBox(width: 8),
-                                    Text('Printable Study Sheet (PDF)', style: TextStyle(fontSize: 12.5)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ];
-
-                        if (isMobileHeader) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryLight,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 22),
+                              onSelected: (action) => _handleExportAction(action, filtered),
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: 'anki',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.style_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                      const SizedBox(width: 8),
+                                      Text('Export to Anki (.csv)', style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.charcoalSlate)),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Practice Questions & Assessment',
-                                          style: TextStyle(
-                                            fontFamily: 'serif',
-                                            fontSize: 16.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.primaryColor,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Practice slide concepts with verified academic answers',
-                                          style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondary),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                children: actionButtons,
-                              ),
-                            ],
-                          );
-                        }
-
-                        return Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryLight,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.eco_rounded, color: AppTheme.primaryColor, size: 22),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Practice Questions & Assessment',
-                                    style: TextStyle(
-                                      fontFamily: 'serif',
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Practice slide concepts with verified academic answers',
-                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ...actionButtons.map((btn) => Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: btn,
-                            )),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    // Dropdown Topic Filter
-                    Row(
-                      children: [
-                        const Text(
-                          'Filter by Topic:',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: AppTheme.backgroundColor,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.borderColor),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                isExpanded: true,
-                                value: topics.contains(_selectedTopic) ? _selectedTopic : 'All Topics',
-                                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.primaryColor),
-                                items: topics.map((t) {
-                                  final count = t == 'All Topics'
-                                      ? _allQuestions.length
-                                      : _allQuestions
-                                          .where((q) => q.topic.toLowerCase().trim() == t.toLowerCase().trim())
-                                          .length;
-                                  return DropdownMenuItem(
-                                    value: t,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            t,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontFamily: 'serif',
-                                              fontWeight: t == _selectedTopic ? FontWeight.bold : FontWeight.w500,
-                                              color: AppTheme.textPrimary,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          margin: const EdgeInsets.only(left: 8),
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: count > 0 ? AppTheme.primaryLight : Colors.grey.shade200,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            '$count',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: count > 0 ? AppTheme.primaryColor : Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  if (val != null && val != _selectedTopic) {
-                                    setState(() => _selectedTopic = val);
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    // Search Bar
-                    Container(
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.borderColor),
-                      ),
-                      child: TextField(
-                        style: const TextStyle(fontSize: 12.5),
-                        decoration: InputDecoration(
-                          hintText: 'Search questions, keywords, or topics...',
-                          hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.8)),
-                          prefixIcon: const Icon(Icons.search_rounded, size: 16, color: AppTheme.primaryColor),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 14),
-                                  onPressed: () => setState(() => _searchQuery = ''),
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        ),
-                        onChanged: (val) => setState(() => _searchQuery = val),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Controls Bar: Mode Switcher (Deck vs Bank) & Multi-Tier Filters
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEBF3ED).withValues(alpha: 0.95),
-                  border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
-                ),
-                child: Column(
-                  children: [
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isMobileControls = constraints.maxWidth < 720;
-                        final modeSwitcher = SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.borderColor),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildModeButton(
-                                  label: '📋 Question Bank',
-                                  isSelected: _currentViewMode == 'bank',
-                                  onTap: () => setState(() {
-                                    _currentViewMode = 'bank';
-                                    _reviewDueOnly = false;
-                                  }),
                                 ),
-                                _buildModeButton(
-                                  label: '🎴 Flashcard Deck',
-                                  isSelected: _currentViewMode == 'deck',
-                                  onTap: () => setState(() {
-                                    _currentViewMode = 'deck';
-                                    _reviewDueOnly = false;
-                                  }),
-                                ),
-                                _buildModeButton(
-                                  label: '🎓 Exam Simulator',
-                                  isSelected: _currentViewMode == 'exam',
-                                  onTap: () => setState(() {
-                                    _currentViewMode = 'exam';
-                                    _reviewDueOnly = false;
-                                  }),
-                                ),
-                                _buildModeButton(
-                                  label: '🧠 Adaptive Practice',
-                                  isSelected: _currentViewMode == 'adaptive',
-                                  onTap: () => setState(() {
-                                    _currentViewMode = 'adaptive';
-                                    _reviewDueOnly = false;
-                                  }),
+                                PopupMenuItem(
+                                  value: 'pdf_study',
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFC62828)),
+                                      const SizedBox(width: 8),
+                                      Text('Printable Study Sheet (PDF)', style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.charcoalSlate)),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                        );
+                          ];
 
-                        final masteryAndCount = Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: _showMasteryDashboard ? AppTheme.primaryLight : Colors.white,
-                                foregroundColor: AppTheme.primaryColor,
-                                side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              icon: const Icon(Icons.psychology_rounded, size: 16),
-                              label: Text(
-                                SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
-                                    ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
-                                    : 'Mastery Dashboard',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
-                            ),
-                            Text(
-                              '${filtered.length} Questions',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12.5,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                          ],
-                        );
+                          if (isMobileHeader) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(Icons.eco_rounded, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor, size: 22),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Practice Questions & Assessment',
+                                            style: TextStyle(
+                                              fontFamily: 'serif',
+                                              fontSize: 16.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Practice slide concepts with verified academic answers',
+                                            style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: actionButtons,
+                                ),
+                              ],
+                            );
+                          }
 
-                        if (isMobileControls) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          return Row(
                             children: [
-                              modeSwitcher,
-                              const SizedBox(height: 8),
-                              masteryAndCount,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.eco_rounded, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor, size: 22),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Practice Questions & Assessment',
+                                      style: TextStyle(
+                                        fontFamily: 'serif',
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Practice slide concepts with verified academic answers',
+                                      style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...actionButtons.map((btn) => Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: btn,
+                              )),
                             ],
                           );
-                        }
-
-                        return Row(
-                          children: [
-                            Expanded(child: modeSwitcher),
-                            const SizedBox(width: 12),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: _showMasteryDashboard ? AppTheme.primaryLight : Colors.white,
-                                foregroundColor: AppTheme.primaryColor,
-                                side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              icon: const Icon(Icons.psychology_rounded, size: 16),
-                              label: Text(
-                                SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
-                                    ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
-                                    : 'Mastery Dashboard',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${filtered.length} Questions',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12.5,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    // Multi-tier Filter Chips Row (Scrollable horizontally)
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      // Dropdown Topic Filter
+                      Row(
                         children: [
-                          const Text(
-                            'Type:',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                          ),
-                          const SizedBox(width: 6),
-                          _buildTypeFilterChip(
-                            label: 'All (${_allQuestions.length})',
-                            isSelected: _questionTypeFilter == 'all',
-                            onTap: () => setState(() => _questionTypeFilter = 'all'),
-                          ),
-                          const SizedBox(width: 5),
-                          _buildTypeFilterChip(
-                            label: 'MCQs (${_allQuestions.where((q) => q.isMcq).length})',
-                            isSelected: _questionTypeFilter == 'mcq',
-                            onTap: () => setState(() => _questionTypeFilter = 'mcq'),
-                          ),
-                          const SizedBox(width: 5),
-                          _buildTypeFilterChip(
-                            label: 'Conceptual (${_allQuestions.where((q) => !q.isMcq).length})',
-                            isSelected: _questionTypeFilter == 'qa',
-                            onTap: () => setState(() => _questionTypeFilter = 'qa'),
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Diff:',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                          ),
-                          const SizedBox(width: 5),
-                          ...['all', 'Easy', 'Medium', 'Hard'].map((diff) => Padding(
-                            padding: const EdgeInsets.only(right: 5),
-                            child: _buildTypeFilterChip(
-                              label: diff == 'all' ? 'All' : diff,
-                              isSelected: _selectedDifficulty.toLowerCase() == diff.toLowerCase(),
-                              onTap: () => setState(() => _selectedDifficulty = diff),
+                          Text(
+                            'Filter by Topic:',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
                             ),
-                          )),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Bloom:',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
                           ),
-                          const SizedBox(width: 5),
-                          ...['all', 'Remember', 'Understand', 'Apply', 'Analyze'].map((b) => Padding(
-                            padding: const EdgeInsets.only(right: 5),
-                            child: _buildTypeFilterChip(
-                              label: b == 'all' ? 'All' : b,
-                              isSelected: _selectedBloom.toLowerCase() == b.toLowerCase(),
-                              onTap: () => setState(() => _selectedBloom = b),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppTheme.darkSageCard : AppTheme.backgroundColor,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  isExpanded: true,
+                                  dropdownColor: isDark ? AppTheme.darkSageCard : Colors.white,
+                                  value: topics.contains(_selectedTopic) ? _selectedTopic : 'All Topics',
+                                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                  items: topics.map((t) {
+                                    final count = t == 'All Topics'
+                                        ? _allQuestions.length
+                                        : _allQuestions
+                                            .where((q) => q.topic.toLowerCase().trim() == t.toLowerCase().trim())
+                                            .length;
+                                    return DropdownMenuItem(
+                                      value: t,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              t,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontFamily: 'serif',
+                                                fontWeight: t == _selectedTopic ? FontWeight.bold : FontWeight.w500,
+                                                color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            margin: const EdgeInsets.only(left: 8),
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: isDark
+                                                  ? (count > 0 ? const Color(0xFF2E4D38) : const Color(0xFF1C2820))
+                                                  : (count > 0 ? AppTheme.primaryLight : Colors.grey.shade200),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              '$count',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark
+                                                    ? AppTheme.darkLightGreen
+                                                    : (count > 0 ? AppTheme.primaryColor : Colors.grey.shade600),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    if (val != null && val != _selectedTopic) {
+                                      setState(() => _selectedTopic = val);
+                                    }
+                                  },
+                                ),
+                              ),
                             ),
-                          )),
-                          const SizedBox(width: 5),
-                          _buildTypeFilterChip(
-                            label: '★ Saved (${_bookmarkedIds.length})',
-                            isSelected: _filterBookmarkedOnly,
-                            onTap: () => setState(() => _filterBookmarkedOnly = !_filterBookmarkedOnly),
                           ),
-                          if (_selectedTopic != 'All Topics' || _selectedDifficulty != 'all' || _selectedBloom != 'all' || _filterBookmarkedOnly || _searchQuery.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () => setState(() {
-                                _selectedTopic = 'All Topics';
-                                _selectedDifficulty = 'all';
-                                _selectedBloom = 'all';
-                                _filterBookmarkedOnly = false;
-                                _searchQuery = '';
-                              }),
-                              child: const Row(
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Search Bar
+                      Container(
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkSageCard : AppTheme.backgroundColor,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                        ),
+                        child: TextField(
+                          style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.charcoalSlate),
+                          decoration: InputDecoration(
+                            hintText: 'Search questions, keywords, or topics...',
+                            hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary.withValues(alpha: 0.8)),
+                            prefixIcon: Icon(Icons.search_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.clear, size: 14, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                                    onPressed: () => setState(() => _searchQuery = ''),
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          ),
+                          onChanged: (val) => setState(() => _searchQuery = val),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+              // Controls Bar: Mode Switcher (Deck vs Bank) & Multi-Tier Filters that scroll up with content
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF16251C) : const Color(0xFFEBF3ED).withValues(alpha: 0.95),
+                    border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
+                  ),
+                  child: Column(
+                    children: [
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isMobileControls = constraints.maxWidth < 720;
+                          final modeSwitcher = SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isDark ? AppTheme.darkSlateBase : Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.clear, size: 13, color: AppTheme.secondaryColor),
-                                  SizedBox(width: 3),
-                                  Text(
-                                    'Reset',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.secondaryColor,
-                                    ),
+                                  _buildModeButton(
+                                    label: '📋 Question Bank',
+                                    isSelected: _currentViewMode == 'bank',
+                                    isDark: isDark,
+                                    onTap: () => setState(() {
+                                      _currentViewMode = 'bank';
+                                      _reviewDueOnly = false;
+                                    }),
+                                  ),
+                                  _buildModeButton(
+                                    label: '🎴 Flashcard Deck',
+                                    isSelected: _currentViewMode == 'deck',
+                                    isDark: isDark,
+                                    onTap: () => setState(() {
+                                      _currentViewMode = 'deck';
+                                      _reviewDueOnly = false;
+                                    }),
+                                  ),
+                                  _buildModeButton(
+                                    label: '🎓 Exam Simulator',
+                                    isSelected: _currentViewMode == 'exam',
+                                    isDark: isDark,
+                                    onTap: () => setState(() {
+                                      _currentViewMode = 'exam';
+                                      _reviewDueOnly = false;
+                                    }),
+                                  ),
+                                  _buildModeButton(
+                                    label: '🧠 Adaptive Practice',
+                                    isSelected: _currentViewMode == 'adaptive',
+                                    isDark: isDark,
+                                    onTap: () => setState(() {
+                                      _currentViewMode = 'adaptive';
+                                      _reviewDueOnly = false;
+                                    }),
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ],
+                          );
+
+                          final masteryAndCount = Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: _showMasteryDashboard
+                                      ? (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight)
+                                      : (isDark ? AppTheme.darkSlateBase : Colors.white),
+                                  foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                  side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor, width: 1.2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.psychology_rounded, size: 16),
+                                label: Text(
+                                  SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
+                                      ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
+                                      : 'Mastery Dashboard',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                ),
+                                onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
+                              ),
+                              Text(
+                                '${filtered.length} Questions',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          );
+
+                          if (isMobileControls) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                modeSwitcher,
+                                const SizedBox(height: 8),
+                                masteryAndCount,
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            children: [
+                              Expanded(child: modeSwitcher),
+                              const SizedBox(width: 12),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: _showMasteryDashboard
+                                      ? (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight)
+                                      : (isDark ? AppTheme.darkSlateBase : Colors.white),
+                                  foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                  side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor, width: 1.2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.psychology_rounded, size: 16),
+                                label: Text(
+                                  SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
+                                      ? 'Mastery (${SpacedRepetitionService.instance.getDueQuestions(_allQuestions).length} Due)'
+                                      : 'Mastery Dashboard',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                ),
+                                onPressed: () => setState(() => _showMasteryDashboard = !_showMasteryDashboard),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${filtered.length} Questions',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    ),
+                      if (_currentViewMode == 'bank') ...[
+                        const SizedBox(height: 8),
+                        // Multi-tier Filter Chips Row (Scrollable horizontally)
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                            Text(
+                              'Type:',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                            ),
+                            const SizedBox(width: 6),
+                            _buildTypeFilterChip(
+                              label: 'All (${_allQuestions.length})',
+                              isSelected: _questionTypeFilter == 'all',
+                              isDark: isDark,
+                              onTap: () => setState(() => _questionTypeFilter = 'all'),
+                            ),
+                            const SizedBox(width: 5),
+                            _buildTypeFilterChip(
+                              label: 'MCQs (${_allQuestions.where((q) => q.isMcq).length})',
+                              isSelected: _questionTypeFilter == 'mcq',
+                              isDark: isDark,
+                              onTap: () => setState(() => _questionTypeFilter = 'mcq'),
+                            ),
+                            const SizedBox(width: 5),
+                            _buildTypeFilterChip(
+                              label: 'Conceptual (${_allQuestions.where((q) => !q.isMcq).length})',
+                              isSelected: _questionTypeFilter == 'qa',
+                              isDark: isDark,
+                              onTap: () => setState(() => _questionTypeFilter = 'qa'),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Diff:',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                            ),
+                            const SizedBox(width: 5),
+                            ...['all', 'Easy', 'Medium', 'Hard'].map((diff) => Padding(
+                              padding: const EdgeInsets.only(right: 5),
+                              child: _buildTypeFilterChip(
+                                label: diff == 'all' ? 'All' : diff,
+                                isSelected: _selectedDifficulty.toLowerCase() == diff.toLowerCase(),
+                                isDark: isDark,
+                                onTap: () => setState(() => _selectedDifficulty = diff),
+                              ),
+                            )),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Bloom:',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                            ),
+                            const SizedBox(width: 5),
+                            ...['all', 'Remember', 'Understand', 'Apply', 'Analyze'].map((b) => Padding(
+                              padding: const EdgeInsets.only(right: 5),
+                              child: _buildTypeFilterChip(
+                                label: b == 'all' ? 'All' : b,
+                                isSelected: _selectedBloom.toLowerCase() == b.toLowerCase(),
+                                isDark: isDark,
+                                onTap: () => setState(() => _selectedBloom = b),
+                              ),
+                            )),
+                            const SizedBox(width: 5),
+                            _buildTypeFilterChip(
+                              label: '★ Saved (${_bookmarkedIds.length})',
+                              isSelected: _filterBookmarkedOnly,
+                              isDark: isDark,
+                              onTap: () => setState(() => _filterBookmarkedOnly = !_filterBookmarkedOnly),
+                            ),
+                            if (_selectedTopic != 'All Topics' || _selectedDifficulty != 'all' || _selectedBloom != 'all' || _filterBookmarkedOnly || _searchQuery.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () => setState(() {
+                                  _selectedTopic = 'All Topics';
+                                  _selectedDifficulty = 'all';
+                                  _selectedBloom = 'all';
+                                  _filterBookmarkedOnly = false;
+                                  _searchQuery = '';
+                                }),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.clear, size: 13, color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      'Reset',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+            ),
 
-              // Main Body: Interactive MCQ Flashcard Deck or Question Bank List
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
-                    : _showMasteryDashboard
-                        ? SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: MasteryDashboardView(
-                              questions: _allQuestions,
-                              onStartAdaptivePractice: () {
-                                setState(() {
-                                  _currentViewMode = 'adaptive';
-                                  _reviewDueOnly = false;
-                                  _showMasteryDashboard = false;
-                                });
-                              },
-                              onReviewDue: () {
-                                setState(() {
-                                  _currentViewMode = 'deck';
-                                  _reviewDueOnly = true;
-                                  _showMasteryDashboard = false;
-                                });
-                              },
-                              onPracticeTopic: (topic) {
-                                setState(() {
-                                  _selectedTopic = topic;
-                                  _currentViewMode = 'adaptive';
-                                  _reviewDueOnly = false;
-                                  _showMasteryDashboard = false;
-                                });
-                              },
-                              onClose: () => setState(() => _showMasteryDashboard = false),
+              // Main Body: Slivers allow entire content and headers to scroll smoothly together!
+              if (_isLoading)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator(color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
+                )
+              else if (_showMasteryDashboard)
+                SliverToBoxAdapter(
+                  child: MasteryDashboardView(
+                    questions: _allQuestions,
+                    onStartAdaptivePractice: () {
+                      setState(() {
+                        _currentViewMode = 'adaptive';
+                        _reviewDueOnly = false;
+                        _showMasteryDashboard = false;
+                      });
+                    },
+                    onReviewDue: () {
+                      setState(() {
+                        _currentViewMode = 'deck';
+                        _reviewDueOnly = true;
+                        _showMasteryDashboard = false;
+                      });
+                    },
+                    onPracticeTopic: (topic) {
+                      setState(() {
+                        _selectedTopic = topic;
+                        _currentViewMode = 'adaptive';
+                        _reviewDueOnly = false;
+                        _showMasteryDashboard = false;
+                      });
+                    },
+                    onClose: () => setState(() => _showMasteryDashboard = false),
+                  ),
+                )
+              else if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkSageCard : Colors.white.withValues(alpha: 0.94),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor, width: 1.3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isDark ? Colors.black : AppTheme.primaryColor).withValues(alpha: isDark ? 0.25 : 0.05),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
                             ),
-                          )
-                        : filtered.isEmpty
-                        ? Center(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(24),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-                                constraints: const BoxConstraints(maxWidth: 480),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.94),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(color: AppTheme.borderColor, width: 1.3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(18),
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.primaryLight,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.eco_rounded, size: 44, color: AppTheme.primaryColor),
-                                    ),
-                                    const SizedBox(height: 18),
-                                    const Text(
-                                      'No Practice Questions Found',
-                                      style: TextStyle(
-                                        fontFamily: 'serif',
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _selectedTopic == 'All Topics'
-                                          ? 'Create questions from your summarized notes, or upload a presentation PDF to generate questions for each slide.'
-                                          : 'No practice questions are available for "$_selectedTopic" yet.',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-                                    ),
-                                    const SizedBox(height: 24),
-                                    Wrap(
-                                      alignment: WrapAlignment.center,
-                                      spacing: 12,
-                                      runSpacing: 10,
-                                      children: [
-                                        OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: AppTheme.primaryColor,
-                                            side: const BorderSide(color: AppTheme.secondaryColor, width: 1.3),
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                            backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.2),
-                                          ),
-                                          icon: const Icon(Icons.menu_book_rounded, size: 16),
-                                          label: const Text(
-                                            'From Summarized Notes',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                          ),
-                                          onPressed: _showNotesSelectionModal,
-                                        ),
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.primaryColor,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                            elevation: 1,
-                                          ),
-                                          icon: const Icon(Icons.upload_file_rounded, size: 16),
-                                          label: const Text(
-                                            'Upload PDF / Notes',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                          ),
-                                          onPressed: _uploadAndGenerateQuestions,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.eco_rounded, size: 44, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              'No Practice Questions Found',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
                               ),
                             ),
-                          )
-                        : _currentViewMode == 'exam'
-                            ? ExamSimulationView(
-                                availableQuestions: filtered.isNotEmpty ? filtered : _allQuestions,
-                                initialTopic: _selectedTopic,
-                                onExit: () => setState(() => _currentViewMode = 'bank'),
+                            const SizedBox(height: 8),
+                            Text(
+                              _selectedTopic == 'All Topics'
+                                  ? 'Create questions from your summarized notes, or upload a presentation PDF to generate questions for each slide.'
+                                  : 'No practice questions are available for "$_selectedTopic" yet.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary, height: 1.4),
+                            ),
+                            const SizedBox(height: 24),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 12,
+                              runSpacing: 10,
+                              children: [
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                    side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor, width: 1.3),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    backgroundColor: isDark ? const Color(0xFF1E3A25) : AppTheme.primaryLight.withValues(alpha: 0.2),
+                                  ),
+                                  icon: const Icon(Icons.menu_book_rounded, size: 16),
+                                  label: const Text(
+                                    'From Summarized Notes',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  onPressed: _showNotesSelectionModal,
+                                ),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                                    foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    elevation: 1,
+                                  ),
+                                  icon: const Icon(Icons.upload_file_rounded, size: 16),
+                                  label: const Text(
+                                    'Upload PDF / Notes',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  onPressed: _uploadAndGenerateQuestions,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else if (_currentViewMode == 'exam')
+                SliverToBoxAdapter(
+                  child: ExamSimulationView(
+                    availableQuestions: filtered.isNotEmpty ? filtered : _allQuestions,
+                    initialTopic: _selectedTopic,
+                    onExit: () => setState(() => _currentViewMode = 'bank'),
+                  ),
+                )
+              else if (_currentViewMode == 'deck' || _currentViewMode == 'adaptive')
+                SliverToBoxAdapter(
+                  child: _FlashcardDeckView(
+                    questions: _reviewDueOnly
+                        ? (SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
+                            ? SpacedRepetitionService.instance.getDueQuestions(_allQuestions)
+                            : filtered)
+                        : (_currentViewMode == 'adaptive'
+                            ? SpacedRepetitionService.instance.generateAdaptiveQueue(
+                                filtered.isNotEmpty ? filtered : _allQuestions,
+                                preferredTopic: _selectedTopic,
                               )
-                            : (_currentViewMode == 'deck' || _currentViewMode == 'adaptive')
-                                ? _FlashcardDeckView(
-                                    questions: _reviewDueOnly
-                                        ? (SpacedRepetitionService.instance.getDueQuestions(_allQuestions).isNotEmpty
-                                            ? SpacedRepetitionService.instance.getDueQuestions(_allQuestions)
-                                            : filtered)
-                                        : (_currentViewMode == 'adaptive'
-                                            ? SpacedRepetitionService.instance.generateAdaptiveQueue(
-                                                filtered.isNotEmpty ? filtered : _allQuestions,
-                                                preferredTopic: _selectedTopic,
-                                              )
-                                            : filtered),
-                                    topic: _reviewDueOnly
-                                        ? 'Due for Review'
-                                        : (_currentViewMode == 'adaptive' ? 'Adaptive: $_selectedTopic' : _selectedTopic),
-                                    onExitFlashcards: () => setState(() {
-                                      _currentViewMode = 'bank';
-                                      _reviewDueOnly = false;
-                                    }),
-                                  )
-                                : ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                                itemCount: filtered.length,
-                                separatorBuilder: (_, _) => const SizedBox(height: 14),
-                                itemBuilder: (context, index) {
-                                  final q = filtered[index];
-                                  return _PracticeQuestionItem(
-                                    index: index + 1,
-                                    question: q,
-                                    isBookmarked: _bookmarkedIds.contains(q.id),
-                                    onToggleBookmark: () {
-                                      setState(() {
-                                        if (_bookmarkedIds.contains(q.id)) {
-                                          _bookmarkedIds.remove(q.id);
-                                        } else {
-                                          _bookmarkedIds.add(q.id);
-                                        }
-                                      });
-                                    },
-                                    onReportQuestion: () => _showReportQuestionDialog(q),
-                                    onRegenerateQuestion: () => _handleQuestionAction(q, 'regenerate'),
-                                    onMakeHarder: () => _handleQuestionAction(q, 'harder'),
-                                    onMakeEasier: () => _handleQuestionAction(q, 'easier'),
-                                  );
-                                },
-                              ),
-              ),
+                            : filtered),
+                    topic: _reviewDueOnly
+                        ? 'Due for Review'
+                        : (_currentViewMode == 'adaptive' ? 'Adaptive: $_selectedTopic' : _selectedTopic),
+                    onExitFlashcards: () => setState(() {
+                      _currentViewMode = 'bank';
+                      _reviewDueOnly = false;
+                    }),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 80),
+                  sliver: SliverList.separated(
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      final q = filtered[index];
+                      return _PracticeQuestionItem(
+                        index: index + 1,
+                        question: q,
+                        isBookmarked: _bookmarkedIds.contains(q.id),
+                        onToggleBookmark: () {
+                          setState(() {
+                            if (_bookmarkedIds.contains(q.id)) {
+                              _bookmarkedIds.remove(q.id);
+                            } else {
+                              _bookmarkedIds.add(q.id);
+                            }
+                          });
+                        },
+                        onReportQuestion: () => _showReportQuestionDialog(q),
+                        onRegenerateQuestion: () => _handleQuestionAction(q, 'regenerate'),
+                        onMakeHarder: () => _handleQuestionAction(q, 'harder'),
+                        onMakeEasier: () => _handleQuestionAction(q, 'easier'),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -1937,6 +1977,7 @@ class _PracticeTabState extends State<PracticeTab> {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
+    bool isDark = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -1944,7 +1985,9 @@ class _PracticeTabState extends State<PracticeTab> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          color: isSelected
+              ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
         ),
         child: Text(
@@ -1952,7 +1995,9 @@ class _PracticeTabState extends State<PracticeTab> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.white : AppTheme.textPrimary,
+            color: isSelected
+                ? (isDark ? AppTheme.darkSlateBase : Colors.white)
+                : (isDark ? const Color(0xFFC5DCC6) : AppTheme.textPrimary),
           ),
         ),
       ),
@@ -1963,6 +2008,7 @@ class _PracticeTabState extends State<PracticeTab> {
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
+    bool isDark = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -1970,10 +2016,14 @@ class _PracticeTabState extends State<PracticeTab> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.white,
+          color: isSelected
+              ? (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkSlateBase : Colors.white),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+            color: isSelected
+                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
           ),
         ),
         child: Text(
@@ -1981,7 +2031,9 @@ class _PracticeTabState extends State<PracticeTab> {
           style: TextStyle(
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : AppTheme.textSecondary,
+            color: isSelected
+                ? (isDark ? AppTheme.darkLightGreen : Colors.white)
+                : (isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
           ),
         ),
       ),
@@ -2301,16 +2353,21 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
 
   Widget _buildConfidenceChip(double val, String label) {
     final isSelected = (_currentConfidence - val).abs() < 0.05;
+    final isDark = AppTheme.isDark(context);
     return InkWell(
       onTap: () => setState(() => _currentConfidence = val),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryLight : Colors.white,
+          color: isSelected
+              ? (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight)
+              : (isDark ? AppTheme.darkSlateBase : Colors.white),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+            color: isSelected
+                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
             width: isSelected ? 1.4 : 1.0,
           ),
         ),
@@ -2319,7 +2376,9 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
           style: TextStyle(
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+            color: isSelected
+                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                : (isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
           ),
         ),
       ),
@@ -2540,8 +2599,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
         }
       },
       child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
           child: Column(
             children: [
               // 3D Animated Flip Card
@@ -2566,27 +2625,33 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                   );
                 },
               ),
-              const SizedBox(height: 12),
-              // Keyboard Shortcuts Hint Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.borderColor),
+              // Keyboard Shortcuts Hint Bar (Only on Desktop with hardware keyboards)
+              if (MediaQuery.of(context).size.width >= 600) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppTheme.isDark(context) ? AppTheme.darkSlateBase : Colors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.isDark(context) ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.keyboard_rounded, size: 15, color: AppTheme.isDark(context) ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Shortcuts: [Space] Flip Card • [1-4] Option / Rate • [← / →] Prev / Next Card',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.isDark(context) ? const Color(0xFFA5D6A7) : AppTheme.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.keyboard_rounded, size: 15, color: AppTheme.secondaryColor),
-                    SizedBox(width: 8),
-                    Text(
-                      'Shortcuts: [Space] Flip Card • [1-4] Option / Rate • [← / →] Prev / Next Card',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ],
           ),
         ),
@@ -2595,6 +2660,9 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildFrontSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
+    final isDark = AppTheme.isDark(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 680),
       child: WatercolorBlobContainer(
@@ -2608,103 +2676,180 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               child: LinearProgressIndicator(
                 value: (_currentIndex + 1) / widget.questions.length,
                 minHeight: 5,
-                backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
-                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
+                backgroundColor: isDark ? const Color(0xFF2E4D38) : AppTheme.mintWash.withValues(alpha: 0.35),
+                valueColor: AlwaysStoppedAnimation<Color>(isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
               ),
             ),
           Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Card ${_currentIndex + 1} of ${widget.questions.length}',
-                        style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryLight,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        q.topic,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildSrsBadge(q),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.flip_rounded, size: 20, color: AppTheme.primaryColor),
-                      tooltip: 'Flip Card (Space)',
-                      onPressed: _toggleFlip,
-                    ),
-                    const SizedBox(width: 4),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
-                        side: BorderSide(color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.borderColor),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        backgroundColor: _isTimedMode ? const Color(0xFFFCE4EC) : Colors.transparent,
-                      ),
-                      icon: Icon(_isTimedMode ? Icons.timer_rounded : Icons.timer_outlined, size: 14, color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor),
-                      label: Text(_isTimedMode ? '$_secondsLeft s' : '30s Timer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor)),
-                      onPressed: _toggleTimedMode,
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF81C784)),
-                      ),
-                      child: Row(
+                if (isMobile)
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.spaceBetween,
+                    children: [
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star_rounded, size: 14, color: Color(0xFF2E7D32)),
-                          const SizedBox(width: 3),
-                          Text('Score: $_score', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Card ${_currentIndex + 1}/${widget.questions.length}',
+                              style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                            ),
+                            child: Text(
+                              q.topic,
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _buildSrsBadge(q),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      icon: const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.secondaryColor),
-                      tooltip: 'Restart Deck',
-                      onPressed: _restartDeck,
-                    ),
-                  ],
-                ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.star_rounded, size: 13, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)),
+                                const SizedBox(width: 3),
+                                Text('Score: $_score', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32))),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.flip_rounded, size: 18, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                            tooltip: 'Flip Card',
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            onPressed: _toggleFlip,
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.refresh_rounded, size: 18, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
+                            tooltip: 'Restart Deck',
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            onPressed: _restartDeck,
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Card ${_currentIndex + 1} of ${widget.questions.length}',
+                          style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                        ),
+                        child: Text(
+                          q.topic,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildSrsBadge(q),
+                      const Spacer(),
+                      IconButton(
+                        icon: Icon(Icons.flip_rounded, size: 20, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                        tooltip: 'Flip Card (Space)',
+                        onPressed: _toggleFlip,
+                      ),
+                      const SizedBox(width: 4),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          side: BorderSide(color: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          backgroundColor: _isTimedMode ? const Color(0xFFFCE4EC) : Colors.transparent,
+                        ),
+                        icon: Icon(_isTimedMode ? Icons.timer_rounded : Icons.timer_outlined, size: 14, color: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
+                        label: Text(_isTimedMode ? '$_secondsLeft s' : '30s Timer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor))),
+                        onPressed: _toggleTimedMode,
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)),
+                            const SizedBox(width: 3),
+                            Text('Score: $_score', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32))),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        icon: Icon(Icons.refresh_rounded, size: 20, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
+                        tooltip: 'Restart Deck',
+                        onPressed: _restartDeck,
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: Icon(Icons.eco_rounded, size: 20, color: AppTheme.primaryColor),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Icon(Icons.eco_rounded, size: 20, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         q.question,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: AppTheme.fontCardo,
-                          fontSize: 17.5,
+                          fontSize: isMobile ? 16 : 17.5,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.inkForest,
+                          color: isDark ? const Color(0xFFF1F8F2) : AppTheme.inkForest,
                           height: 1.4,
                         ),
                       ),
@@ -2715,35 +2860,38 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                 if (!hasAnswered) ...[
                   Row(
                     children: [
-                      const Text('Confidence:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                      Text('Confidence:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary)),
                       const SizedBox(width: 8),
-                      _buildConfidenceChip(0.25, '💭 Guessing (25%)'),
+                      _buildConfidenceChip(0.25, '💭 Guess (25%)'),
                       const SizedBox(width: 6),
-                      _buildConfidenceChip(0.50, '🤔 50/50 (50%)'),
+                      _buildConfidenceChip(0.50, '🤔 50/50'),
                       const SizedBox(width: 6),
-                      _buildConfidenceChip(1.0, '🎯 100% Sure'),
+                      _buildConfidenceChip(1.0, '🎯 100%'),
                     ],
                   ),
                   const SizedBox(height: 16),
                 ],
                 if (isMcq) ...[
-                  const Text('Select the correct answer (or press 1-4):', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                  Text(
+                    isMobile ? 'Select the correct answer:' : 'Select the correct answer (or press 1-4):',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                  ),
                   const SizedBox(height: 10),
                   ...List.generate(q.options!.length, (optIdx) {
                     final optText = q.options![optIdx];
                     final isCorrectOpt = optIdx == q.correctOptionIndex;
                     final isSelectedOpt = optIdx == chosenOption;
-                    Color bgColor = Colors.white;
-                    Color borderColor = AppTheme.borderColor;
+                    Color bgColor = isDark ? AppTheme.darkSlateBase : Colors.white;
+                    Color borderColor = isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor;
                     Widget trailingIcon = const SizedBox.shrink();
 
                     if (hasAnswered) {
                       if (isCorrectOpt) {
-                        bgColor = const Color(0xFFE8F5E9);
-                        borderColor = const Color(0xFF2E7D32);
-                        trailingIcon = const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 18);
+                        bgColor = isDark ? const Color(0xFF1E3A25) : const Color(0xFFE8F5E9);
+                        borderColor = isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32);
+                        trailingIcon = Icon(Icons.check_circle_rounded, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32), size: 18);
                       } else if (isSelectedOpt) {
-                        bgColor = const Color(0xFFFFEBEE);
+                        bgColor = isDark ? const Color(0xFF381E1E) : const Color(0xFFFFEBEE);
                         borderColor = AppTheme.errorColor;
                         trailingIcon = const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 18);
                       }
@@ -2773,7 +2921,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                       ? const Color(0xFF2E7D32)
                                       : hasAnswered && isSelectedOpt
                                           ? AppTheme.errorColor
-                                          : AppTheme.primaryLight,
+                                          : (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Text(
@@ -2781,7 +2929,9 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: hasAnswered && (isCorrectOpt || isSelectedOpt) ? Colors.white : AppTheme.primaryColor,
+                                    color: hasAnswered && (isCorrectOpt || isSelectedOpt)
+                                        ? Colors.white
+                                        : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                                   ),
                                 ),
                               ),
@@ -2792,7 +2942,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                   style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: hasAnswered && isCorrectOpt ? FontWeight.bold : FontWeight.w500,
-                                    color: AppTheme.textPrimary,
+                                    color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
                                     height: 1.35,
                                   ),
                                 ),
@@ -2809,34 +2959,37 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF9FBF9),
+                      color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF9FBF9),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderColor),
+                      border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.touch_app_rounded, size: 36, color: AppTheme.secondaryColor),
+                        Icon(Icons.touch_app_rounded, size: 36, color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           'Conceptual Retrieval Prompt',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Recall the explanation and rubric points in your mind, then tap below or press Space to verify.',
+                        Text(
+                          'Recall the explanation and rubric points in your mind, then tap below to verify.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                         ),
                         const SizedBox(height: 14),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
+                            backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                            foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.flip_rounded, size: 16),
-                          label: const Text('Flip to Reveal Answer [Space]', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                          label: Text(
+                            isMobile ? 'Flip to Reveal Answer' : 'Flip to Reveal Answer [Space]',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                          ),
                           onPressed: _toggleFlip,
                         ),
                       ],
@@ -2854,12 +3007,15 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildBackSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
+    final isDark = AppTheme.isDark(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 680),
       child: WatercolorBlobContainer(
         variant: BlobVariant.creamPaper,
         padding: EdgeInsets.zero,
-        borderColor: AppTheme.sageBlob,
+        borderColor: isDark ? AppTheme.darkBronzeBorder : AppTheme.sageBlob,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2868,82 +3024,142 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               child: LinearProgressIndicator(
                 value: (_currentIndex + 1) / widget.questions.length,
                 minHeight: 5,
-                backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
-                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
+                backgroundColor: isDark ? const Color(0xFF2E4D38) : AppTheme.mintWash.withValues(alpha: 0.35),
+                valueColor: AlwaysStoppedAnimation<Color>(isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
               ),
             ),
           Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2E7D32),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
+                if (isMobile)
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    alignment: WrapAlignment.spaceBetween,
+                    children: [
+                      Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.check_circle_rounded, size: 13, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text('Answer & Rubric', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2E4D38) : const Color(0xFF2E7D32),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text('Answer & Rubric', style: TextStyle(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                            ),
+                            child: Text(
+                              q.topic,
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryLight,
-                        borderRadius: BorderRadius.circular(8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                              side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: Icon(Icons.flip_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                            label: const Text('Question', style: TextStyle(fontSize: 11)),
+                            onPressed: _toggleFlip,
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        q.topic,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2E4D38) : const Color(0xFF2E7D32),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle_rounded, size: 13, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text('Answer & Rubric', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Spacer(),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primaryColor,
-                        side: const BorderSide(color: AppTheme.borderColor),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                        ),
+                        child: Text(
+                          q.topic,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                        ),
                       ),
-                      icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
-                      label: const Text("I don't get this → Explain", style: TextStyle(fontSize: 11)),
-                      onPressed: () {
-                        final wrongOptText = (hasAnswered && chosenOption != null && chosenOption >= 0 && chosenOption != q.correctOptionIndex && q.options != null && chosenOption < q.options!.length)
-                            ? q.options![chosenOption]
-                            : null;
-                        ExplainSimplyDialog.show(
-                          context: context,
-                          topic: q.topic,
-                          subtopic: q.subtopic,
-                          sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
-                          sourcePage: q.sourcePage,
-                          wrongOptionChosen: wrongOptText,
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 6),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primaryColor,
-                        side: const BorderSide(color: AppTheme.borderColor),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                          side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
+                        label: const Text("I don't get this → Explain", style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          final wrongOptText = (hasAnswered && chosenOption != null && chosenOption >= 0 && chosenOption != q.correctOptionIndex && q.options != null && chosenOption < q.options!.length)
+                              ? q.options![chosenOption]
+                              : null;
+                          ExplainSimplyDialog.show(
+                            context: context,
+                            topic: q.topic,
+                            subtopic: q.subtopic,
+                            sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
+                            sourcePage: q.sourcePage,
+                            wrongOptionChosen: wrongOptText,
+                          );
+                        },
                       ),
-                      icon: const Icon(Icons.flip_rounded, size: 14),
-                      label: const Text('Question', style: TextStyle(fontSize: 11)),
-                      onPressed: _toggleFlip,
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 6),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                          side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: Icon(Icons.flip_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                        label: const Text('Question', style: TextStyle(fontSize: 11)),
+                        onPressed: _toggleFlip,
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 14),
                 if (isMcq) ...[
                   if (hasAnswered) _buildHypercorrectionBanner(q, chosenOption ?? -1),
@@ -2951,10 +3167,14 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: chosenOption == q.correctOptionIndex ? const Color(0xFFF1F8F4) : const Color(0xFFFFF7F7),
+                      color: chosenOption == q.correctOptionIndex
+                          ? (isDark ? const Color(0xFF1B3623) : const Color(0xFFF1F8F4))
+                          : (isDark ? const Color(0xFF381E1E) : const Color(0xFFFFF7F7)),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: chosenOption == q.correctOptionIndex ? const Color(0xFFA5D6A7) : const Color(0xFFFFCDD2),
+                        color: chosenOption == q.correctOptionIndex
+                            ? (isDark ? AppTheme.darkLightGreen : const Color(0xFFA5D6A7))
+                            : (isDark ? const Color(0xFFE57373) : const Color(0xFFFFCDD2)),
                         width: 1.2,
                       ),
                     ),
@@ -2966,7 +3186,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                             Icon(
                               chosenOption == q.correctOptionIndex ? Icons.check_circle_rounded : Icons.info_outline_rounded,
                               size: 16,
-                              color: chosenOption == q.correctOptionIndex ? const Color(0xFF2E7D32) : AppTheme.errorColor,
+                              color: chosenOption == q.correctOptionIndex ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? const Color(0xFFEF9A9A) : AppTheme.errorColor),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -2976,7 +3196,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12.5,
-                                color: chosenOption == q.correctOptionIndex ? const Color(0xFF2E7D32) : AppTheme.errorColor,
+                                color: chosenOption == q.correctOptionIndex ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? const Color(0xFFEF9A9A) : AppTheme.errorColor),
                               ),
                             ),
                           ],
@@ -2984,27 +3204,27 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                         const SizedBox(height: 6),
                         Text(
                           q.explanation != null && q.explanation!.isNotEmpty ? q.explanation! : q.answer,
-                          style: const TextStyle(fontSize: 12.5, color: AppTheme.textPrimary, height: 1.45),
+                          style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.45),
                         ),
                         if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: isDark ? AppTheme.darkSlateBase : Colors.white,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.borderColor),
+                              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(Icons.rule_rounded, size: 14, color: AppTheme.secondaryColor),
-                                    SizedBox(width: 6),
+                                    Icon(Icons.rule_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
+                                    const SizedBox(width: 6),
                                     Text(
                                       'Distractor Analysis (Why others are wrong):',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                                     ),
                                   ],
                                 ),
@@ -3018,13 +3238,13 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.primaryLight,
+                                            color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
                                             borderRadius: BorderRadius.circular(4),
                                           ),
-                                          child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.primaryColor)),
+                                          child: Text(e.key, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
                                         ),
                                         const SizedBox(width: 8),
-                                        Expanded(child: Text(e.value, style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimary, height: 1.35))),
+                                        Expanded(child: Text(e.value, style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.35))),
                                       ],
                                     ),
                                   );
@@ -3085,30 +3305,38 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildNavigationRow() {
+    final isDark = AppTheme.isDark(context);
+    final isMobile = MediaQuery.of(context).size.width < 600;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.inkForest,
-            side: const BorderSide(color: AppTheme.inkForest, width: 1.2),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest,
+            side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest, width: 1.2),
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 16, vertical: 10),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            backgroundColor: isDark ? const Color(0xFF1E3827).withValues(alpha: 0.3) : Colors.transparent,
           ),
           icon: const Icon(Icons.arrow_back_rounded, size: 16),
-          label: const Text('Previous [←]', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold)),
+          label: Text(
+            isMobile ? 'Previous' : 'Previous [←]',
+            style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold),
+          ),
           onPressed: _currentIndex > 0 ? _prevCard : null,
         ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.inkForest,
-            foregroundColor: AppTheme.creamPaper,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest,
+            foregroundColor: isDark ? AppTheme.darkSlateBase : AppTheme.creamPaper,
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 20, vertical: 10),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             elevation: 2,
           ),
           label: Text(
-            _currentIndex < widget.questions.length - 1 ? 'Next Card [→]' : 'Finish Deck',
+            _currentIndex < widget.questions.length - 1
+                ? (isMobile ? 'Next Card' : 'Next Card [→]')
+                : 'Finish Deck',
             style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, fontWeight: FontWeight.bold),
           ),
           icon: Icon(
@@ -3122,6 +3350,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildSm2RatingSection(Question q, bool isCorrect) {
+    final isDark = AppTheme.isDark(context);
     final intervals = SpacedRepetitionService.instance.previewNextIntervals(
       currentInterval: q.srsInterval,
       currentRepetitions: q.srsRepetitions,
@@ -3132,26 +3361,26 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7FBF9),
+        color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF7FBF9),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.psychology_alt_rounded, size: 16, color: AppTheme.primaryColor),
+              Icon(Icons.psychology_alt_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Spaced Repetition (SM-2) Schedule:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
               ),
               const Spacer(),
               if (alreadyRated != null)
                 Text(
                   'Scheduled: ${alreadyRated.ratingLabel} (${alreadyRated.interval}d)',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryColor),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                 ),
             ],
           ),
@@ -3161,8 +3390,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Again',
                 days: intervals['Again']!,
-                color: const Color(0xFFC62828),
-                bgColor: const Color(0xFFFFEBEE),
+                color: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828),
+                bgColor: isDark ? const Color(0xFF381E1E) : const Color(0xFFFFEBEE),
                 isSelected: alreadyRated?.grade == 1,
                 onTap: () => _recordSrsRating(1, q, false),
               ),
@@ -3170,8 +3399,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Hard',
                 days: intervals['Hard']!,
-                color: const Color(0xFFE65100),
-                bgColor: const Color(0xFFFFF3E0),
+                color: isDark ? const Color(0xFFFFCC80) : const Color(0xFFE65100),
+                bgColor: isDark ? const Color(0xFF382A1A) : const Color(0xFFFFF3E0),
                 isSelected: alreadyRated?.grade == 3,
                 onTap: () => _recordSrsRating(3, q, isCorrect),
               ),
@@ -3179,8 +3408,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Good',
                 days: intervals['Good']!,
-                color: const Color(0xFF2E7D32),
-                bgColor: const Color(0xFFE8F5E9),
+                color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32),
+                bgColor: isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9),
                 isSelected: alreadyRated?.grade == 4,
                 onTap: () => _recordSrsRating(4, q, isCorrect),
               ),
@@ -3188,8 +3417,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Easy',
                 days: intervals['Easy']!,
-                color: const Color(0xFF0277BD),
-                bgColor: const Color(0xFFE1F5FE),
+                color: isDark ? const Color(0xFF90CAF9) : const Color(0xFF0277BD),
+                bgColor: isDark ? const Color(0xFF1A2E3D) : const Color(0xFFE1F5FE),
                 isSelected: alreadyRated?.grade == 5,
                 onTap: () => _recordSrsRating(5, q, true),
               ),
@@ -3323,6 +3552,7 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final q = widget.question;
 
     return Column(
@@ -3333,24 +3563,24 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F9F5),
+              color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF4F9F5),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFB8D7C2), width: 1.2),
+              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : const Color(0xFFB8D7C2), width: 1.2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppTheme.primaryColor),
+                    Icon(Icons.check_circle_outline_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                     const SizedBox(width: 6),
-                    const Text(
+                    Text(
                       '🌿 Verified Academic Answer:',
                       style: TextStyle(
                         fontFamily: 'serif',
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: AppTheme.primaryColor,
+                        color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
                       ),
                     ),
                     const Spacer(),
@@ -3358,12 +3588,12 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryLight,
+                          color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           'p. ${q.sourcePage}',
-                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                         ),
                       ),
                   ],
@@ -3371,10 +3601,10 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                 const SizedBox(height: 8),
                 Text(
                   q.answer,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'serif',
                     fontSize: 13,
-                    color: AppTheme.textPrimary,
+                    color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
                     height: 1.5,
                   ),
                 ),
@@ -3385,16 +3615,16 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? const Color(0xFF1B2E22) : Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.borderColor),
+                      border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Grading Rubric & Key Points:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                         ),
                         const SizedBox(height: 6),
                         ...q.keyPointsRubric!.map((point) => Padding(
@@ -3402,9 +3632,9 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                              Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
                               Expanded(
-                                child: Text(point, style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimary)),
+                                child: Text(point, style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFFD6E8D8) : AppTheme.textPrimary)),
                               ),
                             ],
                           ),
@@ -3421,18 +3651,18 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: AppTheme.secondaryColor),
+                style: TextButton.styleFrom(foregroundColor: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
                 icon: const Icon(Icons.visibility_off_outlined, size: 15),
                 label: const Text('Hide Answer', style: TextStyle(fontSize: 12)),
                 onPressed: () => setState(() => _revealed = false),
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: widget.isUnderstood ? const Color(0xFF2E7D32) : AppTheme.primaryColor,
+                  foregroundColor: widget.isUnderstood ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                   side: BorderSide(
-                    color: widget.isUnderstood ? const Color(0xFF2E7D32) : AppTheme.secondaryColor,
+                    color: widget.isUnderstood ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? AppTheme.darkBronzeBorder : AppTheme.secondaryColor),
                   ),
-                  backgroundColor: widget.isUnderstood ? const Color(0xFFE8F5E9) : Colors.transparent,
+                  backgroundColor: widget.isUnderstood ? (isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9)) : Colors.transparent,
                 ),
                 icon: Icon(
                   widget.isUnderstood ? Icons.check_circle_rounded : Icons.thumb_up_alt_outlined,
@@ -3448,16 +3678,16 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
           ),
         ] else ...[
           OutlinedButton.icon(
-            icon: const Icon(Icons.visibility_outlined, size: 16, color: AppTheme.primaryColor),
-            label: const Text(
+            icon: Icon(Icons.visibility_outlined, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+            label: Text(
               'Tap to reveal verified academic answer',
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
             ),
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppTheme.secondaryColor, width: 1.2),
+              side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor, width: 1.2),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.3),
+              backgroundColor: isDark ? const Color(0xFF1E3827) : AppTheme.primaryLight.withValues(alpha: 0.3),
             ),
             onPressed: () => setState(() => _revealed = true),
           ),
@@ -3588,6 +3818,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final q = widget.question;
     final isMcq = q.isMcq;
 
@@ -3606,7 +3837,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
+                    color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -3624,31 +3855,34 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isMcq ? const Color(0xFFE8F5E9) : AppTheme.primaryLight,
+                    color: isMcq
+                        ? (isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9))
+                        : (isDark ? const Color(0xFF243B2C) : AppTheme.primaryLight),
                     borderRadius: BorderRadius.circular(8),
-                    border: isMcq ? Border.all(color: const Color(0xFF81C784)) : null,
+                    border: Border.all(color: isMcq ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)) : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
                   ),
                   child: Text(
                     isMcq ? '🎴 4-Option MCQ' : '📝 Conceptual Q&A',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      color: isMcq ? const Color(0xFF2E7D32) : AppTheme.primaryColor,
+                      color: isMcq ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                     ),
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryLight,
+                    color: isDark ? const Color(0xFF1B2E22) : AppTheme.primaryLight,
                     borderRadius: BorderRadius.circular(8),
+                    border: isDark ? Border.all(color: AppTheme.darkBronzeBorder) : null,
                   ),
                   child: Text(
                     widget.question.topic,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
+                      color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
                     ),
                   ),
                 ),
@@ -3656,13 +3890,13 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: isDark ? AppTheme.darkSlateBase : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.borderColor),
+                      border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                     ),
                     child: Text(
                       q.subtopic!,
-                      style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                      style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary, fontWeight: FontWeight.w500),
                     ),
                   ),
                 _buildDifficultyBadge(q.difficulty ?? 'Medium'),
@@ -3671,12 +3905,13 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECEFF1),
+                      color: isDark ? const Color(0xFF1C2B21) : const Color(0xFFECEFF1),
                       borderRadius: BorderRadius.circular(6),
+                      border: isDark ? Border.all(color: AppTheme.darkBronzeBorder) : null,
                     ),
                     child: Text(
                       '📌 Slide ${q.sourcePage}',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF455A64)),
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : const Color(0xFF455A64)),
                     ),
                   ),
               ],
@@ -3689,8 +3924,8 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
               children: [
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
-                    side: const BorderSide(color: AppTheme.borderColor),
+                    foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                    side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -3715,7 +3950,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   tooltip: widget.isBookmarked ? 'Remove Bookmark' : 'Bookmark Question',
                   icon: Icon(
                     widget.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                    color: widget.isBookmarked ? Colors.amber.shade700 : AppTheme.secondaryColor,
+                    color: widget.isBookmarked ? Colors.amber.shade700 : (isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
                     size: 20,
                   ),
                   onPressed: widget.onToggleBookmark,
@@ -3723,7 +3958,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 ),
                 PopupMenuButton<String>(
                   tooltip: 'Question Options',
-                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.secondaryColor),
+                  icon: Icon(Icons.more_vert_rounded, size: 18, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
                   onSelected: (val) {
                     switch (val) {
                       case 'harder':
@@ -3761,13 +3996,13 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'regenerate',
                       child: Row(
                         children: [
-                          Icon(Icons.refresh_rounded, size: 16, color: AppTheme.primaryColor),
-                          SizedBox(width: 8),
-                          Text('Regenerate Variation', style: TextStyle(fontSize: 12.5)),
+                          Icon(Icons.refresh_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          const Text('Regenerate Variation', style: TextStyle(fontSize: 12.5)),
                         ],
                       ),
                     ),
@@ -3790,11 +4025,11 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
             // Question Text in Serif Typography
             Text(
               widget.question.question,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: AppTheme.fontCardo,
                 fontSize: 16.5,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.inkForest,
+                color: isDark ? const Color(0xFFF1F8F2) : AppTheme.inkForest,
                 height: 1.4,
               ),
             ),
@@ -3807,17 +4042,17 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 final isCorrect = optIdx == q.correctOptionIndex;
                 final isSelected = optIdx == _selectedOption;
 
-                Color bgColor = Colors.white;
-                Color borderColor = AppTheme.borderColor;
+                Color bgColor = isDark ? AppTheme.darkSlateBase : Colors.white;
+                Color borderColor = isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor;
                 Widget trailingIcon = const SizedBox.shrink();
 
                 if (_selectedOption != null) {
                   if (isCorrect) {
-                    bgColor = const Color(0xFFE8F5E9);
-                    borderColor = const Color(0xFF2E7D32);
-                    trailingIcon = const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 17);
+                    bgColor = isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9);
+                    borderColor = isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32);
+                    trailingIcon = Icon(Icons.check_circle_rounded, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32), size: 17);
                   } else if (isSelected) {
-                    bgColor = const Color(0xFFFFEBEE);
+                    bgColor = isDark ? const Color(0xFF381E1E) : const Color(0xFFFFEBEE);
                     borderColor = AppTheme.errorColor;
                     trailingIcon = const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 17);
                   }
@@ -3849,7 +4084,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                   ? const Color(0xFF2E7D32)
                                   : _selectedOption != null && isSelected
                                       ? AppTheme.errorColor
-                                      : AppTheme.primaryLight,
+                                      : (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight),
                               shape: BoxShape.circle,
                             ),
                             child: Text(
@@ -3859,7 +4094,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                 fontWeight: FontWeight.bold,
                                 color: _selectedOption != null && (isCorrect || isSelected)
                                     ? Colors.white
-                                    : AppTheme.primaryColor,
+                                    : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                               ),
                             ),
                           ),
@@ -3870,7 +4105,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: _selectedOption != null && isCorrect ? FontWeight.bold : FontWeight.w500,
-                                color: AppTheme.textPrimary,
+                                color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -3890,13 +4125,13 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _selectedOption == q.correctOptionIndex
-                        ? const Color(0xFFF1F8F4)
-                        : const Color(0xFFFFF7F7),
+                        ? (isDark ? const Color(0xFF1B3623) : const Color(0xFFF1F8F4))
+                        : (isDark ? const Color(0xFF381E1E) : const Color(0xFFFFF7F7)),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: _selectedOption == q.correctOptionIndex
-                          ? const Color(0xFFA5D6A7)
-                          : const Color(0xFFFFCDD2),
+                          ? (isDark ? AppTheme.darkLightGreen : const Color(0xFFA5D6A7))
+                          : (isDark ? const Color(0xFFE57373) : const Color(0xFFFFCDD2)),
                     ),
                   ),
                   child: Column(
@@ -3910,14 +4145,14 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                           color: _selectedOption == q.correctOptionIndex
-                              ? const Color(0xFF2E7D32)
-                              : AppTheme.errorColor,
+                              ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32))
+                              : (isDark ? const Color(0xFFEF9A9A) : AppTheme.errorColor),
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         q.explanation ?? q.answer,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.4),
+                        style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.4),
                       ),
                       // Distractor reasoning breakdown
                       if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
@@ -3925,20 +4160,20 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? AppTheme.darkSlateBase : Colors.white,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.borderColor),
+                            border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Row(
+                              Row(
                                 children: [
-                                  Icon(Icons.psychology_outlined, size: 14, color: AppTheme.primaryColor),
-                                  SizedBox(width: 4),
+                                  Icon(Icons.psychology_outlined, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                  const SizedBox(width: 4),
                                   Text(
                                     'Distractor Analysis & Misconception Review:',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                                   ),
                                 ],
                               ),
@@ -3947,7 +4182,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                     padding: const EdgeInsets.only(bottom: 4),
                                     child: Text(
                                       '• Option ${e.key}: ${e.value}',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary, height: 1.3),
+                                      style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.3),
                                     ),
                                   )),
                             ],
@@ -3958,7 +4193,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                         const SizedBox(height: 6),
                         Text(
                           '📖 Grounded excerpt: "${q.supportingExcerpt}"',
-                          style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                         ),
                       ],
                       if (_selectedOption != null && _selectedOption != q.correctOptionIndex) ...[
@@ -4000,20 +4235,20 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: isDark ? AppTheme.darkSlateBase : AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.borderColor),
+                  border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.edit_note_rounded, size: 16, color: AppTheme.primaryColor),
-                        SizedBox(width: 6),
+                        Icon(Icons.edit_note_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                        const SizedBox(width: 6),
                         Text(
                           'Type your answer for instant AI rubric grading:',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                         ),
                       ],
                     ),
@@ -4021,14 +4256,14 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                     TextField(
                       controller: _answerController,
                       maxLines: 3,
-                      style: const TextStyle(fontSize: 12.5),
+                      style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary),
                       decoration: InputDecoration(
                         hintText: 'Explain core concepts, mechanisms, and trade-offs...',
-                        hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
+                        hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary.withValues(alpha: 0.7)),
                         filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
+                        fillColor: isDark ? const Color(0xFF1E2D22) : Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
                         contentPadding: const EdgeInsets.all(10),
                       ),
                     ),
@@ -4037,8 +4272,8 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                       children: [
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
+                            backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                            foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
@@ -4060,7 +4295,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                           onPressed: () => setState(() => _isAnswerRevealed = !_isAnswerRevealed),
                           child: Text(
                             _isAnswerRevealed ? 'Hide Model Answer' : 'Show Model Answer',
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
                           ),
                         ),
                       ],
@@ -4072,10 +4307,10 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: isDark ? AppTheme.darkSlateBase : Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: _gradeResult!.score >= 70 ? const Color(0xFF81C784) : const Color(0xFFFFB74D),
+                            color: _gradeResult!.score >= 70 ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)) : const Color(0xFFFFB74D),
                             width: 1.2,
                           ),
                         ),
@@ -4087,7 +4322,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: _gradeResult!.score >= 70 ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+                                    color: _gradeResult!.score >= 70 ? (isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9)) : (isDark ? const Color(0xFF382A1A) : const Color(0xFFFFF3E0)),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -4095,18 +4330,18 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.bold,
-                                      color: _gradeResult!.score >= 70 ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
+                                      color: _gradeResult!.score >= 70 ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? const Color(0xFFFFCC80) : const Color(0xFFE65100)),
                                     ),
                                   ),
                                 ),
                                 const Spacer(),
-                                const Icon(Icons.psychology, size: 16, color: AppTheme.primaryColor),
+                                Icon(Icons.psychology, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
                               _gradeResult!.feedback,
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.35),
+                              style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.35),
                             ),
                             if (_gradeResult!.keyPointsHit.isNotEmpty) ...[
                               const SizedBox(height: 6),
@@ -4149,24 +4384,24 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF4F9F5),
+                    color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF4F9F5),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFB8D7C2), width: 1.2),
+                    border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : const Color(0xFFB8D7C2), width: 1.2),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.check_circle_outline_rounded, size: 18, color: AppTheme.primaryColor),
-                          SizedBox(width: 8),
+                          Icon(Icons.check_circle_outline_rounded, size: 18, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          const SizedBox(width: 8),
                           Text(
                             '🌿 Verified Academic Answer:',
                             style: TextStyle(
                               fontFamily: 'serif',
                               fontWeight: FontWeight.bold,
                               fontSize: 13.5,
-                              color: AppTheme.primaryColor,
+                              color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
                             ),
                           ),
                         ],
@@ -4174,37 +4409,37 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                       const SizedBox(height: 8),
                       Text(
                         widget.question.answer,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'serif',
                           fontSize: 13.5,
-                          color: AppTheme.textPrimary,
+                          color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
                           height: 1.5,
                         ),
                       ),
                       if (q.keyPointsRubric != null && q.keyPointsRubric!.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        const Text(
+                        Text(
                           '📋 Key Points Rubric:',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                         ),
                         const SizedBox(height: 4),
                         ...q.keyPointsRubric!.map((r) => Padding(
                               padding: const EdgeInsets.only(bottom: 2),
-                              child: Text('• $r', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                              child: Text('• $r', style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary)),
                             )),
                       ],
                       if (q.supportingExcerpt != null && q.supportingExcerpt!.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
                           '📖 Source Excerpt: "${q.supportingExcerpt}"',
-                          style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                         ),
                       ],
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryColor,
-                          side: const BorderSide(color: AppTheme.borderColor),
+                          foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                          side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),

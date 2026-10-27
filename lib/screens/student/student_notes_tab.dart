@@ -702,6 +702,7 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final query = _searchController.text.trim().toLowerCase();
     final filtered = _allNotes.where((note) {
       final matchesTopic = _selectedTopicFilter == 'All' || note.topic == _selectedTopicFilter;
@@ -725,116 +726,137 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
         showBottomVine: true,
         opacity: 0.85,
         child: SafeArea(
-          child: Column(
-            children: [
-            if (_isFromCache)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                color: Colors.orange.shade800,
-                child: const Text(
-                  'Offline, will sync',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search study notes or slide breakdowns...',
-                  prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.textSecondary),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {});
-                          },
-                        )
-                      : null,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-
-            // Topic Filter Chips
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: dynamicChipTopics.map((topic) {
-                  final isSelected = _selectedTopicFilter == topic;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(topic, style: const TextStyle(fontSize: 12)),
-                      selected: isSelected,
-                      selectedColor: AppTheme.primaryLight,
-                      labelStyle: TextStyle(
-                        fontFamily: 'serif',
-                        color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      side: BorderSide(
-                        color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
-                      ),
-                      onSelected: (val) {
-                        if (val) setState(() => _selectedTopicFilter = topic);
-                      },
+          child: CustomScrollView(
+            slivers: [
+              if (_isFromCache)
+                SliverToBoxAdapter(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    color: Colors.orange.shade800,
+                    child: const Text(
+                      'Offline, will sync',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                     ),
-                  );
-                }).toList(),
-              ),
-            ),
+                  ),
+                ),
 
-            // Notes List
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
-                  : filtered.isEmpty
-                      ? Center(
-                          child: EmptyState(
-                            icon: Icons.eco_outlined,
-                            title: _allNotes.isEmpty ? 'No Notes Added Yet' : 'No Matching Notes Found',
-                            message: _allNotes.isEmpty
-                                ? 'Upload a presentation PDF or tap "New Note" to summarize your notes and generate practice questions.'
-                                : 'Try searching for different keywords or clearing your topic filters.',
-                            actionText: _allNotes.isEmpty ? 'Summarize PDF / ZIP' : 'Clear Filters',
-                            onAction: _allNotes.isEmpty
-                                ? () => _showNoteFormDialog(autoPickFile: true)
-                                : () {
-                                    _searchController.clear();
-                                    setState(() => _selectedTopicFilter = 'All');
-                                  },
+              // Search Bar that scrolls up with the page
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    style: TextStyle(color: isDark ? const Color(0xFFE8F5E9) : AppTheme.charcoalSlate),
+                    decoration: InputDecoration(
+                      hintText: 'Search study notes or slide breakdowns...',
+                      hintStyle: TextStyle(color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textMuted),
+                      prefixIcon: Icon(Icons.search, size: 20, color: isDark ? AppTheme.darkLightGreen : AppTheme.textSecondary),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, size: 18, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+              ),
+
+              // Topic Filter Chips that scroll up with the page
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 48,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: dynamicChipTopics.map((topic) {
+                      final isSelected = _selectedTopicFilter == topic;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(topic, style: const TextStyle(fontSize: 12)),
+                          selected: isSelected,
+                          selectedColor: isDark ? const Color(0xFF2E573B) : AppTheme.primaryLight,
+                          backgroundColor: isDark ? const Color(0xFF182A1E) : AppTheme.creamPaper,
+                          labelStyle: TextStyle(
+                            fontFamily: 'serif',
+                            color: isSelected
+                                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                : (isDark ? const Color(0xFFC5DCC6) : AppTheme.textSecondary),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final note = filtered[index];
-                            return _NoteCard(
-                              note: note,
-                              onTap: () => _showNoteDetailSheet(note),
-                              onEdit: () => _showNoteFormDialog(existingNote: note),
-                              onTogglePin: () => _togglePin(note),
-                              onDelete: () => _deleteNote(note),
-                              onViewQuestions: () => _showSampleQuestions(note.topic),
-                            );
+                          side: BorderSide(
+                            color: isSelected
+                                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                : (isDark ? const Color(0xFF3B6347) : AppTheme.borderColor),
+                          ),
+                          onSelected: (val) {
+                            if (val) setState(() => _selectedTopicFilter = topic);
                           },
                         ),
-            ),
-          ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 6)),
+
+              // Notes List or Empty State
+              if (_isLoading)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator(color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
+                )
+              else if (filtered.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: EmptyState(
+                      icon: Icons.eco_outlined,
+                      title: _allNotes.isEmpty ? 'No Notes Added Yet' : 'No Matching Notes Found',
+                      message: _allNotes.isEmpty
+                          ? 'Upload a presentation PDF or tap "New Note" to summarize your notes and generate practice questions.'
+                          : 'Try searching for different keywords or clearing your topic filters.',
+                      actionText: _allNotes.isEmpty ? 'Summarize PDF / ZIP' : 'Clear Filters',
+                      onAction: _allNotes.isEmpty
+                          ? () => _showNoteFormDialog(autoPickFile: true)
+                          : () {
+                              _searchController.clear();
+                              setState(() => _selectedTopicFilter = 'All');
+                            },
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                  sliver: SliverList.separated(
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final note = filtered[index];
+                      return _NoteCard(
+                        note: note,
+                        onTap: () => _showNoteDetailSheet(note),
+                        onEdit: () => _showNoteFormDialog(existingNote: note),
+                        onTogglePin: () => _togglePin(note),
+                        onDelete: () => _deleteNote(note),
+                        onViewQuestions: () => _showSampleQuestions(note.topic),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-    ),
       floatingActionButton: LayoutBuilder(
         builder: (context, constraints) {
           final isMobile = MediaQuery.of(context).size.width < 500;
@@ -846,8 +868,8 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
                 FloatingActionButton.small(
                   heroTag: 'student_notes_upload_ai',
                   tooltip: 'Summarize PDF/ZIP',
-                  backgroundColor: AppTheme.primaryLight,
-                  foregroundColor: AppTheme.primaryColor,
+                  backgroundColor: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                  foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
                   onPressed: () => _showNoteFormDialog(autoPickFile: true),
                   child: const Icon(Icons.auto_awesome, size: 20),
                 ),
@@ -856,8 +878,8 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
                   heroTag: 'student_notes_new_note',
                   icon: const Icon(Icons.add),
                   label: const Text('New Note'),
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
+                  backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                  foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
                   onPressed: () => _showNoteFormDialog(),
                 ),
               ],
@@ -870,8 +892,8 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
                 heroTag: 'student_notes_upload_ai',
                 icon: const Icon(Icons.auto_awesome),
                 label: const Text('Summarize PDF/ZIP'),
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
+                backgroundColor: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor,
+                foregroundColor: isDark ? AppTheme.darkLightGreen : Colors.white,
                 onPressed: () => _showNoteFormDialog(autoPickFile: true),
               ),
               const SizedBox(width: 12),
@@ -879,8 +901,8 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
                 heroTag: 'student_notes_new_note',
                 icon: const Icon(Icons.add),
                 label: const Text('New Note'),
-                backgroundColor: AppTheme.secondaryColor,
-                foregroundColor: Colors.white,
+                backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor,
+                foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
                 onPressed: () => _showNoteFormDialog(),
               ),
             ],
@@ -913,6 +935,7 @@ class _NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return WatercolorBlobContainer(
       variant: note.isPinned ? BlobVariant.sageSoft : BlobVariant.creamPaper,
       padding: const EdgeInsets.all(16.0),
@@ -928,20 +951,20 @@ class _NoteCard extends StatelessWidget {
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryLight,
+                        color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.push_pin, size: 12, color: AppTheme.primaryColor),
-                          SizedBox(width: 4),
+                          Icon(Icons.push_pin, size: 12, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          const SizedBox(width: 4),
                           Text(
                             'PINNED',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
+                              color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
                             ),
                           ),
                         ],
@@ -950,12 +973,17 @@ class _NoteCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryLight.withValues(alpha: 0.6),
+                      color: isDark ? const Color(0xFF1E3827) : AppTheme.primaryLight.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isDark ? const Color(0xFF3B6347) : AppTheme.borderColor),
                     ),
                     child: Text(
                       note.topic,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -963,7 +991,9 @@ class _NoteCard extends StatelessWidget {
                     icon: Icon(
                       note.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
                       size: 20,
-                      color: note.isPinned ? AppTheme.primaryColor : Colors.grey.shade500,
+                      color: note.isPinned
+                          ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                          : (isDark ? const Color(0xFFA5D6A7) : Colors.grey.shade500),
                     ),
                     tooltip: note.isPinned ? 'Unpin Note' : 'Pin Note',
                     padding: EdgeInsets.zero,
@@ -972,7 +1002,7 @@ class _NoteCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.textSecondary),
+                    icon: Icon(Icons.edit_outlined, size: 18, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                     tooltip: 'Edit Note',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -991,11 +1021,11 @@ class _NoteCard extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 note.title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppTheme.fontCardo,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.inkForest,
+                  color: isDark ? const Color(0xFFF1F8F2) : AppTheme.inkForest,
                 ),
               ),
               const SizedBox(height: 6),
@@ -1003,7 +1033,12 @@ class _NoteCard extends StatelessWidget {
                 note.content,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, color: AppTheme.charcoalSlate, height: 1.4),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontZilla,
+                  fontSize: 13,
+                  color: isDark ? const Color(0xFFD6E8D8) : AppTheme.charcoalSlate,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 12),
               InkWell(
@@ -1014,11 +1049,16 @@ class _NoteCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.eco_rounded, size: 16, color: AppTheme.inkForest),
+                      Icon(Icons.eco_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
                       const SizedBox(width: 6),
                       Text(
                         'Practice questions for ${note.topic}',
-                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontZilla,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest,
+                        ),
                       ),
                     ],
                   ),

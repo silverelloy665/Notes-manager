@@ -367,168 +367,193 @@ class _LibraryTabState extends State<LibraryTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     final filtered = _subjects.where((s) {
       if (_searchQuery.isEmpty) return true;
       return s.name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: isDark ? AppTheme.darkSlateBase : AppTheme.backgroundColor,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Search and help header
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search subjects or material...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                              )
-                            : null,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: CustomScrollView(
+          slivers: [
+            // Search and help header that scrolls up
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(color: isDark ? const Color(0xFFE8F5E9) : AppTheme.charcoalSlate),
+                        decoration: InputDecoration(
+                          hintText: 'Search subjects or material...',
+                          hintStyle: TextStyle(color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textMuted),
+                          prefixIcon: Icon(Icons.search, size: 20, color: isDark ? AppTheme.darkLightGreen : AppTheme.textSecondary),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(Icons.clear, size: 18, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        onChanged: (val) => setState(() => _searchQuery = val),
                       ),
-                      onChanged: (val) => setState(() => _searchQuery = val),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    icon: const Icon(Icons.help_outline),
-                    tooltip: 'How to prepare your ZIP',
-                    onPressed: _showHelpDialog,
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.help_outline),
+                      tooltip: 'How to prepare your ZIP',
+                      onPressed: _showHelpDialog,
+                    ),
+                  ],
+                ),
               ),
             ),
             if (_isFromCache)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                color: Colors.orange.shade800,
-                child: const Text(
-                  'Offline, will sync changes when reconnected',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+              SliverToBoxAdapter(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  color: Colors.orange.shade800,
+                  child: const Text(
+                    'Offline, will sync changes when reconnected',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-            // Subjects list
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : filtered.isEmpty
-                      ? Center(
-                          child: EmptyState(
-                            icon: Icons.library_books_outlined,
-                            title: _searchQuery.isNotEmpty ? 'No Matching Subjects' : 'Your Library is Empty',
-                            message: _searchQuery.isNotEmpty
-                                ? 'No subjects matched "$_searchQuery".'
-                                : 'Tap "Import ZIP" below to load your lecture notes and practical code archives.',
-                            actionText: _searchQuery.isNotEmpty ? 'Clear Search' : 'Import ZIP Archive',
-                            onAction: _searchQuery.isNotEmpty
-                                ? () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  }
-                                : _pickAndImportZip,
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final subject = filtered[index];
-                            final progress = subject.totalUnits == 0
-                                ? 0.0
-                                : (subject.completedUnits / subject.totalUnits);
+            // Subjects list or empty state
+            if (_isLoading)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator(color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
+              )
+            else if (filtered.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: EmptyState(
+                    icon: Icons.library_books_outlined,
+                    title: _searchQuery.isNotEmpty ? 'No Matching Subjects' : 'Your Library is Empty',
+                    message: _searchQuery.isNotEmpty
+                        ? 'No subjects matched "$_searchQuery".'
+                        : 'Tap "Import ZIP" below to load your lecture notes and practical code archives.',
+                    actionText: _searchQuery.isNotEmpty ? 'Clear Search' : 'Import ZIP Archive',
+                    onAction: _searchQuery.isNotEmpty
+                        ? () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          }
+                        : _pickAndImportZip,
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                sliver: SliverList.separated(
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final subject = filtered[index];
+                    final progress = subject.totalUnits == 0
+                        ? 0.0
+                        : (subject.completedUnits / subject.totalUnits);
 
-                            return WatercolorBlobContainer(
-                              variant: BlobVariant.sageSoft,
-                              padding: const EdgeInsets.all(16.0),
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => SubjectUnitsScreen(
-                                      userId: widget.userId,
-                                      subject: subject,
-                                    ),
+                    return WatercolorBlobContainer(
+                      variant: BlobVariant.sageSoft,
+                      padding: const EdgeInsets.all(16.0),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => SubjectUnitsScreen(
+                              userId: widget.userId,
+                              subject: subject,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.school_outlined, color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  subject.name,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontCardo,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16.5,
+                                    color: isDark ? const Color(0xFFE8F5E9) : AppTheme.inkForest,
                                   ),
-                                );
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.school_outlined, color: AppTheme.inkForest),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          subject.name,
-                                          style: const TextStyle(
-                                            fontFamily: AppTheme.fontCardo,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16.5,
-                                            color: AppTheme.inkForest,
-                                          ),
-                                        ),
-                                      ),
-                                      PopupMenuButton<String>(
-                                        onSelected: (val) {
-                                          if (val == 'rename') _renameSubject(subject);
-                                          if (val == 'delete') _deleteSubject(subject);
-                                        },
-                                        itemBuilder: (_) => [
-                                          const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                          const PopupMenuItem(
-                                            value: 'delete',
-                                            child: Text('Delete', style: TextStyle(color: Colors.red)),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        '${subject.totalUnits} Units (${subject.completedUnits} completed)',
-                                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, color: AppTheme.textSecondary),
-                                      ),
-                                      Text(
-                                        '${(progress * 100).toStringAsFixed(0)}%',
-                                        style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.inkForest),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: progress,
-                                      minHeight: 6,
-                                      backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
-                                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
-                                    ),
+                                ),
+                              ),
+                              PopupMenuButton<String>(
+                                onSelected: (val) {
+                                  if (val == 'rename') _renameSubject(subject);
+                                  if (val == 'delete') _deleteSubject(subject);
+                                },
+                                itemBuilder: (_) => [
+                                  const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Delete', style: TextStyle(color: Colors.red)),
                                   ),
                                 ],
                               ),
-                            );
-                          },
-                        ),
-            ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${subject.totalUnits} Units (${subject.completedUnits} completed)',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontZilla,
+                                  fontSize: 12.5,
+                                  color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                '${(progress * 100).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontZilla,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 6,
+                              backgroundColor: isDark ? const Color(0xFF2E4D38) : AppTheme.mintWash.withValues(alpha: 0.4),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                isDark ? AppTheme.darkLightGreen : AppTheme.inkForest,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),
