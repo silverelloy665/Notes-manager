@@ -783,19 +783,19 @@ class _StudentNotesTabState extends State<StudentNotesTab> {
                         child: ChoiceChip(
                           label: Text(topic, style: const TextStyle(fontSize: 12)),
                           selected: isSelected,
-                          selectedColor: isDark ? const Color(0xFF2E573B) : AppTheme.primaryLight,
-                          backgroundColor: isDark ? const Color(0xFF182A1E) : AppTheme.creamPaper,
+                          selectedColor: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                          backgroundColor: isDark ? AppTheme.darkSageCard : AppTheme.creamPaper,
                           labelStyle: TextStyle(
                             fontFamily: 'serif',
                             color: isSelected
                                 ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
-                                : (isDark ? const Color(0xFFC5DCC6) : AppTheme.textSecondary),
+                                : (isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                           side: BorderSide(
                             color: isSelected
                                 ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
-                                : (isDark ? const Color(0xFF3B6347) : AppTheme.borderColor),
+                                : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                           ),
                           onSelected: (val) {
                             if (val) setState(() => _selectedTopicFilter = topic);
@@ -973,9 +973,8 @@ class _NoteCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E3827) : AppTheme.primaryLight.withValues(alpha: 0.6),
+                      color: isDark ? const Color(0xFF243B2C) : AppTheme.primaryLight.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isDark ? const Color(0xFF3B6347) : AppTheme.borderColor),
                     ),
                     child: Text(
                       note.topic,
@@ -993,7 +992,7 @@ class _NoteCard extends StatelessWidget {
                       size: 20,
                       color: note.isPinned
                           ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
-                          : (isDark ? const Color(0xFFA5D6A7) : Colors.grey.shade500),
+                          : (isDark ? const Color(0xFF7D9789) : Colors.grey.shade500),
                     ),
                     tooltip: note.isPinned ? 'Unpin Note' : 'Pin Note',
                     padding: EdgeInsets.zero,
@@ -1025,7 +1024,7 @@ class _NoteCard extends StatelessWidget {
                   fontFamily: AppTheme.fontCardo,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? const Color(0xFFF1F8F2) : AppTheme.inkForest,
+                  color: isDark ? const Color(0xFFE8F5E9) : AppTheme.inkForest,
                 ),
               ),
               const SizedBox(height: 6),
@@ -1036,7 +1035,7 @@ class _NoteCard extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: AppTheme.fontZilla,
                   fontSize: 13,
-                  color: isDark ? const Color(0xFFD6E8D8) : AppTheme.charcoalSlate,
+                  color: isDark ? const Color(0xFFC5DCC6) : AppTheme.charcoalSlate,
                   height: 1.4,
                 ),
               ),

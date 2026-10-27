@@ -1207,11 +1207,10 @@ class _PracticeTabState extends State<PracticeTab> {
                   ),
                 ),
 
-              // Botanical Header & Actions that scrolls up naturally with page content (shown in Question Bank & Mastery modes)
-              if (_currentViewMode == 'bank' || _showMasteryDashboard) ...[
-                SliverToBoxAdapter(
-                  child: Container(
-                    decoration: BoxDecoration(
+              // Botanical Header & Actions that scrolls up naturally with page content
+              SliverToBoxAdapter(
+                child: Container(
+                  decoration: BoxDecoration(
                     color: isDark ? AppTheme.darkSlateBase : Colors.white.withValues(alpha: 0.92),
                     border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor, width: 1.2)),
                   ),
@@ -1526,7 +1525,6 @@ class _PracticeTabState extends State<PracticeTab> {
                   ),
                 ),
               ),
-            ],
 
               // Controls Bar: Mode Switcher (Deck vs Bank) & Multi-Tier Filters that scroll up with content
               SliverToBoxAdapter(
@@ -1674,13 +1672,12 @@ class _PracticeTabState extends State<PracticeTab> {
                           );
                         },
                       ),
-                      if (_currentViewMode == 'bank') ...[
-                        const SizedBox(height: 8),
-                        // Multi-tier Filter Chips Row (Scrollable horizontally)
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
+                      const SizedBox(height: 8),
+                      // Multi-tier Filter Chips Row (Scrollable horizontally)
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
                             Text(
                               'Type:',
                               style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
@@ -1773,10 +1770,9 @@ class _PracticeTabState extends State<PracticeTab> {
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
 
               // Main Body: Slivers allow entire content and headers to scroll smoothly together!
               if (_isLoading)
@@ -2035,6 +2031,10 @@ class _PracticeTabState extends State<PracticeTab> {
                 ? (isDark ? AppTheme.darkLightGreen : Colors.white)
                 : (isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
           ),
+        ),
+      ),
+    );
+  }
         ),
       ),
     );
@@ -2353,21 +2353,16 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
 
   Widget _buildConfidenceChip(double val, String label) {
     final isSelected = (_currentConfidence - val).abs() < 0.05;
-    final isDark = AppTheme.isDark(context);
     return InkWell(
       onTap: () => setState(() => _currentConfidence = val),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight)
-              : (isDark ? AppTheme.darkSlateBase : Colors.white),
+          color: isSelected ? AppTheme.primaryLight : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected
-                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
-                : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+            color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
             width: isSelected ? 1.4 : 1.0,
           ),
         ),
@@ -2376,9 +2371,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
           style: TextStyle(
             fontSize: 11,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected
-                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
-                : (isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
           ),
         ),
       ),
@@ -2599,8 +2592,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
         }
       },
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
           child: Column(
             children: [
               // 3D Animated Flip Card
@@ -2660,9 +2653,6 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildFrontSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
-    final isDark = AppTheme.isDark(context);
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 680),
       child: WatercolorBlobContainer(
@@ -2676,180 +2666,103 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               child: LinearProgressIndicator(
                 value: (_currentIndex + 1) / widget.questions.length,
                 minHeight: 5,
-                backgroundColor: isDark ? const Color(0xFF2E4D38) : AppTheme.mintWash.withValues(alpha: 0.35),
-                valueColor: AlwaysStoppedAnimation<Color>(isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
+                backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
               ),
             ),
           Padding(
-            padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isMobile)
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    alignment: WrapAlignment.spaceBetween,
-                    children: [
-                      Row(
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Card ${_currentIndex + 1} of ${widget.questions.length}',
+                        style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        q.topic,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildSrsBadge(q),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.flip_rounded, size: 20, color: AppTheme.primaryColor),
+                      tooltip: 'Flip Card (Space)',
+                      onPressed: _toggleFlip,
+                    ),
+                    const SizedBox(width: 4),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor,
+                        side: BorderSide(color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        backgroundColor: _isTimedMode ? const Color(0xFFFCE4EC) : Colors.transparent,
+                      ),
+                      icon: Icon(_isTimedMode ? Icons.timer_rounded : Icons.timer_outlined, size: 14, color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor),
+                      label: Text(_isTimedMode ? '$_secondsLeft s' : '30s Timer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _isTimedMode ? const Color(0xFFC2185B) : AppTheme.primaryColor)),
+                      onPressed: _toggleTimedMode,
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF81C784)),
+                      ),
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'Card ${_currentIndex + 1}/${widget.questions.length}',
-                              style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
-                            ),
-                            child: Text(
-                              q.topic,
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          _buildSrsBadge(q),
+                          const Icon(Icons.star_rounded, size: 14, color: Color(0xFF2E7D32)),
+                          const SizedBox(width: 3),
+                          Text('Score: $_score', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32))),
                         ],
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.star_rounded, size: 13, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)),
-                                const SizedBox(width: 3),
-                                Text('Score: $_score', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32))),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.flip_rounded, size: 18, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                            tooltip: 'Flip Card',
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            onPressed: _toggleFlip,
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.refresh_rounded, size: 18, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
-                            tooltip: 'Restart Deck',
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            onPressed: _restartDeck,
-                          ),
-                        ],
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Card ${_currentIndex + 1} of ${widget.questions.length}',
-                          style: const TextStyle(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
-                        ),
-                        child: Text(
-                          q.topic,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildSrsBadge(q),
-                      const Spacer(),
-                      IconButton(
-                        icon: Icon(Icons.flip_rounded, size: 20, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                        tooltip: 'Flip Card (Space)',
-                        onPressed: _toggleFlip,
-                      ),
-                      const SizedBox(width: 4),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                          side: BorderSide(color: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          backgroundColor: _isTimedMode ? const Color(0xFFFCE4EC) : Colors.transparent,
-                        ),
-                        icon: Icon(_isTimedMode ? Icons.timer_rounded : Icons.timer_outlined, size: 14, color: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
-                        label: Text(_isTimedMode ? '$_secondsLeft s' : '30s Timer', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _isTimedMode ? const Color(0xFFC2185B) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor))),
-                        onPressed: _toggleTimedMode,
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.star_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)),
-                            const SizedBox(width: 3),
-                            Text('Score: $_score', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32))),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      IconButton(
-                        icon: Icon(Icons.refresh_rounded, size: 20, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
-                        tooltip: 'Restart Deck',
-                        onPressed: _restartDeck,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.secondaryColor),
+                      tooltip: 'Restart Deck',
+                      onPressed: _restartDeck,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Icon(Icons.eco_rounded, size: 20, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.eco_rounded, size: 20, color: AppTheme.primaryColor),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         q.question,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: AppTheme.fontCardo,
-                          fontSize: isMobile ? 16 : 17.5,
+                          fontSize: 17.5,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? const Color(0xFFF1F8F2) : AppTheme.inkForest,
+                          color: AppTheme.inkForest,
                           height: 1.4,
                         ),
                       ),
@@ -2860,38 +2773,35 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                 if (!hasAnswered) ...[
                   Row(
                     children: [
-                      Text('Confidence:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary)),
+                      const Text('Confidence:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
                       const SizedBox(width: 8),
-                      _buildConfidenceChip(0.25, '💭 Guess (25%)'),
+                      _buildConfidenceChip(0.25, '💭 Guessing (25%)'),
                       const SizedBox(width: 6),
-                      _buildConfidenceChip(0.50, '🤔 50/50'),
+                      _buildConfidenceChip(0.50, '🤔 50/50 (50%)'),
                       const SizedBox(width: 6),
-                      _buildConfidenceChip(1.0, '🎯 100%'),
+                      _buildConfidenceChip(1.0, '🎯 100% Sure'),
                     ],
                   ),
                   const SizedBox(height: 16),
                 ],
                 if (isMcq) ...[
-                  Text(
-                    isMobile ? 'Select the correct answer:' : 'Select the correct answer (or press 1-4):',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
-                  ),
+                  const Text('Select the correct answer (or press 1-4):', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
                   const SizedBox(height: 10),
                   ...List.generate(q.options!.length, (optIdx) {
                     final optText = q.options![optIdx];
                     final isCorrectOpt = optIdx == q.correctOptionIndex;
                     final isSelectedOpt = optIdx == chosenOption;
-                    Color bgColor = isDark ? AppTheme.darkSlateBase : Colors.white;
-                    Color borderColor = isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor;
+                    Color bgColor = Colors.white;
+                    Color borderColor = AppTheme.borderColor;
                     Widget trailingIcon = const SizedBox.shrink();
 
                     if (hasAnswered) {
                       if (isCorrectOpt) {
-                        bgColor = isDark ? const Color(0xFF1E3A25) : const Color(0xFFE8F5E9);
-                        borderColor = isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32);
-                        trailingIcon = Icon(Icons.check_circle_rounded, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32), size: 18);
+                        bgColor = const Color(0xFFE8F5E9);
+                        borderColor = const Color(0xFF2E7D32);
+                        trailingIcon = const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 18);
                       } else if (isSelectedOpt) {
-                        bgColor = isDark ? const Color(0xFF381E1E) : const Color(0xFFFFEBEE);
+                        bgColor = const Color(0xFFFFEBEE);
                         borderColor = AppTheme.errorColor;
                         trailingIcon = const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 18);
                       }
@@ -2921,7 +2831,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                       ? const Color(0xFF2E7D32)
                                       : hasAnswered && isSelectedOpt
                                           ? AppTheme.errorColor
-                                          : (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight),
+                                          : AppTheme.primaryLight,
                                   shape: BoxShape.circle,
                                 ),
                                 child: Text(
@@ -2929,9 +2839,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: hasAnswered && (isCorrectOpt || isSelectedOpt)
-                                        ? Colors.white
-                                        : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                    color: hasAnswered && (isCorrectOpt || isSelectedOpt) ? Colors.white : AppTheme.primaryColor,
                                   ),
                                 ),
                               ),
@@ -2942,7 +2850,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                   style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: hasAnswered && isCorrectOpt ? FontWeight.bold : FontWeight.w500,
-                                    color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
+                                    color: AppTheme.textPrimary,
                                     height: 1.35,
                                   ),
                                 ),
@@ -2959,37 +2867,34 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                     width: double.infinity,
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF9FBF9),
+                      color: const Color(0xFFF9FBF9),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                      border: Border.all(color: AppTheme.borderColor),
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.touch_app_rounded, size: 36, color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
+                        const Icon(Icons.touch_app_rounded, size: 36, color: AppTheme.secondaryColor),
                         const SizedBox(height: 10),
-                        Text(
+                        const Text(
                           'Conceptual Retrieval Prompt',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Recall the explanation and rubric points in your mind, then tap below to verify.',
+                        const Text(
+                          'Recall the explanation and rubric points in your mind, then tap below or press Space to verify.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                         ),
                         const SizedBox(height: 14),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
-                            foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.flip_rounded, size: 16),
-                          label: Text(
-                            isMobile ? 'Flip to Reveal Answer' : 'Flip to Reveal Answer [Space]',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                          ),
+                          label: const Text('Flip to Reveal Answer [Space]', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                           onPressed: _toggleFlip,
                         ),
                       ],
@@ -3007,15 +2912,12 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildBackSideCard(Question q, bool isMcq, bool hasAnswered, int? chosenOption, bool isQaUnderstood) {
-    final isDark = AppTheme.isDark(context);
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 680),
       child: WatercolorBlobContainer(
         variant: BlobVariant.creamPaper,
         padding: EdgeInsets.zero,
-        borderColor: isDark ? AppTheme.darkBronzeBorder : AppTheme.sageBlob,
+        borderColor: AppTheme.sageBlob,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3024,142 +2926,82 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               child: LinearProgressIndicator(
                 value: (_currentIndex + 1) / widget.questions.length,
                 minHeight: 5,
-                backgroundColor: isDark ? const Color(0xFF2E4D38) : AppTheme.mintWash.withValues(alpha: 0.35),
-                valueColor: AlwaysStoppedAnimation<Color>(isDark ? AppTheme.darkLightGreen : AppTheme.inkForest),
+                backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
               ),
             ),
           Padding(
-            padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isMobile)
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    alignment: WrapAlignment.spaceBetween,
-                    children: [
-                      Row(
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E7D32),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF2E4D38) : const Color(0xFF2E7D32),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
-                                SizedBox(width: 4),
-                                Text('Answer & Rubric', style: TextStyle(fontSize: 10.5, color: Colors.white, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
-                            decoration: BoxDecoration(
-                              color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
-                            ),
-                            child: Text(
-                              q.topic,
-                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                            ),
-                          ),
+                          Icon(Icons.check_circle_rounded, size: 13, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text('Answer & Rubric', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
                         ],
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
-                              side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: Icon(Icons.flip_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                            label: const Text('Question', style: TextStyle(fontSize: 11)),
-                            onPressed: _toggleFlip,
-                          ),
-                        ],
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryLight,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ],
-                  )
-                else
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF2E4D38) : const Color(0xFF2E7D32),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_rounded, size: 13, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text('Answer & Rubric', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
+                      child: Text(
+                        q.topic,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkSlateBase : AppTheme.primaryLight,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
-                        ),
-                        child: Text(
-                          q.topic,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                        ),
+                    ),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      const Spacer(),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
-                          side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
-                        label: const Text("I don't get this → Explain", style: TextStyle(fontSize: 11)),
-                        onPressed: () {
-                          final wrongOptText = (hasAnswered && chosenOption != null && chosenOption >= 0 && chosenOption != q.correctOptionIndex && q.options != null && chosenOption < q.options!.length)
-                              ? q.options![chosenOption]
-                              : null;
-                          ExplainSimplyDialog.show(
-                            context: context,
-                            topic: q.topic,
-                            subtopic: q.subtopic,
-                            sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
-                            sourcePage: q.sourcePage,
-                            wrongOptionChosen: wrongOptText,
-                          );
-                        },
+                      icon: const Icon(Icons.lightbulb_outline_rounded, size: 14),
+                      label: const Text("I don't get this → Explain", style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        final wrongOptText = (hasAnswered && chosenOption != null && chosenOption >= 0 && chosenOption != q.correctOptionIndex && q.options != null && chosenOption < q.options!.length)
+                            ? q.options![chosenOption]
+                            : null;
+                        ExplainSimplyDialog.show(
+                          context: context,
+                          topic: q.topic,
+                          subtopic: q.subtopic,
+                          sourceContext: '${q.question}\n${q.explanation ?? q.answer}',
+                          sourcePage: q.sourcePage,
+                          wrongOptionChosen: wrongOptText,
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.borderColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      const SizedBox(width: 6),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
-                          side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        icon: Icon(Icons.flip_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                        label: const Text('Question', style: TextStyle(fontSize: 11)),
-                        onPressed: _toggleFlip,
-                      ),
-                    ],
-                  ),
+                      icon: const Icon(Icons.flip_rounded, size: 14),
+                      label: const Text('Question', style: TextStyle(fontSize: 11)),
+                      onPressed: _toggleFlip,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 14),
                 if (isMcq) ...[
                   if (hasAnswered) _buildHypercorrectionBanner(q, chosenOption ?? -1),
@@ -3167,14 +3009,10 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: chosenOption == q.correctOptionIndex
-                          ? (isDark ? const Color(0xFF1B3623) : const Color(0xFFF1F8F4))
-                          : (isDark ? const Color(0xFF381E1E) : const Color(0xFFFFF7F7)),
+                      color: chosenOption == q.correctOptionIndex ? const Color(0xFFF1F8F4) : const Color(0xFFFFF7F7),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: chosenOption == q.correctOptionIndex
-                            ? (isDark ? AppTheme.darkLightGreen : const Color(0xFFA5D6A7))
-                            : (isDark ? const Color(0xFFE57373) : const Color(0xFFFFCDD2)),
+                        color: chosenOption == q.correctOptionIndex ? const Color(0xFFA5D6A7) : const Color(0xFFFFCDD2),
                         width: 1.2,
                       ),
                     ),
@@ -3186,7 +3024,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                             Icon(
                               chosenOption == q.correctOptionIndex ? Icons.check_circle_rounded : Icons.info_outline_rounded,
                               size: 16,
-                              color: chosenOption == q.correctOptionIndex ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? const Color(0xFFEF9A9A) : AppTheme.errorColor),
+                              color: chosenOption == q.correctOptionIndex ? const Color(0xFF2E7D32) : AppTheme.errorColor,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -3196,7 +3034,7 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12.5,
-                                color: chosenOption == q.correctOptionIndex ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? const Color(0xFFEF9A9A) : AppTheme.errorColor),
+                                color: chosenOption == q.correctOptionIndex ? const Color(0xFF2E7D32) : AppTheme.errorColor,
                               ),
                             ),
                           ],
@@ -3204,27 +3042,27 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                         const SizedBox(height: 6),
                         Text(
                           q.explanation != null && q.explanation!.isNotEmpty ? q.explanation! : q.answer,
-                          style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.45),
+                          style: const TextStyle(fontSize: 12.5, color: AppTheme.textPrimary, height: 1.45),
                         ),
                         if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isDark ? AppTheme.darkSlateBase : Colors.white,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                              border: Border.all(color: AppTheme.borderColor),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
+                                const Row(
                                   children: [
-                                    Icon(Icons.rule_rounded, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
-                                    const SizedBox(width: 6),
+                                    Icon(Icons.rule_rounded, size: 14, color: AppTheme.secondaryColor),
+                                    SizedBox(width: 6),
                                     Text(
                                       'Distractor Analysis (Why others are wrong):',
-                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
                                     ),
                                   ],
                                 ),
@@ -3238,13 +3076,13 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                                            color: AppTheme.primaryLight,
                                             borderRadius: BorderRadius.circular(4),
                                           ),
-                                          child: Text(e.key, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
+                                          child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppTheme.primaryColor)),
                                         ),
                                         const SizedBox(width: 8),
-                                        Expanded(child: Text(e.value, style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.35))),
+                                        Expanded(child: Text(e.value, style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimary, height: 1.35))),
                                       ],
                                     ),
                                   );
@@ -3305,38 +3143,30 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildNavigationRow() {
-    final isDark = AppTheme.isDark(context);
-    final isMobile = MediaQuery.of(context).size.width < 600;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest,
-            side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest, width: 1.2),
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 16, vertical: 10),
+            foregroundColor: AppTheme.inkForest,
+            side: const BorderSide(color: AppTheme.inkForest, width: 1.2),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            backgroundColor: isDark ? const Color(0xFF1E3827).withValues(alpha: 0.3) : Colors.transparent,
           ),
           icon: const Icon(Icons.arrow_back_rounded, size: 16),
-          label: Text(
-            isMobile ? 'Previous' : 'Previous [←]',
-            style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold),
-          ),
+          label: const Text('Previous [←]', style: TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 12.5, fontWeight: FontWeight.bold)),
           onPressed: _currentIndex > 0 ? _prevCard : null,
         ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.inkForest,
-            foregroundColor: isDark ? AppTheme.darkSlateBase : AppTheme.creamPaper,
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 20, vertical: 10),
+            backgroundColor: AppTheme.inkForest,
+            foregroundColor: AppTheme.creamPaper,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             elevation: 2,
           ),
           label: Text(
-            _currentIndex < widget.questions.length - 1
-                ? (isMobile ? 'Next Card' : 'Next Card [→]')
-                : 'Finish Deck',
+            _currentIndex < widget.questions.length - 1 ? 'Next Card [→]' : 'Finish Deck',
             style: const TextStyle(fontFamily: AppTheme.fontZilla, fontSize: 13, fontWeight: FontWeight.bold),
           ),
           icon: Icon(
@@ -3350,7 +3180,6 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
   }
 
   Widget _buildSm2RatingSection(Question q, bool isCorrect) {
-    final isDark = AppTheme.isDark(context);
     final intervals = SpacedRepetitionService.instance.previewNextIntervals(
       currentInterval: q.srsInterval,
       currentRepetitions: q.srsRepetitions,
@@ -3361,26 +3190,26 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF7FBF9),
+        color: const Color(0xFFF7FBF9),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+        border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.psychology_alt_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+              const Icon(Icons.psychology_alt_rounded, size: 16, color: AppTheme.primaryColor),
               const SizedBox(width: 6),
-              Text(
+              const Text(
                 'Spaced Repetition (SM-2) Schedule:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
               ),
               const Spacer(),
               if (alreadyRated != null)
                 Text(
                   'Scheduled: ${alreadyRated.ratingLabel} (${alreadyRated.interval}d)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryColor),
                 ),
             ],
           ),
@@ -3390,8 +3219,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Again',
                 days: intervals['Again']!,
-                color: isDark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828),
-                bgColor: isDark ? const Color(0xFF381E1E) : const Color(0xFFFFEBEE),
+                color: const Color(0xFFC62828),
+                bgColor: const Color(0xFFFFEBEE),
                 isSelected: alreadyRated?.grade == 1,
                 onTap: () => _recordSrsRating(1, q, false),
               ),
@@ -3399,8 +3228,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Hard',
                 days: intervals['Hard']!,
-                color: isDark ? const Color(0xFFFFCC80) : const Color(0xFFE65100),
-                bgColor: isDark ? const Color(0xFF382A1A) : const Color(0xFFFFF3E0),
+                color: const Color(0xFFE65100),
+                bgColor: const Color(0xFFFFF3E0),
                 isSelected: alreadyRated?.grade == 3,
                 onTap: () => _recordSrsRating(3, q, isCorrect),
               ),
@@ -3408,8 +3237,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Good',
                 days: intervals['Good']!,
-                color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32),
-                bgColor: isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9),
+                color: const Color(0xFF2E7D32),
+                bgColor: const Color(0xFFE8F5E9),
                 isSelected: alreadyRated?.grade == 4,
                 onTap: () => _recordSrsRating(4, q, isCorrect),
               ),
@@ -3417,8 +3246,8 @@ class _FlashcardDeckViewState extends State<_FlashcardDeckView> with SingleTicke
               _buildRatingButton(
                 label: 'Easy',
                 days: intervals['Easy']!,
-                color: isDark ? const Color(0xFF90CAF9) : const Color(0xFF0277BD),
-                bgColor: isDark ? const Color(0xFF1A2E3D) : const Color(0xFFE1F5FE),
+                color: const Color(0xFF0277BD),
+                bgColor: const Color(0xFFE1F5FE),
                 isSelected: alreadyRated?.grade == 5,
                 onTap: () => _recordSrsRating(5, q, true),
               ),
@@ -3552,7 +3381,6 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppTheme.isDark(context);
     final q = widget.question;
 
     return Column(
@@ -3563,24 +3391,24 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF4F9F5),
+              color: const Color(0xFFF4F9F5),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : const Color(0xFFB8D7C2), width: 1.2),
+              border: Border.all(color: const Color(0xFFB8D7C2), width: 1.2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.check_circle_outline_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                    const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppTheme.primaryColor),
                     const SizedBox(width: 6),
-                    Text(
+                    const Text(
                       '🌿 Verified Academic Answer:',
                       style: TextStyle(
                         fontFamily: 'serif',
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                        color: AppTheme.primaryColor,
                       ),
                     ),
                     const Spacer(),
@@ -3588,12 +3416,12 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                          color: AppTheme.primaryLight,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           'p. ${q.sourcePage}',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                         ),
                       ),
                   ],
@@ -3601,10 +3429,10 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                 const SizedBox(height: 8),
                 Text(
                   q.answer,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontFamily: 'serif',
                     fontSize: 13,
-                    color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
+                    color: AppTheme.textPrimary,
                     height: 1.5,
                   ),
                 ),
@@ -3615,16 +3443,16 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1B2E22) : Colors.white,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                      border: Border.all(color: AppTheme.borderColor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Grading Rubric & Key Points:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.textSecondary),
                         ),
                         const SizedBox(height: 6),
                         ...q.keyPointsRubric!.map((point) => Padding(
@@ -3632,9 +3460,9 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)),
+                              const Text('• ', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                               Expanded(
-                                child: Text(point, style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFFD6E8D8) : AppTheme.textPrimary)),
+                                child: Text(point, style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimary)),
                               ),
                             ],
                           ),
@@ -3651,18 +3479,18 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
+                style: TextButton.styleFrom(foregroundColor: AppTheme.secondaryColor),
                 icon: const Icon(Icons.visibility_off_outlined, size: 15),
                 label: const Text('Hide Answer', style: TextStyle(fontSize: 12)),
                 onPressed: () => setState(() => _revealed = false),
               ),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: widget.isUnderstood ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                  foregroundColor: widget.isUnderstood ? const Color(0xFF2E7D32) : AppTheme.primaryColor,
                   side: BorderSide(
-                    color: widget.isUnderstood ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? AppTheme.darkBronzeBorder : AppTheme.secondaryColor),
+                    color: widget.isUnderstood ? const Color(0xFF2E7D32) : AppTheme.secondaryColor,
                   ),
-                  backgroundColor: widget.isUnderstood ? (isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9)) : Colors.transparent,
+                  backgroundColor: widget.isUnderstood ? const Color(0xFFE8F5E9) : Colors.transparent,
                 ),
                 icon: Icon(
                   widget.isUnderstood ? Icons.check_circle_rounded : Icons.thumb_up_alt_outlined,
@@ -3678,16 +3506,16 @@ class _ConceptualFlashcardContentState extends State<_ConceptualFlashcardContent
           ),
         ] else ...[
           OutlinedButton.icon(
-            icon: Icon(Icons.visibility_outlined, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-            label: Text(
+            icon: const Icon(Icons.visibility_outlined, size: 16, color: AppTheme.primaryColor),
+            label: const Text(
               'Tap to reveal verified academic answer',
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
             ),
             style: OutlinedButton.styleFrom(
-              side: BorderSide(color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor, width: 1.2),
+              side: const BorderSide(color: AppTheme.secondaryColor, width: 1.2),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              backgroundColor: isDark ? const Color(0xFF1E3827) : AppTheme.primaryLight.withValues(alpha: 0.3),
+              backgroundColor: AppTheme.primaryLight.withValues(alpha: 0.3),
             ),
             onPressed: () => setState(() => _revealed = true),
           ),
@@ -3818,7 +3646,6 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppTheme.isDark(context);
     final q = widget.question;
     final isMcq = q.isMcq;
 
@@ -3837,7 +3664,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryColor,
+                    color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -3855,34 +3682,31 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isMcq
-                        ? (isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9))
-                        : (isDark ? const Color(0xFF243B2C) : AppTheme.primaryLight),
+                    color: isMcq ? const Color(0xFFE8F5E9) : AppTheme.primaryLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: isMcq ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)) : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
+                    border: isMcq ? Border.all(color: const Color(0xFF81C784)) : null,
                   ),
                   child: Text(
                     isMcq ? '🎴 4-Option MCQ' : '📝 Conceptual Q&A',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
-                      color: isMcq ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                      color: isMcq ? const Color(0xFF2E7D32) : AppTheme.primaryColor,
                     ),
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1B2E22) : AppTheme.primaryLight,
+                    color: AppTheme.primaryLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: isDark ? Border.all(color: AppTheme.darkBronzeBorder) : null,
                   ),
                   child: Text(
                     widget.question.topic,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                      color: AppTheme.primaryColor,
                     ),
                   ),
                 ),
@@ -3890,13 +3714,13 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkSlateBase : Colors.grey.shade100,
+                      color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                      border: Border.all(color: AppTheme.borderColor),
                     ),
                     child: Text(
                       q.subtopic!,
-                      style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
                     ),
                   ),
                 _buildDifficultyBadge(q.difficulty ?? 'Medium'),
@@ -3905,13 +3729,12 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1C2B21) : const Color(0xFFECEFF1),
+                      color: const Color(0xFFECEFF1),
                       borderRadius: BorderRadius.circular(6),
-                      border: isDark ? Border.all(color: AppTheme.darkBronzeBorder) : null,
                     ),
                     child: Text(
                       '📌 Slide ${q.sourcePage}',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFA5D6A7) : const Color(0xFF455A64)),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF455A64)),
                     ),
                   ),
               ],
@@ -3924,8 +3747,8 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
               children: [
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
-                    side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.borderColor),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -3950,7 +3773,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   tooltip: widget.isBookmarked ? 'Remove Bookmark' : 'Bookmark Question',
                   icon: Icon(
                     widget.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                    color: widget.isBookmarked ? Colors.amber.shade700 : (isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
+                    color: widget.isBookmarked ? Colors.amber.shade700 : AppTheme.secondaryColor,
                     size: 20,
                   ),
                   onPressed: widget.onToggleBookmark,
@@ -3958,7 +3781,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 ),
                 PopupMenuButton<String>(
                   tooltip: 'Question Options',
-                  icon: Icon(Icons.more_vert_rounded, size: 18, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
+                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.secondaryColor),
                   onSelected: (val) {
                     switch (val) {
                       case 'harder':
@@ -3996,13 +3819,13 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                         ],
                       ),
                     ),
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'regenerate',
                       child: Row(
                         children: [
-                          Icon(Icons.refresh_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                          const SizedBox(width: 8),
-                          const Text('Regenerate Variation', style: TextStyle(fontSize: 12.5)),
+                          Icon(Icons.refresh_rounded, size: 16, color: AppTheme.primaryColor),
+                          SizedBox(width: 8),
+                          Text('Regenerate Variation', style: TextStyle(fontSize: 12.5)),
                         ],
                       ),
                     ),
@@ -4025,11 +3848,11 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
             // Question Text in Serif Typography
             Text(
               widget.question.question,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: AppTheme.fontCardo,
                 fontSize: 16.5,
                 fontWeight: FontWeight.bold,
-                color: isDark ? const Color(0xFFF1F8F2) : AppTheme.inkForest,
+                color: AppTheme.inkForest,
                 height: 1.4,
               ),
             ),
@@ -4042,17 +3865,17 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 final isCorrect = optIdx == q.correctOptionIndex;
                 final isSelected = optIdx == _selectedOption;
 
-                Color bgColor = isDark ? AppTheme.darkSlateBase : Colors.white;
-                Color borderColor = isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor;
+                Color bgColor = Colors.white;
+                Color borderColor = AppTheme.borderColor;
                 Widget trailingIcon = const SizedBox.shrink();
 
                 if (_selectedOption != null) {
                   if (isCorrect) {
-                    bgColor = isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9);
-                    borderColor = isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32);
-                    trailingIcon = Icon(Icons.check_circle_rounded, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32), size: 17);
+                    bgColor = const Color(0xFFE8F5E9);
+                    borderColor = const Color(0xFF2E7D32);
+                    trailingIcon = const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 17);
                   } else if (isSelected) {
-                    bgColor = isDark ? const Color(0xFF381E1E) : const Color(0xFFFFEBEE);
+                    bgColor = const Color(0xFFFFEBEE);
                     borderColor = AppTheme.errorColor;
                     trailingIcon = const Icon(Icons.cancel_rounded, color: AppTheme.errorColor, size: 17);
                   }
@@ -4084,7 +3907,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                   ? const Color(0xFF2E7D32)
                                   : _selectedOption != null && isSelected
                                       ? AppTheme.errorColor
-                                      : (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight),
+                                      : AppTheme.primaryLight,
                               shape: BoxShape.circle,
                             ),
                             child: Text(
@@ -4094,7 +3917,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                 fontWeight: FontWeight.bold,
                                 color: _selectedOption != null && (isCorrect || isSelected)
                                     ? Colors.white
-                                    : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                    : AppTheme.primaryColor,
                               ),
                             ),
                           ),
@@ -4105,7 +3928,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: _selectedOption != null && isCorrect ? FontWeight.bold : FontWeight.w500,
-                                color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -4125,13 +3948,13 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _selectedOption == q.correctOptionIndex
-                        ? (isDark ? const Color(0xFF1B3623) : const Color(0xFFF1F8F4))
-                        : (isDark ? const Color(0xFF381E1E) : const Color(0xFFFFF7F7)),
+                        ? const Color(0xFFF1F8F4)
+                        : const Color(0xFFFFF7F7),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: _selectedOption == q.correctOptionIndex
-                          ? (isDark ? AppTheme.darkLightGreen : const Color(0xFFA5D6A7))
-                          : (isDark ? const Color(0xFFE57373) : const Color(0xFFFFCDD2)),
+                          ? const Color(0xFFA5D6A7)
+                          : const Color(0xFFFFCDD2),
                     ),
                   ),
                   child: Column(
@@ -4145,14 +3968,14 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                           color: _selectedOption == q.correctOptionIndex
-                              ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32))
-                              : (isDark ? const Color(0xFFEF9A9A) : AppTheme.errorColor),
+                              ? const Color(0xFF2E7D32)
+                              : AppTheme.errorColor,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         q.explanation ?? q.answer,
-                        style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.4),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.4),
                       ),
                       // Distractor reasoning breakdown
                       if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
@@ -4160,20 +3983,20 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkSlateBase : Colors.white,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                            border: Border.all(color: AppTheme.borderColor),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              const Row(
                                 children: [
-                                  Icon(Icons.psychology_outlined, size: 14, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                                  const SizedBox(width: 4),
+                                  Icon(Icons.psychology_outlined, size: 14, color: AppTheme.primaryColor),
+                                  SizedBox(width: 4),
                                   Text(
                                     'Distractor Analysis & Misconception Review:',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                                   ),
                                 ],
                               ),
@@ -4182,7 +4005,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                     padding: const EdgeInsets.only(bottom: 4),
                                     child: Text(
                                       '• Option ${e.key}: ${e.value}',
-                                      style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.3),
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary, height: 1.3),
                                     ),
                                   )),
                             ],
@@ -4193,7 +4016,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                         const SizedBox(height: 6),
                         Text(
                           '📖 Grounded excerpt: "${q.supportingExcerpt}"',
-                          style: TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                          style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
                         ),
                       ],
                       if (_selectedOption != null && _selectedOption != q.correctOptionIndex) ...[
@@ -4235,20 +4058,20 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkSlateBase : AppTheme.backgroundColor,
+                  color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                  border: Border.all(color: AppTheme.borderColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        Icon(Icons.edit_note_rounded, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                        const SizedBox(width: 6),
+                        Icon(Icons.edit_note_rounded, size: 16, color: AppTheme.primaryColor),
+                        SizedBox(width: 6),
                         Text(
                           'Type your answer for instant AI rubric grading:',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                         ),
                       ],
                     ),
@@ -4256,14 +4079,14 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                     TextField(
                       controller: _answerController,
                       maxLines: 3,
-                      style: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary),
+                      style: const TextStyle(fontSize: 12.5),
                       decoration: InputDecoration(
                         hintText: 'Explain core concepts, mechanisms, and trade-offs...',
-                        hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary.withValues(alpha: 0.7)),
+                        hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E2D22) : Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppTheme.borderColor)),
                         contentPadding: const EdgeInsets.all(10),
                       ),
                     ),
@@ -4272,8 +4095,8 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                       children: [
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
-                            foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
@@ -4295,7 +4118,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                           onPressed: () => setState(() => _isAnswerRevealed = !_isAnswerRevealed),
                           child: Text(
                             _isAnswerRevealed ? 'Hide Model Answer' : 'Show Model Answer',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.secondaryColor),
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
                           ),
                         ),
                       ],
@@ -4307,10 +4130,10 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkSlateBase : Colors.white,
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: _gradeResult!.score >= 70 ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF81C784)) : const Color(0xFFFFB74D),
+                            color: _gradeResult!.score >= 70 ? const Color(0xFF81C784) : const Color(0xFFFFB74D),
                             width: 1.2,
                           ),
                         ),
@@ -4322,7 +4145,7 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: _gradeResult!.score >= 70 ? (isDark ? const Color(0xFF1E3827) : const Color(0xFFE8F5E9)) : (isDark ? const Color(0xFF382A1A) : const Color(0xFFFFF3E0)),
+                                    color: _gradeResult!.score >= 70 ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -4330,18 +4153,18 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.bold,
-                                      color: _gradeResult!.score >= 70 ? (isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)) : (isDark ? const Color(0xFFFFCC80) : const Color(0xFFE65100)),
+                                      color: _gradeResult!.score >= 70 ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
                                     ),
                                   ),
                                 ),
                                 const Spacer(),
-                                Icon(Icons.psychology, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                                const Icon(Icons.psychology, size: 16, color: AppTheme.primaryColor),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(
                               _gradeResult!.feedback,
-                              style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary, height: 1.35),
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.35),
                             ),
                             if (_gradeResult!.keyPointsHit.isNotEmpty) ...[
                               const SizedBox(height: 6),
@@ -4384,24 +4207,24 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkSlateBase : const Color(0xFFF4F9F5),
+                    color: const Color(0xFFF4F9F5),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : const Color(0xFFB8D7C2), width: 1.2),
+                    border: Border.all(color: const Color(0xFFB8D7C2), width: 1.2),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
-                          Icon(Icons.check_circle_outline_rounded, size: 18, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
-                          const SizedBox(width: 8),
+                          Icon(Icons.check_circle_outline_rounded, size: 18, color: AppTheme.primaryColor),
+                          SizedBox(width: 8),
                           Text(
                             '🌿 Verified Academic Answer:',
                             style: TextStyle(
                               fontFamily: 'serif',
                               fontWeight: FontWeight.bold,
                               fontSize: 13.5,
-                              color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                              color: AppTheme.primaryColor,
                             ),
                           ),
                         ],
@@ -4409,37 +4232,37 @@ class _PracticeQuestionItemState extends State<_PracticeQuestionItem> {
                       const SizedBox(height: 8),
                       Text(
                         widget.question.answer,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontFamily: 'serif',
                           fontSize: 13.5,
-                          color: isDark ? const Color(0xFFE8F5E9) : AppTheme.textPrimary,
+                          color: AppTheme.textPrimary,
                           height: 1.5,
                         ),
                       ),
                       if (q.keyPointsRubric != null && q.keyPointsRubric!.isNotEmpty) ...[
                         const SizedBox(height: 10),
-                        Text(
+                        const Text(
                           '📋 Key Points Rubric:',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
                         ),
                         const SizedBox(height: 4),
                         ...q.keyPointsRubric!.map((r) => Padding(
                               padding: const EdgeInsets.only(bottom: 2),
-                              child: Text('• $r', style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary)),
+                              child: Text('• $r', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                             )),
                       ],
                       if (q.supportingExcerpt != null && q.supportingExcerpt!.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
                           '📖 Source Excerpt: "${q.supportingExcerpt}"',
-                          style: TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                          style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
                         ),
                       ],
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
-                          side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: AppTheme.borderColor),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),

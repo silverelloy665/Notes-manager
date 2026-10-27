@@ -557,6 +557,20 @@ class _LibraryTabState extends State<LibraryTab> {
           ],
         ),
       ),
+                                      minHeight: 6,
+                                      backgroundColor: AppTheme.mintWash.withValues(alpha: 0.35),
+                                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.inkForest),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
       floatingActionButton: LayoutBuilder(
         builder: (context, constraints) {
           final isMobile = MediaQuery.of(context).size.width < 500;

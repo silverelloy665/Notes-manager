@@ -160,14 +160,17 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
   }
 
   void _showQuestionGridSheet() {
+    final isDark = AppTheme.isDark(context);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSageCard : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -175,11 +178,19 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
           children: [
             Row(
               children: [
-                const Icon(Icons.grid_view_rounded, size: 20, color: AppTheme.primaryColor),
+                Icon(Icons.grid_view_rounded, size: 20, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                 const SizedBox(width: 8),
-                const Text('Question Navigator', style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  'Question Navigator',
+                  style: TextStyle(
+                    fontFamily: 'serif',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? const Color(0xFFF1F8F2) : AppTheme.inkForest,
+                  ),
+                ),
                 const Spacer(),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                IconButton(icon: Icon(Icons.close, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary), onPressed: () => Navigator.pop(ctx)),
               ],
             ),
             const SizedBox(height: 12),
@@ -191,22 +202,22 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                 final isAnswered = _selectedAnswers.containsKey(idx) || _conceptualAnswers.containsKey(idx);
                 final isFlagged = _flaggedIndices.contains(idx);
 
-                Color bg = Colors.grey.shade100;
-                Color border = Colors.grey.shade300;
-                Color text = Colors.black87;
+                Color bg = isDark ? const Color(0xFF16251C) : Colors.grey.shade100;
+                Color border = isDark ? const Color(0xFF385C42) : Colors.grey.shade300;
+                Color text = isDark ? const Color(0xFFD6E8D8) : Colors.black87;
 
                 if (isFlagged) {
-                  bg = const Color(0xFFFFF3E0);
+                  bg = isDark ? const Color(0xFF382A1A) : const Color(0xFFFFF3E0);
                   border = const Color(0xFFE65100);
-                  text = const Color(0xFFE65100);
+                  text = isDark ? const Color(0xFFFFCC80) : const Color(0xFFE65100);
                 } else if (isAnswered) {
-                  bg = const Color(0xFFE8F5E9);
-                  border = const Color(0xFF2E7D32);
-                  text = const Color(0xFF2E7D32);
+                  bg = isDark ? const Color(0xFF1E3A25) : const Color(0xFFE8F5E9);
+                  border = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+                  text = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
                 }
 
                 if (isCurrent) {
-                  border = AppTheme.primaryColor;
+                  border = isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor;
                 }
 
                 return InkWell(
@@ -240,6 +251,8 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+
     return BotanicalBackground(
       showButterfly: true,
       showTopVine: true,
@@ -247,9 +260,9 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
       opacity: 0.94,
       child: SafeArea(
         child: switch (_stage) {
-          _ExamStage.setup => _buildSetupView(),
-          _ExamStage.inProgress => _buildInProgressView(),
-          _ExamStage.scoreReport => _buildScoreReportView(),
+          _ExamStage.setup => _buildSetupView(isDark),
+          _ExamStage.inProgress => _buildInProgressView(isDark),
+          _ExamStage.scoreReport => _buildScoreReportView(isDark),
         },
       ),
     );
@@ -258,7 +271,7 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
   // ==========================================
   // 1. SETUP VIEW
   // ==========================================
-  Widget _buildSetupView() {
+  Widget _buildSetupView(bool isDark) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -266,12 +279,12 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
           constraints: const BoxConstraints(maxWidth: 540),
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
+            color: isDark ? AppTheme.darkSageCard : Colors.white.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.borderColor, width: 1.4),
+            border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor, width: 1.4),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                color: (isDark ? Colors.black : AppTheme.primaryColor).withValues(alpha: isDark ? 0.35 : 0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),
@@ -286,13 +299,13 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryLight,
+                      color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.school_rounded, color: AppTheme.primaryColor, size: 28),
+                    child: Icon(Icons.school_rounded, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor, size: 28),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -302,18 +315,18 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                             fontFamily: 'serif',
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
+                            color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
                           ),
                         ),
                         Text(
                           'Test your retention under realistic exam conditions',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icon(Icons.close_rounded, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                     onPressed: widget.onExit,
                   ),
                 ],
@@ -321,20 +334,21 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
               const SizedBox(height: 24),
 
               // Filter by Topic
-              const Text('Select Target Topic:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('Select Target Topic:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary)),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: isDark ? AppTheme.darkSlateBase : AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.borderColor),
+                  border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     isExpanded: true,
+                    dropdownColor: isDark ? AppTheme.darkSageCard : Colors.white,
                     value: _topics.contains(_selectedTopic) ? _selectedTopic : 'All Topics',
-                    items: _topics.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 13, fontFamily: 'serif')))).toList(),
+                    items: _topics.map((t) => DropdownMenuItem(value: t, child: Text(t, style: TextStyle(fontSize: 13, fontFamily: 'serif', color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary)))).toList(),
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedTopic = val);
                     },
@@ -344,7 +358,7 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
               const SizedBox(height: 18),
 
               // Question Count
-              const Text('Number of Questions:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('Number of Questions:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary)),
               const SizedBox(height: 8),
               Row(
                 children: [5, 10, 15, 20].map((count) {
@@ -359,13 +373,24 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryColor : Colors.white,
+                            color: isSelected
+                                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                : (isDark ? AppTheme.darkSlateBase : Colors.white),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor),
+                            border: Border.all(
+                              color: isSelected
+                                  ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                  : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                            ),
                           ),
                           child: Text(
                             '$count',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : AppTheme.textPrimary),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? (isDark ? AppTheme.darkSlateBase : Colors.white)
+                                  : (isDark ? const Color(0xFFC5DCC6) : AppTheme.textPrimary),
+                            ),
                           ),
                         ),
                       ),
@@ -376,7 +401,7 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
               const SizedBox(height: 18),
 
               // Exam Duration
-              const Text('Exam Duration (Minutes):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('Exam Duration (Minutes):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary)),
               const SizedBox(height: 8),
               Row(
                 children: [5, 10, 15, 30].map((mins) {
@@ -391,13 +416,24 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryColor : Colors.white,
+                            color: isSelected
+                                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                : (isDark ? AppTheme.darkSlateBase : Colors.white),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor),
+                            border: Border.all(
+                              color: isSelected
+                                  ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                  : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                            ),
                           ),
                           child: Text(
                             '${mins}m',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : AppTheme.textPrimary),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? (isDark ? AppTheme.darkSlateBase : Colors.white)
+                                  : (isDark ? const Color(0xFFC5DCC6) : AppTheme.textPrimary),
+                            ),
                           ),
                         ),
                       ),
@@ -408,7 +444,7 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
               const SizedBox(height: 18),
 
               // Question Format
-              const Text('Question Format:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('Question Format:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary)),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -420,11 +456,26 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: _questionTypeFilter == 'all' ? AppTheme.primaryColor : Colors.white,
+                          color: _questionTypeFilter == 'all'
+                              ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                              : (isDark ? AppTheme.darkSlateBase : Colors.white),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _questionTypeFilter == 'all' ? AppTheme.primaryColor : AppTheme.borderColor),
+                          border: Border.all(
+                            color: _questionTypeFilter == 'all'
+                                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                          ),
                         ),
-                        child: Text('Mixed (MCQs & Q&A)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _questionTypeFilter == 'all' ? Colors.white : AppTheme.textPrimary)),
+                        child: Text(
+                          'Mixed (MCQs & Q&A)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _questionTypeFilter == 'all'
+                                ? (isDark ? AppTheme.darkSlateBase : Colors.white)
+                                : (isDark ? const Color(0xFFC5DCC6) : AppTheme.textPrimary),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -437,11 +488,26 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: _questionTypeFilter == 'mcq' ? AppTheme.primaryColor : Colors.white,
+                          color: _questionTypeFilter == 'mcq'
+                              ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                              : (isDark ? AppTheme.darkSlateBase : Colors.white),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _questionTypeFilter == 'mcq' ? AppTheme.primaryColor : AppTheme.borderColor),
+                          border: Border.all(
+                            color: _questionTypeFilter == 'mcq'
+                                ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                          ),
                         ),
-                        child: Text('MCQs Only', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _questionTypeFilter == 'mcq' ? Colors.white : AppTheme.textPrimary)),
+                        child: Text(
+                          'MCQs Only',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _questionTypeFilter == 'mcq'
+                                ? (isDark ? AppTheme.darkSlateBase : Colors.white)
+                                : (isDark ? const Color(0xFFC5DCC6) : AppTheme.textPrimary),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -454,7 +520,11 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        foregroundColor: isDark ? const Color(0xFFA5D6A7) : AppTheme.primaryColor,
+                        side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                      ),
                       onPressed: widget.onExit,
                       child: const Text('Cancel'),
                     ),
@@ -464,8 +534,8 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                     flex: 2,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
+                        backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                        foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         elevation: 1,
                       ),
@@ -486,7 +556,7 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
   // ==========================================
   // 2. IN-PROGRESS EXAM VIEW
   // ==========================================
-  Widget _buildInProgressView() {
+  Widget _buildInProgressView(bool isDark) {
     final q = _examQuestions[_currentIndex];
     final isMcq = q.isMcq;
     final isFlagged = _flaggedIndices.contains(_currentIndex);
@@ -498,40 +568,54 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
-            border: const Border(bottom: BorderSide(color: AppTheme.borderColor, width: 1.2)),
+            color: isDark ? AppTheme.darkSlateBase : Colors.white.withValues(alpha: 0.96),
+            border: Border(bottom: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor, width: 1.2)),
           ),
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.grid_view_rounded, color: AppTheme.primaryColor),
+                icon: Icon(Icons.grid_view_rounded, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                 tooltip: 'Question Grid',
                 onPressed: _showQuestionGridSheet,
               ),
               const SizedBox(width: 6),
               Text(
                 'Question ${_currentIndex + 1} of ${_examQuestions.length}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryColor),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
               ),
               const Spacer(),
               // Countdown Timer
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isTimerUrgent ? const Color(0xFFFFEBEE) : AppTheme.primaryLight,
+                  color: isTimerUrgent
+                      ? (isDark ? const Color(0xFF381E1E) : const Color(0xFFFFEBEE))
+                      : (isDark ? const Color(0xFF1E3A25) : AppTheme.primaryLight),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: isTimerUrgent ? AppTheme.errorColor : AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: isTimerUrgent
+                        ? AppTheme.errorColor
+                        : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor.withValues(alpha: 0.3)),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.timer_rounded, size: 16, color: isTimerUrgent ? AppTheme.errorColor : AppTheme.primaryColor),
+                    Icon(
+                      Icons.timer_rounded,
+                      size: 16,
+                      color: isTimerUrgent
+                          ? AppTheme.errorColor
+                          : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       _formatTimer(_secondsRemaining),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: isTimerUrgent ? AppTheme.errorColor : AppTheme.primaryColor,
+                        color: isTimerUrgent
+                            ? AppTheme.errorColor
+                            : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                       ),
                     ),
                   ],
@@ -542,7 +626,9 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
               IconButton(
                 icon: Icon(
                   isFlagged ? Icons.flag_rounded : Icons.flag_outlined,
-                  color: isFlagged ? const Color(0xFFE65100) : AppTheme.secondaryColor,
+                  color: isFlagged
+                      ? const Color(0xFFE65100)
+                      : (isDark ? const Color(0xFFA5D6A7) : AppTheme.secondaryColor),
                 ),
                 tooltip: isFlagged ? 'Unflag Question' : 'Flag for Review',
                 onPressed: () {
@@ -563,8 +649,8 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
         LinearProgressIndicator(
           value: (_currentIndex + 1) / _examQuestions.length,
           minHeight: 4,
-          backgroundColor: AppTheme.primaryLight,
-          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+          backgroundColor: isDark ? const Color(0xFF16251C) : AppTheme.primaryLight,
+          valueColor: AlwaysStoppedAnimation<Color>(isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
         ),
 
         // Main Question Body
@@ -575,9 +661,9 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
               constraints: const BoxConstraints(maxWidth: 680),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.95),
+                color: isDark ? AppTheme.darkSageCard : Colors.white.withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,15 +673,27 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: AppTheme.primaryLight, borderRadius: BorderRadius.circular(6)),
-                        child: Text(q.topic, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          q.topic,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                        ),
                       ),
                       if (q.subtopic != null) ...[
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-                          child: Text(q.subtopic!, style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondary)),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF16251C) : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            q.subtopic!,
+                            style: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
+                          ),
                         ),
                       ],
                       const Spacer(),
@@ -614,7 +712,13 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                   // Question Text in Serif
                   Text(
                     q.question,
-                    style: const TextStyle(fontFamily: 'serif', fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.4),
+                    style: TextStyle(
+                      fontFamily: 'serif',
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary,
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 20),
 
@@ -632,10 +736,14 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             decoration: BoxDecoration(
-                              color: isSelected ? AppTheme.primaryLight.withValues(alpha: 0.3) : Colors.white,
+                              color: isSelected
+                                  ? (isDark ? const Color(0xFF2E4D38) : AppTheme.primaryLight.withValues(alpha: 0.3))
+                                  : (isDark ? AppTheme.darkSlateBase : Colors.white),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                                color: isSelected
+                                    ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                    : (isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                                 width: isSelected ? 1.6 : 1.0,
                               ),
                             ),
@@ -646,7 +754,9 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                                   height: 24,
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
-                                    color: isSelected ? AppTheme.primaryColor : AppTheme.primaryLight,
+                                    color: isSelected
+                                        ? (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor)
+                                        : (isDark ? const Color(0xFF1E3A25) : AppTheme.primaryLight),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Text(
@@ -654,7 +764,9 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.bold,
-                                      color: isSelected ? Colors.white : AppTheme.primaryColor,
+                                      color: isSelected
+                                          ? (isDark ? AppTheme.darkSlateBase : Colors.white)
+                                          : (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                                     ),
                                   ),
                                 ),
@@ -665,7 +777,7 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                                     style: TextStyle(
                                       fontSize: 13.5,
                                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                      color: AppTheme.textPrimary,
+                                      color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary,
                                     ),
                                   ),
                                 ),
@@ -681,18 +793,21 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
+                        color: isDark ? AppTheme.darkSlateBase : AppTheme.backgroundColor,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.borderColor),
+                        border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.psychology_outlined, size: 16, color: AppTheme.primaryColor),
+                              Icon(Icons.psychology_outlined, size: 16, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                               const SizedBox(width: 6),
-                              const Text('Confidence Level (Learning Science):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                              Text(
+                                'Confidence Level (Learning Science):',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                              ),
                               const Spacer(),
                               Text(
                                 (_confidenceLevels[_currentIndex] ?? 0.6) >= 0.8
@@ -700,15 +815,15 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                                     : (_confidenceLevels[_currentIndex] ?? 0.6) >= 0.4
                                         ? '50/50'
                                         : 'Guessing',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
                               ),
                             ],
                           ),
                           SliderTheme(
                             data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: AppTheme.primaryColor,
-                              thumbColor: AppTheme.primaryColor,
-                              overlayColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+                              activeTrackColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                              thumbColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                              overlayColor: (isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor).withValues(alpha: 0.2),
                               trackHeight: 3,
                             ),
                             child: Slider(
@@ -726,10 +841,10 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                     // Conceptual Typing in Exam Mode
                     TextField(
                       maxLines: 5,
-                      style: const TextStyle(fontSize: 13),
+                      style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFFF1F8F2) : AppTheme.charcoalSlate),
                       decoration: InputDecoration(
                         hintText: 'Formulate your academic response addressing key concepts and mechanisms...',
-                        hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.7)),
+                        hintStyle: TextStyle(fontSize: 12, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary.withValues(alpha: 0.7)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.all(12),
                       ),
@@ -748,13 +863,17 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: const Border(top: BorderSide(color: AppTheme.borderColor)),
+            color: isDark ? AppTheme.darkSlateBase : Colors.white,
+            border: Border(top: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? const Color(0xFFA5D6A7) : AppTheme.primaryColor,
+                  side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                ),
                 icon: const Icon(Icons.arrow_back_rounded, size: 16),
                 label: const Text('Previous'),
                 onPressed: _currentIndex > 0 ? () => setState(() => _currentIndex--) : null,
@@ -765,7 +884,10 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                 child: const Text('Submit Exam'),
               ),
               ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                  foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
+                ),
                 icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                 label: Text(_currentIndex < _examQuestions.length - 1 ? 'Next' : 'Review'),
                 onPressed: _currentIndex < _examQuestions.length - 1
@@ -782,7 +904,7 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
   // ==========================================
   // 3. SCORE REPORT & WEAK TOPICS REVIEW VIEW
   // ==========================================
-  Widget _buildScoreReportView() {
+  Widget _buildScoreReportView(bool isDark) {
     int correctCount = 0;
     final Map<String, ({int correct, int total})> topicPerformance = {};
 
@@ -820,12 +942,12 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
           constraints: const BoxConstraints(maxWidth: 680),
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.96),
+            color: isDark ? AppTheme.darkSageCard : Colors.white.withValues(alpha: 0.96),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.borderColor, width: 1.4),
+            border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor, width: 1.4),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                color: (isDark ? Colors.black : AppTheme.primaryColor).withValues(alpha: isDark ? 0.35 : 0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),
@@ -840,13 +962,15 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: percentage >= 70 ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+                      color: percentage >= 70
+                          ? (isDark ? const Color(0xFF1E3A25) : const Color(0xFFE8F5E9))
+                          : (isDark ? const Color(0xFF382A1A) : const Color(0xFFFFF3E0)),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       percentage >= 70 ? Icons.emoji_events_rounded : Icons.psychology_rounded,
                       size: 36,
-                      color: percentage >= 70 ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
+                      color: percentage >= 70 ? const Color(0xFF81C784) : const Color(0xFFFFB74D),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -856,11 +980,16 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                       children: [
                         Text(
                           percentage >= 70 ? '🎉 Exam Completed with Distinction!' : 'Exam Complete — Diagnostic Review',
-                          style: const TextStyle(fontFamily: 'serif', fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          style: TextStyle(
+                            fontFamily: 'serif',
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                          ),
                         ),
                         Text(
                           'Score: $correctCount / $total ($percentage%) • Time Taken: ${_formatTimer(timeSpentSecs)}',
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary),
                         ),
                       ],
                     ),
@@ -870,7 +999,10 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
               const SizedBox(height: 24),
 
               // Weak Topics Diagnostic Section
-              const Text('Topic Mastery Diagnostic Matrix:', style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+              Text(
+                'Topic Mastery Diagnostic Matrix:',
+                style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+              ),
               const SizedBox(height: 10),
               ...topicPerformance.entries.map((entry) {
                 final topicAcc = entry.value.total > 0 ? ((entry.value.correct / entry.value.total) * 100).round() : 0;
@@ -880,34 +1012,54 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isWeak ? const Color(0xFFFFF7F7) : const Color(0xFFF4F9F5),
+                    color: isWeak
+                        ? (isDark ? const Color(0xFF381E1E) : const Color(0xFFFFF7F7))
+                        : (isDark ? const Color(0xFF16251C) : const Color(0xFFF4F9F5)),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isWeak ? const Color(0xFFFFCDD2) : const Color(0xFFA5D6A7)),
+                    border: Border.all(
+                      color: isWeak
+                          ? (isDark ? const Color(0xFFE57373) : const Color(0xFFFFCDD2))
+                          : (isDark ? const Color(0xFF385C42) : const Color(0xFFA5D6A7)),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      Icon(isWeak ? Icons.warning_amber_rounded : Icons.check_circle_rounded, size: 18, color: isWeak ? AppTheme.errorColor : const Color(0xFF2E7D32)),
+                      Icon(
+                        isWeak ? Icons.warning_amber_rounded : Icons.check_circle_rounded,
+                        size: 18,
+                        color: isWeak ? AppTheme.errorColor : (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32)),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           entry.key,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary),
                         ),
                       ),
                       Text(
                         '${entry.value.correct}/${entry.value.total} ($topicAcc%)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isWeak ? AppTheme.errorColor : const Color(0xFF2E7D32)),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: isWeak ? AppTheme.errorColor : (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32)),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isWeak ? const Color(0xFFFFEBEE) : const Color(0xFFE8F5E9),
+                          color: isWeak
+                              ? (isDark ? const Color(0xFF4A2020) : const Color(0xFFFFEBEE))
+                              : (isDark ? const Color(0xFF1E3A25) : const Color(0xFFE8F5E9)),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           isWeak ? 'Focus Area' : 'Mastered',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isWeak ? AppTheme.errorColor : const Color(0xFF2E7D32)),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: isWeak ? AppTheme.errorColor : (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32)),
+                          ),
                         ),
                       ),
                     ],
@@ -922,7 +1074,10 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                   children: [
                     const Icon(Icons.error_outline_rounded, size: 18, color: AppTheme.errorColor),
                     const SizedBox(width: 8),
-                    Text('Review of Mistakes (${mistakes.length}):', style: const TextStyle(fontFamily: 'serif', fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+                    Text(
+                      'Review of Mistakes (${mistakes.length}):',
+                      style: TextStyle(fontFamily: 'serif', fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -935,16 +1090,16 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? AppTheme.darkSlateBase : Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.borderColor),
+                      border: Border.all(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Q${m.index}: ${q.question}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimary),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: isDark ? const Color(0xFFF1F8F2) : AppTheme.textPrimary),
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -958,20 +1113,20 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('✓ Correct Option: ', style: TextStyle(fontSize: 12, color: Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
-                            Expanded(child: Text(correctOpt, style: const TextStyle(fontSize: 12, color: Color(0xFF2E7D32)))),
+                            Text('✓ Correct Option: ', style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32), fontWeight: FontWeight.bold)),
+                            Expanded(child: Text(correctOpt, style: TextStyle(fontSize: 12, color: isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32)))),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Text(
                           q.explanation ?? q.answer,
-                          style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.35),
+                          style: TextStyle(fontSize: 11.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary, height: 1.35),
                         ),
                         if (q.distractorReasoning != null && q.distractorReasoning!.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           ...q.distractorReasoning!.entries.map((e) => Padding(
                                 padding: const EdgeInsets.only(bottom: 2),
-                                child: Text('• Opt ${e.key}: ${e.value}', style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondary)),
+                                child: Text('• Opt ${e.key}: ${e.value}', style: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFFA5D6A7) : AppTheme.textSecondary)),
                               )),
                         ],
                       ],
@@ -982,17 +1137,17 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                    color: isDark ? const Color(0xFF1E3A25) : const Color(0xFFE8F5E9),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.verified_rounded, color: Color(0xFF2E7D32)),
-                      SizedBox(width: 10),
+                      Icon(Icons.verified_rounded, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32)),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Incredible! 100% accuracy — no mistakes recorded for this exam session.',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), fontSize: 13),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? AppTheme.darkLightGreen : const Color(0xFF2E7D32), fontSize: 13),
                         ),
                       ),
                     ],
@@ -1005,7 +1160,11 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        foregroundColor: isDark ? const Color(0xFFA5D6A7) : AppTheme.primaryColor,
+                        side: BorderSide(color: isDark ? AppTheme.darkBronzeBorder : AppTheme.borderColor),
+                      ),
                       icon: const Icon(Icons.refresh_rounded, size: 16),
                       label: const Text('Retake Exam'),
                       onPressed: () => setState(() => _stage = _ExamStage.setup),
@@ -1015,8 +1174,8 @@ class _ExamSimulationViewState extends State<ExamSimulationView> {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
+                        backgroundColor: isDark ? AppTheme.darkLightGreen : AppTheme.primaryColor,
+                        foregroundColor: isDark ? AppTheme.darkSlateBase : Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       icon: const Icon(Icons.check_rounded, size: 16),

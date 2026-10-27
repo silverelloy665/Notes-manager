@@ -20,13 +20,13 @@ class AppTheme {
   static const Color charcoalSlate = Color(0xFF1A3022); // Deep green-charcoal neutral text
 
   // Dark mode botanical tokens ("Charcoal Botanical")
-  static const Color darkSlateBase = Color(0xFF0F1A13);
-  static const Color darkSageCard = Color(0xFF1B2D22);
-  static const Color darkMintText = Color(0xFFC8E6C9);
-  static const Color darkBronzeBorder = Color(0xFF385C42);
+  static const Color darkSlateBase = Color(0xFF141E18);
+  static const Color darkSageCard = Color(0xFF1C2E23);
+  static const Color darkMintText = Color(0xFFC5DCC6);
+  static const Color darkBronzeBorder = Color(0xFF334F3C);
   static const Color darkLightGreen = Color(0xFF81C784);
-  static const Color darkTextPrimary = Color(0xFFF1F8F2);
-  static const Color darkTextSecondary = Color(0xFFB8DEBA);
+  static const Color darkTextPrimary = Color(0xFFE8F5E9);
+  static const Color darkTextSecondary = Color(0xFFA5D6A7);
 
   // Theme-aware helper methods for high-contrast dark/light rendering
   static bool isDark(BuildContext context) => Theme.of(context).brightness == Brightness.dark;
